@@ -64,14 +64,21 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Enums\FeatureType.cs" />
+    <Compile Include="FeatureAxis.cs" />
+    <Compile Include="FeatureComponent.cs" />
+    <Compile Include="Interfaces\IHasFeature.cs" />
+    <Compile Include="TankSiteAssembly.cs" />
     <Compile Include="TaskpaneHostUI.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="TaskpaneHostUI.Designer.cs">
       <DependentUpon>TaskpaneHostUI.cs</DependentUpon>
     </Compile>
-    <Compile Include="TaskpaneIntegaration.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TaskpaneIntegration.cs" />
+    <Compile Include="Utilities.cs" />
+    <Compile Include="UtilitiesCheck.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="TaskpaneHostUI.resx">
@@ -83,5 +90,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WarningAndErrorService\WarningAndErrorService.csproj">
+      <Project>{95D50005-C956-4D6A-BC2E-FBACB11488B7}</Project>
+      <Name>WarningAndErrorService</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
