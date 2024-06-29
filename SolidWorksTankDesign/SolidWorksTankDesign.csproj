@@ -64,6 +64,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AttributeManager.cs" />
     <Compile Include="Enums\FeatureType.cs" />
     <Compile Include="FeatureAxis.cs" />
     <Compile Include="FeatureComponent.cs" />

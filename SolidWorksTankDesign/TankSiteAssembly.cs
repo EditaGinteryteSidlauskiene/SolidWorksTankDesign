@@ -2,6 +2,8 @@
 using SolidWorks.Interop.swconst;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.NetworkInformation;
 using WarningAndErrorService;
 using Attribute = SolidWorks.Interop.sldworks.Attribute;
 
@@ -13,45 +15,101 @@ namespace SolidWorksTankDesign
     {
         SldWorks solidWorksApplication;
         private readonly ModelDoc2 tankSiteModelDoc;
+        private readonly ModelDocExtension tankSiteModelDocExt;
         private readonly AssemblyDoc tankSiteAssemblyDoc;
         private readonly WarningService warningService;
 
+        private List<(string ParameterName, string ParameterValue)> parametersList = new List<(string ParameterName, string ParameterValue)> ();
+        public string persistentReferenceIdAttributeName = "PersistentReferenceIDs";
+
         public FeatureAxis tankSiteCenterAxis;
 
+
         /// <summary>
-        /// TankSiteAssembly constructor. 
+        /// Initializes a TankSiteAssembly object, representing a SolidWorks tank site assembly model.It ensures 
+        /// the provided SolidWorks application and model document are valid and performs initial setup operations. 
         /// </summary>
-        /// <param name="WarningService"></param>
-        /// <param name="SolidWorksApplication"></param>
+        /// <param name="warningService"></param>
+        /// <param name="solidWorksApplication"></param>
         /// <param name="AssemblyModelDoc"></param>
-        public TankSiteAssembly(WarningService WarningService, SldWorks SolidWorksApplication, ModelDoc2 TankSiteModelDoc)
+        public TankSiteAssembly(WarningService warningService, SldWorks solidWorksApplication, ModelDoc2 tankSiteModelDoc)
         {
-            warningService = WarningService;
+            this.warningService = warningService;
 
-            //If the SW application is null, the method terminates.
-            if (SolidWorksApplication is null)
+            // Null checks
+            if (solidWorksApplication == null)
             {
-                warningService.AddError("SolidWorksApplication is null in TankSideAssembly constructor.");
-                return;
+                throw new ArgumentNullException(nameof(TankSiteAssembly.solidWorksApplication), "SolidWorks application is required.");
             }
 
-            //If the document is null, the method terminates.
-            if (TankSiteModelDoc is null)
+            if (tankSiteModelDoc == null)
             {
-                warningService.AddError("The AssemblyModelDoc is null in TankSideAssembly constructor.");
-                return;
+                throw new ArgumentNullException(nameof(TankSiteAssembly.tankSiteModelDoc), "Tank site model document is required.");
             }
 
-            solidWorksApplication = SolidWorksApplication;
-            tankSiteModelDoc = TankSiteModelDoc;
-            tankSiteAssemblyDoc = (AssemblyDoc)tankSiteModelDoc;
+            // Store references to the SolidWorks application and model objects
+            this.solidWorksApplication = solidWorksApplication;
+            this.tankSiteModelDoc = tankSiteModelDoc;
 
-            //// Attempt to initialize the tank site assembly
-            //if (!TrySetTankSite())
-            //{
-            //    warningService.AddError("The TankSideAssembly could not be set properly.");
-            //    return;
-            //}
+            // Get the model document extension for additional functionality
+            this.tankSiteModelDocExt = this.tankSiteModelDoc.Extension;
+
+            // Cast the model document to an AssemblyDoc
+            this.tankSiteAssemblyDoc = (AssemblyDoc)this.tankSiteModelDoc;
+
+            //---------------- Initialization -------------------------------------
+
+            // Set Tank Site Center Axis Presistent Reference ID
+            AddTankSiteAssemblyCenterAxisID();
+
+            // Set Tank Workshop Assembly (as Component) Presistent Reference ID
+            AddTankWorkshopAssemblyComponentID();
+
+            AttributeManager.CreateAttribute(this.solidWorksApplication, this.tankSiteModelDoc, this.tankSiteModelDoc, parametersList, persistentReferenceIdAttributeName);
+        }
+
+        /// <summary>
+        /// This method retrieves and stores the persistent reference ID of the center axis feature within the tank site assembly model. 
+        /// </summary>
+        private void AddTankSiteAssemblyCenterAxisID()
+        {
+            // Get center axis
+            Feature tankSiteAssemblyCenterAxis = Utilities.GetNthFeatureOfType(tankSiteModelDoc, FeatureType.RefAxis, 1);
+
+            // Safety check: Ensure the center axis feature was found
+            if (tankSiteAssemblyCenterAxis == null)
+            {
+                throw new InvalidOperationException("Center axis feature not found in the tank site assembly.");
+            }
+
+            // Get the persistent reference ID of the center axis
+            byte[] tankSiteAssemblyCenterAxisID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, tankSiteAssemblyCenterAxis);
+
+            string persistentReferenceIdString = string.Join("-", tankSiteAssemblyCenterAxisID);
+
+            parametersList.Add(("P1", persistentReferenceIdString));
+        }
+
+        /// <summary>
+        /// This method retrieves and stores the persistent reference ID of the tank workshop assembly component within the tank site assembly model.
+        /// </summary>
+        private void AddTankWorkshopAssemblyComponentID()
+        {
+            // Get TankWorkshopAssembly as Component
+            Component2 tankWorkshopAssembly = Utilities.GetAllComponents(tankSiteModelDoc)[0].Component;
+
+            // Safety check: Ensure the tank workshop assembly component was found
+            if (tankWorkshopAssembly == null)
+            {
+                throw new InvalidOperationException("Tank workshop assembly component not found in the tank site assembly.");
+            }
+
+            // Get the persistent reference ID of the tank workshop assembly component
+            byte[] tankWorkshopAssemblyID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, tankWorkshopAssembly);
+
+            string persistentReferenceIdString = string.Join("-", tankWorkshopAssemblyID);
+
+            parametersList.Add(("P2", persistentReferenceIdString));
         }
 
         private bool TrySetTankSite()

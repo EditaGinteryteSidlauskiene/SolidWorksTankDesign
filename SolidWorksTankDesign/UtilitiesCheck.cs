@@ -9,22 +9,22 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Checks if number of reference axis is correct.
         /// </summary>
-        /// <param name="WarningService"></param>
-        /// <param name="Document"></param>
-        /// <param name="RequiredCount"></param>
-        /// <param name="AxisList"></param>
+        /// <param name="warningService"></param>
+        /// <param name="document"></param>
+        /// <param name="requiredCount"></param>
+        /// <param name="axisList"></param>
         /// <returns></returns>
-        public static bool IsNumberOfReferenceAxisCorrect(WarningService WarningService, ModelDoc2 Document, int RequiredCount, out List<FeatureAxis> AxisList)
+        public static bool IsNumberOfReferenceAxisCorrect(WarningService warningService, ModelDoc2 document, int requiredCount, out List<FeatureAxis> axisList)
         {
             //Get all reference axises
-            AxisList = Utilities.GetAllReferenceAxisFeatures(Document);
+            axisList = Utilities.GetAllReferenceAxisFeatures(document);
 
-            if (AxisList.Count != RequiredCount)
+            if (axisList.Count != requiredCount)
             {
-                WarningService.AddWarning("Incorrect number of axis.");
+                warningService.AddWarning("Incorrect number of axis.");
             }
 
-            return RequiredCount == AxisList.Count;
+            return requiredCount == axisList.Count;
         }
     }
 }
