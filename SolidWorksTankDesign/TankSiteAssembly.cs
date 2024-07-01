@@ -20,10 +20,7 @@ namespace SolidWorksTankDesign
         private readonly WarningService warningService;
 
         private List<(string ParameterName, string ParameterValue)> parametersList = new List<(string ParameterName, string ParameterValue)> ();
-        public string persistentReferenceIdAttributeName = "PersistentReferenceIDs";
-
-        public FeatureAxis tankSiteCenterAxis;
-
+        public string persistentReferenceIdAttributeName = "TankSiteAssemblyPersistentReferenceIDs";
 
         /// <summary>
         /// Initializes a TankSiteAssembly object, representing a SolidWorks tank site assembly model.It ensures 
@@ -59,13 +56,49 @@ namespace SolidWorksTankDesign
 
             //---------------- Initialization -------------------------------------
 
-            // Set Tank Site Center Axis Presistent Reference ID
-            AddTankSiteAssemblyCenterAxisID();
-
-            // Set Tank Workshop Assembly (as Component) Presistent Reference ID
-            AddTankWorkshopAssemblyComponentID();
+            try
+            {
+                AddTankSiteAssemblyPersistantReferenceIds();
+            }
+            catch (Exception ex) { }
 
             AttributeManager.CreateAttribute(this.solidWorksApplication, this.tankSiteModelDoc, this.tankSiteModelDoc, parametersList, persistentReferenceIdAttributeName);
+        }
+
+        /// <summary>
+        /// Adds persistent reference IDs to key components and features within a tank site assembly model.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
+        private void AddTankSiteAssemblyPersistantReferenceIds()
+        {
+            // Get components
+            Component2 tankWorkshopAssemblyAsComponent = Utilities.GetAllComponents(tankSiteModelDoc)[0].Component;
+            Component2 tankAssemblyAsComponent = Utilities.GetAllComponents(tankWorkshopAssemblyAsComponent)[0].Component;
+            Component2 shellAssemblyAsComponent = Utilities.GetAllComponents(tankAssemblyAsComponent)[0].Component;
+
+            // Safety check: Ensure that components were found
+            if (tankWorkshopAssemblyAsComponent == null)
+            {
+                throw new InvalidOperationException("Tank workshop assembly component not found in the tank site assembly.");
+            }
+            if (tankAssemblyAsComponent == null)
+            {
+                throw new InvalidOperationException("Tank assembly component was not found in Tank Workshop Assembly.");
+            }
+            if (shellAssemblyAsComponent == null)
+            {
+                throw new InvalidOperationException("Shell assembly component was not found in Tank Assembly.");
+            }
+
+            // Add persistent reference IDs
+            AddTankSiteAssemblyCenterAxisID();
+            AddTankWorkshopAssemblyComponentID(tankWorkshopAssemblyAsComponent);
+            AddTankWorkshopAssemblyCenterAxisMateID(tankWorkshopAssemblyAsComponent);
+            AddTankAssemblyComponentID(tankAssemblyAsComponent);
+            AddShellAssemblyComponentID(shellAssemblyAsComponent);
+            AddAssemblyOfDishedEndsComponentID(shellAssemblyAsComponent);
+            AddAssemblyOfCylindricalShellsComponentID(shellAssemblyAsComponent);
+            AddCompartmentsAssemblyComponentID(shellAssemblyAsComponent);
         }
 
         /// <summary>
@@ -85,6 +118,7 @@ namespace SolidWorksTankDesign
             // Get the persistent reference ID of the center axis
             byte[] tankSiteAssemblyCenterAxisID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, tankSiteAssemblyCenterAxis);
 
+            // Convert persistent reference id into string
             string persistentReferenceIdString = string.Join("-", tankSiteAssemblyCenterAxisID);
 
             parametersList.Add(("P1", persistentReferenceIdString));
@@ -93,73 +127,123 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// This method retrieves and stores the persistent reference ID of the tank workshop assembly component within the tank site assembly model.
         /// </summary>
-        private void AddTankWorkshopAssemblyComponentID()
+        private void AddTankWorkshopAssemblyComponentID(Component2 tankWorkshopAssemblyAsComponent)
         {
-            // Get TankWorkshopAssembly as Component
-            Component2 tankWorkshopAssembly = Utilities.GetAllComponents(tankSiteModelDoc)[0].Component;
-
-            // Safety check: Ensure the tank workshop assembly component was found
-            if (tankWorkshopAssembly == null)
-            {
-                throw new InvalidOperationException("Tank workshop assembly component not found in the tank site assembly.");
-            }
-
             // Get the persistent reference ID of the tank workshop assembly component
-            byte[] tankWorkshopAssemblyID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, tankWorkshopAssembly);
+            byte[] tankWorkshopAssemblyID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, tankWorkshopAssemblyAsComponent);
 
+            // Convert persistent reference id into string
             string persistentReferenceIdString = string.Join("-", tankWorkshopAssemblyID);
 
             parametersList.Add(("P2", persistentReferenceIdString));
         }
 
-        private bool TrySetTankSite()
+        /// <summary>
+        /// This method retrieves and stores the persistent reference ID of the tank workshop assembly's center axis mate within the tank site assembly model.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
+        private void AddTankWorkshopAssemblyCenterAxisMateID(Component2 tankWorkshopAssemblyAsComponent)
         {
-            // Check if there is the center axis, and if it correctly defined
-            //Check if there is one center axis
-            if (!UtilitiesCheck.IsNumberOfReferenceAxisCorrect(warningService, tankSiteModelDoc, 1, out List<FeatureAxis> CenterAxisList)) return false;
+            // Get the mate
+            Mate2 tankWorkshopAssemblyCenterAxisMate = tankWorkshopAssemblyAsComponent.GetMates()[0];
 
-            //Get all assemblies, check them and assign
-            List<Component2> listOfAssemblies = Utilities.GetTopLevelComponents(tankSiteModelDoc);
-
-            //Check if there are at least 1 components in the Tank Site Assembly
-            if (listOfAssemblies.Count < 1)
+            // Safety check: Ensure the center axis feature was found
+            if (tankWorkshopAssemblyCenterAxisMate == null)
             {
-                warningService.AddError("Incorrect number of components in the Tank Site Assembly. Min number of components = 1");
-                return false;
+                throw new InvalidOperationException("Center axis mate not found in the tank site assembly.");
             }
 
-            ////Get ModelDoc2 of each assembly and assign Shell 
-            //foreach (Component2 assembly in listOfAssemblies)
-            //{
-            //    //Activate current assemlby's document
-            //    tankDocument = Utilities.ActivateDocumentOfComponent(solidWorksApplication, assembly);
+            // Get the persistent reference ID of the tank workshop assembly component
+            byte[] tankWorkshopAssemblyCenterAxisMateID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, tankWorkshopAssemblyCenterAxisMate);
 
-            //    //Try to assign tank assembly and close the document
+            string persistentReferenceIdString = string.Join("-", tankWorkshopAssemblyCenterAxisMateID);
 
-            //    if (TrySetTank(tankDocument))
-            //    {
-            //        tankAsComponent = assembly;
-            //        continue;
-            //    }
+            parametersList.Add(("P3", persistentReferenceIdString));
+        }
 
-            //    else
-            //    {
-            //        solidWorksApplication.CloseDoc(tankDocument.GetTitle());
-            //        continue;
-            //    }
+        /// <summary>
+        /// This method retrieves and stores the persistent reference ID of the tank assembly component within within the tank site assembly model.
+        /// </summary>
+        private void AddTankAssemblyComponentID(Component2 tankAssemblyAsComponent)
+        {
+            // Safety check: Ensure the tank assembly component was found
+            if (tankAssemblyAsComponent == null)
+            {
+                throw new InvalidOperationException("Tank assembly component not found in the tank workshop assembly.");
+            }
 
-            //}
+            // Get the persistent reference ID of the tank assembly component
+            byte[] tankAssemblyID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, tankAssemblyAsComponent);
 
-            //if (tank == null)
-            //{
-            //    warningService.AddError("Incorrect Tank Assembly. Assembly of Shell was not assigned.");
-            //    return false;
-            //}
+            // Convert persistent reference id into string
+            string persistentReferenceIdString = string.Join("-", tankAssemblyID);
 
-            // Assign Tank Site Assembly's center axis
-            tankSiteCenterAxis = CenterAxisList[0];
+            parametersList.Add(("P4", persistentReferenceIdString));
+        }
 
-            return true;
+        /// <summary>
+        /// This method retrieves and stores the persistent reference ID of the shell assembly component within the tank site assembly model.
+        /// </summary>
+        private void AddShellAssemblyComponentID(Component2 shellAssemblyAsComponent)
+        {
+            // Get the persistent reference ID of the shell assembly component
+            byte[] shellAssemblyID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, shellAssemblyAsComponent);
+
+            // Convert persistent reference id into string
+            string persistentReferenceIdString = string.Join("-", shellAssemblyID);
+
+            parametersList.Add(("P5", persistentReferenceIdString));
+        }
+
+        /// <summary>
+        /// This method retrieves and stores the persistent reference ID of the dished ends assembly component within the tank site assembly model.
+        /// </summary>
+        /// <param name="shellAssemblyAsComponent"></param>
+        private void AddAssemblyOfDishedEndsComponentID(Component2 shellAssemblyAsComponent)
+        {
+            Component2 assemblyOfDishedEndsComponent = Utilities.GetAllComponents(shellAssemblyAsComponent)[0].Component;
+
+            // Get the persistent reference ID of the shell assembly component
+            byte[] assemblyOfDishedEndsComponentID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, assemblyOfDishedEndsComponent);
+
+            // Convert persistent reference id into string
+            string persistentReferenceIdString = string.Join("-", assemblyOfDishedEndsComponentID);
+
+            parametersList.Add(("P6", persistentReferenceIdString));
+        }
+
+        /// <summary>
+        /// This method retrieves and stores the persistent reference ID of the cylindrical shells assembly component within the tank site assembly model.
+        /// </summary>
+        /// <param name="shellAssemblyAsComponent"></param>
+        private void AddAssemblyOfCylindricalShellsComponentID(Component2 shellAssemblyAsComponent)
+        {
+            Component2 assemblyOfCylindricalShellsComponent = Utilities.GetAllComponents(shellAssemblyAsComponent)[1].Component;
+
+            // Get the persistent reference ID of the shell assembly component
+            byte[] assemblyOfCylindricalShellsComponentID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, assemblyOfCylindricalShellsComponent);
+
+            // Convert persistent reference id into string
+            string persistentReferenceIdString = string.Join("-", assemblyOfCylindricalShellsComponentID);
+
+            parametersList.Add(("P7", persistentReferenceIdString));
+        }
+
+        /// <summary>
+        /// This method retrieves and stores the persistent reference ID of the compartments assembly component within the tank site assembly model.
+        /// </summary>
+        /// <param name="shellAssemblyAsComponent"></param>
+        private void AddCompartmentsAssemblyComponentID(Component2 shellAssemblyAsComponent)
+        {
+            Component2 compartmentsAssemblyComponent = Utilities.GetAllComponents(shellAssemblyAsComponent)[2].Component;
+
+            // Get the persistent reference ID of the shell assembly component
+            byte[] compartmentsAssemblyComponentID = Utilities.GetPersistentReferenceId(tankSiteModelDocExt, compartmentsAssemblyComponent);
+
+            // Convert persistent reference id into string
+            string persistentReferenceIdString = string.Join("-", compartmentsAssemblyComponentID);
+
+            parametersList.Add(("P8", persistentReferenceIdString));
         }
     }
 }

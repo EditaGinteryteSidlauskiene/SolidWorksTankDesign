@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows.Forms;
 using System.Diagnostics;
 using System.Xml.Linq;
+using System.Web;
 
 namespace SolidWorksTankDesign
 {
@@ -254,6 +255,73 @@ namespace SolidWorksTankDesign
 
 
             return persistentReferenceId;
+        }
+
+        /// <summary>
+        /// Retrieves a SolidWorks object based on a persistent reference ID stored within an attribute parameter.
+        /// </summary>
+        /// <param name="attributeOwnerDoc"></param>
+        /// <param name="attributeName"></param>
+        /// <param name="parameterName"></param>
+        /// <returns></returns>
+        public static object GetObjectByAttributeParameter(ModelDoc2 attributeOwnerDoc, string attributeName, string parameterName)
+        {
+            // Validate input parameters
+            if (attributeOwnerDoc == null)
+                throw new ArgumentNullException(nameof(attributeOwnerDoc), "Owner document cannot be null.");
+            if (string.IsNullOrEmpty(attributeName))
+                throw new ArgumentException("Attribute name cannot be null or empty.", nameof(attributeName));
+            if (string.IsNullOrEmpty(parameterName))
+                throw new ArgumentException("Parameter name cannot be null or empty.", nameof(parameterName));
+
+            // Get model document extension and the persistent reference ID string
+            ModelDocExtension attributeOwnerDocExtension = attributeOwnerDoc.Extension;
+            string persistentReferenceIdString = AttributeManager.GetPersistentReferenceIdFromAttribute(
+                attributeOwnerDoc, 
+                attributeName, 
+                parameterName);
+
+            //--------------------// Convert persistent reference ID string to byte array-----------------
+
+            // Split persistent reference id string into list of numbers (delimiter is '-')
+            string[] idStringParts = persistentReferenceIdString.Split('-');
+
+            // Convert each number in the list to a byte
+            byte[] persistentReferenceIdByte = new byte[idStringParts.Length];
+
+            for (int i = 0; i < idStringParts.Length; i++)
+            {
+                try
+                {
+                    persistentReferenceIdByte[i] = Convert.ToByte(idStringParts[i]);
+                }
+                catch (FormatException)
+                {
+                    Console.WriteLine("Error: Invalid number format in string: {0}", persistentReferenceIdString);
+                    return null;
+                }
+                catch (OverflowException)
+                {
+                    Console.WriteLine("Error: Number outside byte range (0-255) in string: {0}", persistentReferenceIdString);
+                    return null;
+                }
+            }
+
+            // Get object by persistent reference ID
+            object objectByAttributeParameter = attributeOwnerDocExtension.GetObjectByPersistReference3(persistentReferenceIdByte, out int errorCode);
+
+            // Handle potential errors based on errorCode
+            switch (errorCode)
+            {
+                case (int)swPersistReferencedObjectStates_e.swPersistReferencedObject_Ok:
+                    return objectByAttributeParameter;
+                case (int)swPersistReferencedObjectStates_e.swPersistReferencedObject_Deleted:
+                    throw new InvalidOperationException("The referenced object has been deleted.");
+                case (int)swPersistReferencedObjectStates_e.swPersistReferencedObject_Suppressed:
+                    throw new InvalidOperationException("The referenced object is suppressed.");
+                default:
+                    return null;
+            }
         }
 
         /// <summary>
