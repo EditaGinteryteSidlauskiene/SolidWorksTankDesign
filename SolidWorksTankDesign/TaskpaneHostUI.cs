@@ -4,10 +4,14 @@ using SolidWorks.Interop.swconst;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Newtonsoft.Json;
 using System.Windows.Forms;
 using System.Xml.Linq;
 using WarningAndErrorService;
 using Attribute = SolidWorks.Interop.sldworks.Attribute;
+using Newtonsoft.Json.Linq;
+using System.Threading;
+using System.Numerics;
 
 namespace SolidWorksTankDesign
 {
@@ -34,7 +38,9 @@ namespace SolidWorksTankDesign
         {
             ModelDoc2 tankSiteModelDoc = swApp.IActiveDoc2;
 
-            TankSiteAssembly tankSiteAssembly = new TankSiteAssembly(warningService, swApp, tankSiteModelDoc);
+
+            TankSiteAssembly tankSiteAssembly = new TankSiteAssembly(swApp, tankSiteModelDoc, true);
+
         }
     }
 }
