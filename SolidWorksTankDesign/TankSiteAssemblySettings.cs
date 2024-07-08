@@ -3,8 +3,6 @@ using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Reflection;
 using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
@@ -205,27 +203,10 @@ namespace SolidWorksTankDesign
             {
                 SelectionMgr selectionMgr = (SelectionMgr)dishedEndsModelDoc.SelectionManager;
 
-                dishedEndsModelDoc.Extension.SelectByID2(
-                        "Left dished end-1@Assembly of Dished ends",
-                        "COMPONENT",
-                        0, 0, 0,
-                        false,
-                        0, null, 0);
-                Component2 leftDishedEndComponent = selectionMgr.GetSelectedObject6(1, -1);
-
-                dishedEndsModelDoc.Extension.SelectByID2(
-                        "Right dished end-2@Assembly of Dished ends",
-                        "COMPONENT",
-                        0, 0, 0,
-                        false,
-                        0, null, 0);
-                Component2 rightDishedEndComponent = selectionMgr.GetSelectedObject6(1, -1);
-
-
                 List<Component2>innerDishedEndComponentList = new List<Component2>();
 
                 // Create an AssemblyOfDishedEnds object to represent the assembly and store its settings.
-                AssemblyOfDishedEnds assemblyOfDishedEnds = new AssemblyOfDishedEnds(solidWorksApplication, dishedEndsModelDoc, leftDishedEndComponent, rightDishedEndComponent);
+                AssemblyOfDishedEnds assemblyOfDishedEnds = new AssemblyOfDishedEnds(dishedEndsModelDoc);
 
                 GetLeftDishedEndEntities();
 
@@ -244,6 +225,14 @@ namespace SolidWorksTankDesign
                        false,
                        0, null, 0);
                     Feature positionPlane = selectionMgr.GetSelectedObject6(1, -1);
+
+                    dishedEndsModelDoc.Extension.SelectByID2(
+                        "Left dished end-1@Assembly of Dished ends",
+                        "COMPONENT",
+                        0, 0, 0,
+                        false,
+                        0, null, 0);
+                    Component2 leftDishedEndComponent = selectionMgr.GetSelectedObject6(1, -1);
 
                     dishedEndsModelDoc.Extension.SelectByID2(
                         "Center axis@Left dished end-1@Assembly of Dished ends",
@@ -305,7 +294,15 @@ namespace SolidWorksTankDesign
                        false,
                        0, null, 0);
                     Feature positionPlane = selectionMgr.GetSelectedObject6(1, -1);
-                    
+
+                    dishedEndsModelDoc.Extension.SelectByID2(
+                        "Right dished end-2@Assembly of Dished ends",
+                        "COMPONENT",
+                        0, 0, 0,
+                        false,
+                        0, null, 0);
+                    Component2 rightDishedEndComponent = selectionMgr.GetSelectedObject6(1, -1);
+
                     dishedEndsModelDoc.Extension.SelectByID2(
                         "Center axis@Right dished end-2@Assembly of Dished ends",
                         "AXIS",
@@ -357,6 +354,5 @@ namespace SolidWorksTankDesign
                 }
             }
         }
-
     }
 }

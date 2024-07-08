@@ -94,12 +94,18 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Enums\MajorPlane.cs" />
+    <Compile Include="Enums\MateAlignment.cs" />
+    <Compile Include="Helpers\MateManager.cs" />
+    <Compile Include="SolidWorksDocumentProvider .cs" />
     <Compile Include="DishedEnd.cs" />
     <Compile Include="DishedEndSettings.cs" />
     <Compile Include="AssemblyOfDishedEnds.cs" />
+    <Compile Include="Enums\DishedEndAlignment.cs" />
     <Compile Include="Helpers\AttributeManager.cs" />
     <Compile Include="Enums\FeatureType.cs" />
-    <Compile Include="Helpers\FeatuerManager.cs" />
+    <Compile Include="Helpers\FeatureManager.cs" />
+    <Compile Include="InnerDishedEnd.cs" />
     <Compile Include="Interfaces\IHasFeature.cs" />
     <Compile Include="Helpers\PrivatePropertyContractResolver.cs" />
     <Compile Include="SolidWorksDocumentWrapper.cs" />
@@ -113,6 +119,7 @@
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TaskpaneIntegration.cs" />
+    <Compile Include="Helpers\ComponentManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="TaskpaneHostUI.resx">
