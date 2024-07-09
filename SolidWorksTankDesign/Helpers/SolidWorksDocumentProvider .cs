@@ -9,6 +9,7 @@ namespace SolidWorksTankDesign
     internal static class SolidWorksDocumentProvider
     {
         public static SldWorks _solidWorksApplication;
+        public static TankSiteAssembly _tankSiteAssembly;
 
         public static ModelDoc2 ActiveDoc()
         {

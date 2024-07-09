@@ -1,6 +1,8 @@
 ﻿using SolidWorks.Interop.sldworks;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
@@ -174,5 +176,80 @@ namespace SolidWorksTankDesign
         /// <param name="swFeature"></param>
         /// <param name="Name"></param>
         public static void RenameFeature(Feature swFeature, string name) => swFeature.Name = name;
+
+        /// <summary>
+        /// Suppress feature
+        /// </summary>
+        public static void Suppress(Feature featureToSuppress)
+        {
+            ChangeSuppression(featureToSuppress, 0);
+        }
+
+        /// <summary>
+        /// Unsuppress feature
+        /// </summary>
+        public static void Unsuppress(Feature featureToUnsuppress)
+        {
+            ChangeSuppression(featureToUnsuppress, 1);
+        }
+
+        /// <summary>
+        /// Change the state of suppression. Suppression State = 0 to suppress, 1 to unsuppress.
+        /// </summary>
+        /// <param name="feature"></param>
+        /// <param name="suppressionState"></param>
+        private static void ChangeSuppression(Feature feature, int suppressionState)
+        {
+            feature.SetSuppression2(suppressionState, 2, "");
+        }
+
+        /// <summary>
+        /// Changes reference entity (NewReferencePlane) for reference plane feature (ReferencePlane).
+        /// </summary>
+        /// <param name="modelDocument"></param>
+        /// <param name="newReferencePlane"></param>
+        /// <param name="referencedPlane"></param>
+        public static bool ChangeReferenceOfReferencePlane(
+            ModelDoc2 modelDocument,
+            Feature newReferencePlane,
+            Feature referencedPlane)
+        {
+            //Get access to reference plane properties
+            RefPlaneFeatureData referencePlaneFeatureData = referencedPlane.GetDefinition();
+
+            //Set new reference plane
+            referencePlaneFeatureData.Reference[0] = newReferencePlane;
+
+            //Modify changes
+            return referencedPlane.ModifyDefinition(referencePlaneFeatureData, modelDocument, null);
+        }
+
+        /// <summary>
+        /// Changes the distance of reference plane from the starting plane
+        /// </summary>
+        /// <param name="modelDocument"></param>
+        /// <param name="referencePlane"></param>
+        /// <param name="distance"></param>
+        public static bool ChangeDistanceOfReferencePlane(
+            Feature referencePlane,
+            double distance)
+        {
+            try
+            {
+                //Get access to reference plane properties
+                RefPlaneFeatureData referencePlaneFeatureData = referencePlane.GetDefinition();
+
+                //Set new distance
+                referencePlaneFeatureData.Distance = distance;
+
+                //Modify changes
+                return referencePlane.ModifyDefinition(referencePlaneFeatureData, SolidWorksDocumentProvider.ActiveDoc(), null);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Distance of reference plane could not be changed: {ex.Message}");
+                return false;
+            }
+        }
     }
 }

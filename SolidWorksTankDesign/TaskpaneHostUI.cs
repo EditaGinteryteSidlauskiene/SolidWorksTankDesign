@@ -21,8 +21,6 @@ namespace SolidWorksTankDesign
     [ProgId(TaskpaneIntegration.SWTASKPANE_PROGID)]
     public partial class TaskpaneHostUI : UserControl
     {
-        private WarningService warningService = new WarningService();
-
         // Getting SW application reference.
         public void AssignSWApp(SldWorks inputswApp)
         {
@@ -36,9 +34,7 @@ namespace SolidWorksTankDesign
 
         private void button1_Click(object sender, System.EventArgs e)
         {
-            ModelDoc2 tankSiteModelDoc = SolidWorksDocumentProvider._solidWorksApplication.IActiveDoc2;
-
-            TankSiteAssembly tankSiteAssembly = LoadTankSiteAssemblySettingsFromAttribute();
+            SolidWorksDocumentProvider._tankSiteAssembly = LoadTankSiteAssemblySettingsFromAttribute();
 
             /// <summary>
             /// Initializes and assigns settings for the TankSiteAssembly object.
@@ -97,15 +93,14 @@ namespace SolidWorksTankDesign
             }
 
 
-            ModelDoc2 doc = tankSiteAssembly.dishedEndsAssemblyComponent().GetModelDoc2();
+            ModelDoc2 doc = SolidWorksDocumentProvider._tankSiteAssembly.dishedEndsAssemblyComponent().GetModelDoc2();
             SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(doc.GetTitle(), true, 0, 0);
 
-            tankSiteAssembly._assemblyOfDishedEnds.AddInnerDishedEnd(
-                tankSiteAssembly._assemblyOfDishedEnds.LeftDishedEnd,
-                DishedEndAlignment.Left,
-                2, 1);
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(1, DishedEndAlignment.Right, 1);
 
-            byte[] n = tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds[0]._dishedEndSettings.PIDRightPlaneMate;
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(3, DishedEndAlignment.Right, 1);
+
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(0, DishedEndAlignment.Right, 1);
         }
     }
 }

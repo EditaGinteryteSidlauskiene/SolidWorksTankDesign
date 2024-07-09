@@ -97,7 +97,8 @@
     <Compile Include="Enums\MajorPlane.cs" />
     <Compile Include="Enums\MateAlignment.cs" />
     <Compile Include="Helpers\MateManager.cs" />
-    <Compile Include="SolidWorksDocumentProvider .cs" />
+    <Compile Include="Helpers\MathUtility.cs" />
+    <Compile Include="Helpers\SolidWorksDocumentProvider .cs" />
     <Compile Include="DishedEnd.cs" />
     <Compile Include="DishedEndSettings.cs" />
     <Compile Include="AssemblyOfDishedEnds.cs" />
@@ -120,6 +121,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TaskpaneIntegration.cs" />
     <Compile Include="Helpers\ComponentManager.cs" />
+    <Compile Include="Helpers\TankSiteAssemblyDataManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="TaskpaneHostUI.resx">

@@ -1,9 +1,11 @@
-﻿using Newtonsoft.Json;
+﻿using AddinWithTaskpane;
+using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
 using SolidWorksTankDesign.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -16,6 +18,8 @@ namespace SolidWorksTankDesign
     internal class InnerDishedEnd : DishedEnd
     {
         public DishedEndSettings _dishedEndSettings;
+        [JsonIgnore]
+        public DishedEnd _dishedEnd;
 
         private const string INNER_DISHED_END_NAME = "Inner end";
         private const string POSITION_PLANE_NAME = "Position plane";
@@ -23,6 +27,21 @@ namespace SolidWorksTankDesign
         private const string RIGHT_PLANE_NAME = "Right plane";
         private const string FRONT_PLANE_NAME = "Front plane";
         private const string CENTER_AXIS_NAME = "Center axis";
+
+        /// <summary>
+        /// Gets or sets the alignment of the dished end. If the alignment changes, a method to modify the existing alignment is triggered.
+        /// </summary>
+        public DishedEndAlignment DishedEndAlignment
+        {
+            // Getter: Retrieves the current alignment of the dished end.
+            get => GetAlignment();
+            // Setter: Sets a new alignment for the dished end.
+            set
+            {
+                if (value != DishedEndAlignment)
+                    ChangeAlignment();
+            }
+        }
 
         /// <summary>
         /// This constructor is called when a new inner dished end is added.
@@ -46,7 +65,8 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Creates and positions an inner dished end within a SolidWorks assembly
+        /// Creates and positions an inner dished end within a SolidWorks assembly.
+        /// After this method, call TankSiteAssembly.SerializeAndStoreTankAssemblyData()!!!
         /// </summary>
         /// <param name="assemblyOfDishedEndsCenterAxis"></param>
         /// <param name="assemblyOfDishedEndsFrontPlane"></param>
@@ -125,7 +145,7 @@ namespace SolidWorksTankDesign
             _dishedEndSettings = new DishedEndSettings();
             try
             {
-                GetInnerDishedEndEntities();
+                GetInnerDishedPIDs();
             }
             catch (Exception ex)
             {
@@ -133,8 +153,22 @@ namespace SolidWorksTankDesign
                 MessageBox.Show($"Error getting inner dished end entities: {ex.Message}");
             }
 
+            _dishedEnd = new DishedEnd();
+            _dishedEnd._dishedEndSettings = _dishedEndSettings;
+
+            try
+            {
+                //Set the required position to the DishedEndPosition property
+                DishedEndAlignment = dishedEndAlignment;
+            }
+            catch (Exception ex)
+            {
+                // Display a user-friendly error message
+                MessageBox.Show($"Error changing inner dished end's alignment: {ex.Message}");
+            }
+
             // 8. Helper Method to Get Inner Dished End Entities
-            void GetInnerDishedEndEntities()
+            void GetInnerDishedPIDs()
             {
                 try
                 {
@@ -152,6 +186,88 @@ namespace SolidWorksTankDesign
                     return;
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets whether dished end is alligned left or right.
+        /// </summary>
+        /// <returns></returns>
+        private DishedEndAlignment GetAlignment()
+        {
+            //Get the transformation matrix from the dishedEnd object
+            MathTransform transform = _dishedEnd.Component().Transform2;
+
+            //Transform the reference point (1, 0, 0) using the transformation matrix
+            double[] TransformedVector = MathUtility.TransformVector(SolidWorksDocumentProvider._solidWorksApplication, transform, new double[3] { 1, 0, 0 });
+
+            //Determine orientation based on the transformed point's X-coordinate
+            return (TransformedVector[0] > 0 ? DishedEndAlignment.Left : DishedEndAlignment.Right);
+        }
+
+        /// <summary>
+        /// Changes alignment of the dished end component
+        /// </summary>
+        public void ChangeAlignment()
+        {
+            try
+            {
+                FeatureManager.Suppress(_dishedEnd.CenterAxisMate());
+
+                //Change alignment of the component
+                //Warning message if ChangeAlignement() did not work
+                if (!MateManager.ChangeAlignment(_dishedEnd.RightPlaneMate()))
+                {
+                    MessageBox.Show("Failed to change the right plane mate alignment.");
+                    FeatureManager.Unsuppress(_dishedEnd.CenterAxisMate());
+                    return;
+                }
+
+                //Change alignment of axis
+                //Warning message if ChangeAlignement() did not work
+                if (!MateManager.ChangeAlignment(_dishedEnd.CenterAxisMate()))
+                {
+                    MessageBox.Show("Failed to change the center axis mate alignment.");
+                    MateManager.ChangeAlignment(_dishedEnd.RightPlaneMate());
+                    FeatureManager.Unsuppress(_dishedEnd.CenterAxisMate());
+                    return;
+                }
+
+                //Unsuppress axis mate
+                FeatureManager.Unsuppress(_dishedEnd.CenterAxisMate());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Mate alignment could not be changed." + ex.Message);
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Deletes the dished end component
+        /// </summary>
+        public void Delete()
+        {
+            ModelDoc2 assemblyOfDishedEndsDoc = SolidWorksDocumentProvider.ActiveDoc();
+
+            SelectionMgr selectionManager = (SelectionMgr)assemblyOfDishedEndsDoc.SelectionManager;
+            SelectData selectData = selectionManager.CreateSelectData();
+
+            //Select the dished end to be deleted
+            _dishedEnd.Component().Select4(false, selectData, false);
+            _dishedEnd.PositionPlane().Select2(true, 1);
+
+            //Get dished end document's path to delete the file
+            ModelDoc2 componentDocument = _dishedEnd.Component().GetModelDoc2();
+            string path = componentDocument.GetPathName();
+
+            //Delete selected dished end
+            ((AssemblyDoc)assemblyOfDishedEndsDoc).DeleteSelections(0);
+
+            //Rebuild assembly to release the file to be deleted
+            assemblyOfDishedEndsDoc.EditRebuild3();
+
+            //Delete the file
+            File.Delete(path);
         }
     }
 }

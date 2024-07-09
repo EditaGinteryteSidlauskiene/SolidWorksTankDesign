@@ -191,7 +191,7 @@ namespace SolidWorksTankDesign
         /// <param name="parameterName">The name of the parameter to edit.</param>
         /// <param name="newValue">The new value to assign to the parameter.</param>
         /// <returns>True if the edit was successful, false otherwise.</returns>
-        private static bool EditAttributeParameterValue(
+        public static bool EditAttributeParameterValue(
             ModelDoc2 attributeOwnerDoc,
             string attributeName,
             string parameterName,

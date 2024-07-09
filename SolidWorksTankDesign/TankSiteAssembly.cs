@@ -17,7 +17,7 @@ namespace SolidWorksTankDesign
     internal class TankSiteAssembly
     {
         [JsonIgnore]
-        private ModelDoc2 _tankSiteModelDoc;
+        public ModelDoc2 _tankSiteModelDoc;
         [JsonIgnore]
         private ModelDocExtension _tankSiteDocExtension => _tankSiteModelDoc.Extension;
 

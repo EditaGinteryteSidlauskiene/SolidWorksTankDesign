@@ -54,5 +54,24 @@ namespace SolidWorksTankDesign.Helpers
 
             return mate;
         }
+
+        /// <summary>
+        /// Change alignment of a mate
+        /// </summary>
+        /// <param name="mate"></param>
+        public static bool ChangeAlignment(Feature mate)
+        {
+            // Access mate's feature and get the MateFeatureData object. 
+            IMateFeatureData mateData = mate.GetDefinition();
+
+            // Cast the MateFeatureData object to a CoincidentMateFeatureData object. 
+            CoincidentMateFeatureData coincMateData = (CoincidentMateFeatureData)mateData;
+
+            // Change the alignment. 0 - ALIGNED
+            coincMateData.MateAlignment = (coincMateData.MateAlignment == 0 ? (int)swMateAlign_e.swMateAlignANTI_ALIGNED : (int)swMateAlign_e.swMateAlignALIGNED);
+
+            // Updates the definition of a feature with the new values in an associated feature data object
+            return mate.ModifyDefinition(mateData, SolidWorksDocumentProvider.ActiveDoc(), null);
+        }
     }
 }

@@ -2,6 +2,8 @@
 using SolidWorks.Interop.sldworks;
 using System;
 using System.Collections.Generic;
+using System.Windows.Forms;
+using WarningAndErrorService;
 
 namespace SolidWorksTankDesign
 {
@@ -19,9 +21,8 @@ namespace SolidWorksTankDesign
 
         public Feature CenterAxis() => FeatureManager.GetFeatureByName(SolidWorksDocumentProvider.ActiveDoc(), "Center axis");
 
-        public AssemblyOfDishedEnds()
-        {
-        }
+        public AssemblyOfDishedEnds() { }
+    
 
         /// <summary>
         /// Initializes a TankSiteAssembly object, representing a SolidWorks tank site assembly model.It ensures 
@@ -45,6 +46,7 @@ namespace SolidWorksTankDesign
 
         /// <summary>
         /// Creates a new InnerDishedEnd object, and adds it to the list
+        /// After this method, call TankSiteAssembly.SerializeAndStoreTankAssemblyData()!!!
         /// </summary>
         /// <param name="referenceDishedEnd"></param>
         /// <param name="dishedEndAlignment"></param>
@@ -52,7 +54,9 @@ namespace SolidWorksTankDesign
         /// <param name="compartmentNumber"></param>
         public void AddInnerDishedEnd(DishedEnd referenceDishedEnd, DishedEndAlignment dishedEndAlignment, double distance, int compartmentNumber)
         {
-            InnerDishedEnds.Add(
+            try
+            {
+                InnerDishedEnds.Add(
                 new InnerDishedEnd(
                 CenterAxis(),
                 FeatureManager.GetMajorPlane(SolidWorksDocumentProvider.ActiveDoc(), MajorPlane.Front),
@@ -61,6 +65,90 @@ namespace SolidWorksTankDesign
                 distance,
                 compartmentNumber)
                 );
+
+                TankSiteAssemblyDataManager.SerializeAndStoreTankSiteAssemblyData();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Removes the last dished end component from the assembly.
+        /// </summary>
+        private bool RemoveInnerEnd()
+        {
+            int innerEndsCount = InnerDishedEnds.Count;
+            // Check if there are any dished ends to remove
+            if (innerEndsCount == 0)
+            {
+                MessageBox.Show("There are no inner dished ends in the list.");
+                return false;
+            }
+
+            // Delete the last dished end (assuming it controls the SolidWorks object)
+            InnerDishedEnds[innerEndsCount - 1].Delete();
+
+            // Remove the last dished end reference from the tracking list
+            InnerDishedEnds.RemoveAt(innerEndsCount - 1);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Sets the number of inner dished ends in the assembly, adding or removing them 
+        /// as needed to match the required count. Adjusts the position of the rightmost 
+        /// dished end based on the final configuration.
+        /// </summary>
+        /// <param name="requiredNumberOfDishedEnds">The desired number of inner dished ends.</param>
+        /// <param name="defaultDishedEndAlignment">The default alignment for newly added dished ends.</param>
+        /// <param name="defaultDistance">The default distance between dished ends.</param>
+        public void SetNumberOfInnerDishedEnds(int requiredNumberOfDishedEnds, DishedEndAlignment defaultDishedEndAlignment, double defaultDistance)
+        {
+            // --- 1. Handle Cases Where Fewer Dished Ends Are Needed ---
+
+            if (requiredNumberOfDishedEnds < InnerDishedEnds.Count)
+            {
+                // Reposition the rightmost dished end to maintain continuity.
+                // If there are no inner dished ends left, use the left dished end as the reference.
+                RightDishedEnd.RepositionByReference(requiredNumberOfDishedEnds == 0 ? LeftDishedEnd : InnerDishedEnds[requiredNumberOfDishedEnds - 1]._dishedEnd);
+
+                // Remove excess dished ends until the count matches the required number.
+                while (requiredNumberOfDishedEnds != InnerDishedEnds.Count)
+                {
+                    if (!RemoveInnerEnd()) return;
+                }
+            }
+
+            // --- 2. Handle Cases Where More Dished Ends Are Needed ---
+
+            else
+            {
+                // Add new dished ends until the count matches the required number.
+                while (requiredNumberOfDishedEnds != InnerDishedEnds.Count)
+                {
+                    try
+                    {
+                        // Add a new inner dished end, using the previous one as a reference.
+                        // If this is the first inner dished end, use the left dished end as the reference.
+                        AddInnerDishedEnd(
+                            (InnerDishedEnds.Count == 0 ? LeftDishedEnd : InnerDishedEnds[InnerDishedEnds.Count - 1]._dishedEnd),
+                            defaultDishedEndAlignment,
+                            defaultDistance,
+                            InnerDishedEnds.Count + 1);  // Use the next compartment number
+                    }
+                    catch (Exception ex) 
+                    {
+                        MessageBox.Show(ex.Message);
+                        return;
+                    }
+                }
+
+                // Reposition the rightmost dished end based on the final state of the inner dished ends.
+                RightDishedEnd.RepositionByReference(InnerDishedEnds.Count == 0 ? LeftDishedEnd : InnerDishedEnds[InnerDishedEnds.Count - 1]._dishedEnd);
+            }
+
         }
     }
 }
