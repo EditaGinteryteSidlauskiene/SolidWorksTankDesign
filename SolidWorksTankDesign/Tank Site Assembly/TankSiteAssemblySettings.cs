@@ -366,6 +366,7 @@ namespace SolidWorksTankDesign
         /// - The center axis mate is named "Cylindrical shell 1 - Center axis".
         /// - The left end mate is named "Cylindrical shell 1 - Left plane".
         /// - The front plane mate is named "Cylindrical shell 1 - Front plane".
+        /// - First cylindrical shells' Front Mate Angle must be 45 degrees.
         /// 
         /// **Workflow:**
         /// 1. Retrieves the cylindrical shells assembly component using its PID (`PIDCylindricalShellsAssembly`).

@@ -35,13 +35,13 @@ namespace SolidWorksTankDesign
             {
                 throw new ArgumentNullException(nameof(SolidWorksDocumentProvider._solidWorksApplication), "SolidWorks application is required.");
             }
-            if (SolidWorksDocumentProvider.ActiveDoc() == null)
+            if (SolidWorksDocumentProvider.GetActiveDoc() == null)
             {
                 throw new ArgumentNullException(nameof(TankSiteAssembly._tankSiteModelDoc), "Tank site model document is required.");
             }
 
             // Store references to the model doc object
-            _tankSiteModelDoc = SolidWorksDocumentProvider.ActiveDoc();
+            _tankSiteModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
             // Create a default instance of the TankSiteAssemblySettings class
             // to hold settings for the TankSiteAssembly object.
@@ -61,13 +61,13 @@ namespace SolidWorksTankDesign
             {
                 throw new ArgumentNullException(nameof(SolidWorksDocumentProvider._solidWorksApplication), "SolidWorks application is required.");
             }
-            if (SolidWorksDocumentProvider.ActiveDoc() == null)
+            if (SolidWorksDocumentProvider.GetActiveDoc() == null)
             {
                 throw new ArgumentNullException(nameof(TankSiteAssembly._tankSiteModelDoc), "Tank site model document is required.");
             }
 
             // Store references to the model doc object
-            _tankSiteModelDoc = SolidWorksDocumentProvider.ActiveDoc();
+            _tankSiteModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
             // Create a default instance of the TankSiteAssemblySettings class
             // to hold settings for the TankSiteAssembly object.

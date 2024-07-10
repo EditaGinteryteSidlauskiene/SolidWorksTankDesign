@@ -52,7 +52,7 @@ namespace SolidWorksTankDesign
                 TankSiteAssembly deserializedObject = null;
                 try
                 {
-                    parameterValue = AttributeManager.GetAttributeParameterValue(SolidWorksDocumentProvider.ActiveDoc(), "MainEntities", "MainEntities");
+                    parameterValue = AttributeManager.GetAttributeParameterValue(SolidWorksDocumentProvider.GetActiveDoc(), "MainEntities", "MainEntities");
                 }
                 catch (Exception ex)
                 {
@@ -95,10 +95,13 @@ namespace SolidWorksTankDesign
                 return deserializedObject;
             }
 
+            //SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells[0].ChangeLength(3);
 
-            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.ActivateDocument();
-
-            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(1, DishedEndAlignment.Right, 1);
+            //SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells[1].ChangeAngle(45);
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.SetNumberOfCylindricalShells(3, 2, 1500);
+            //SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(1, DishedEndAlignment.Right, 2);
+            //SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc;
+            //FeatureManager.GetFeatureByName();
 
         }
     }

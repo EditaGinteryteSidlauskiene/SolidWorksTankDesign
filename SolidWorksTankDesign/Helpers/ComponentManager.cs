@@ -13,8 +13,10 @@ namespace SolidWorksTankDesign
         /// <param name="assemblyDocument"></param>
         /// <param name="componentPath"></param>
         /// <returns></returns>
-        public static Component2 AddComponentPart(SldWorks solidWorksApplication, ModelDoc2 assemblyDocument, string componentPath)
+        public static Component2 AddComponentPart(string componentPath)
         {
+            SldWorks solidWorksApplication = SolidWorksDocumentProvider._solidWorksApplication;
+            ModelDoc2 assemblyDocument = SolidWorksDocumentProvider.GetActiveDoc();
             // Open the document of the component to be added
             solidWorksApplication.OpenDoc6(componentPath, (int)swDocumentTypes_e.swDocPART, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", 1, 1);
 
@@ -46,8 +48,9 @@ namespace SolidWorksTankDesign
         /// <param name="ComponentPartPath"></param>
         /// <param name="ComponentPartName"></param>
         /// <returns></returns>
-        public static bool MakeComponentPartIndependent(ModelDoc2 assemblyDocument, Component2 componentPart, string componentPartPath)
+        public static bool MakeDishedEndIndependent(Component2 componentPart, string componentPartPath)
         {
+            ModelDoc2 assemblyDocument = SolidWorksDocumentProvider.GetActiveDoc();
 
             SelectionMgr swSelMgr = (SelectionMgr)assemblyDocument.SelectionManager;
             SelectData swSelData = swSelMgr.CreateSelectData();
@@ -58,7 +61,7 @@ namespace SolidWorksTankDesign
             //Get the number of component in the assembly.
             int componentNumber = ((IAssemblyDoc)assemblyDocument).GetComponents(true).Length-2;
 
-            //Add component number and ticks of current time into component part path. This path will be used to create a new document of the component.
+            //Add component path and number of ticks of current time into component part path. This path will be used to create a new document of the component.
             componentPartPath = componentPartPath.Insert(
                 componentPartPath.IndexOf('.'),
                 "_" + componentNumber.ToString() + "_" + DateTime.Now.Ticks);
@@ -71,6 +74,40 @@ namespace SolidWorksTankDesign
             return true;
         }
 
-        
+        /// <summary>
+        /// Makes a new component part independent by creating a new file and renames the component in the assembly.
+        /// </summary>
+        /// <param name="AssemblyDocument"></param>
+        /// <param name="ComponentPart"></param>
+        /// <param name="ComponentPartPath"></param>
+        /// <param name="ComponentPartName"></param>
+        /// <returns></returns>
+        public static bool MakeCylindricalShellIndependent(Component2 componentPart, string componentPartPath)
+        {
+            ModelDoc2 assemblyDocument = SolidWorksDocumentProvider.GetActiveDoc();
+
+            SelectionMgr swSelMgr = (SelectionMgr)assemblyDocument.SelectionManager;
+            SelectData swSelData = swSelMgr.CreateSelectData();
+
+            //Select component part
+            componentPart.Select4(false, swSelData, false);
+
+            //Get the number of component in the assembly.
+            int componentNumber = ((IAssemblyDoc)assemblyDocument).GetComponents(true).Length;
+
+            //Add component path and number of ticks of current time into component part path. This path will be used to create a new document of the component.
+            componentPartPath = componentPartPath.Insert(
+                componentPartPath.IndexOf('.'),
+                "_" + componentNumber.ToString() + "_" + DateTime.Now.Ticks);
+
+            //Make the component part independent
+            bool status = ((AssemblyDoc)assemblyDocument).MakeIndependent(componentPartPath);
+
+            assemblyDocument.ClearSelection2(true);
+
+            return true;
+        }
+
+
     }
 }

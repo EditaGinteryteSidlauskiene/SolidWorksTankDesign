@@ -60,7 +60,7 @@ namespace SolidWorksTankDesign
             if (referenceDishedEnd == null)
                 throw new ArgumentNullException(nameof(referenceDishedEnd));
 
-            ModelDoc2 assemblyOfDishedEndsDoc = SolidWorksDocumentProvider.ActiveDoc();
+            ModelDoc2 assemblyOfDishedEndsDoc = SolidWorksDocumentProvider.GetActiveDoc();
             if (assemblyOfDishedEndsDoc == null)
                 throw new InvalidOperationException("Active SolidWorks document not found.");
 
@@ -69,21 +69,17 @@ namespace SolidWorksTankDesign
 
             // 2. Create Position Plane
             Feature positionPlane = FeatureManager.CreateReferencePlaneWithDistance(
-                modelDocument: assemblyOfDishedEndsDoc,
                 existingPlane: referenceDishedEnd.GetPositionPlane(),
                 distance: distance,
                 name: positionPlaneName);
 
             // 3. Add and Make Independent Dished End Component
-            Component2 dishedEnd = ComponentManager.AddComponentPart(
-                solidWorksApplication: SolidWorksDocumentProvider._solidWorksApplication,
-                assemblyDocument: assemblyOfDishedEndsDoc,
-                componentPath: DISHED_END_ECOMPONENT_PATH);
+            Component2 dishedEnd = ComponentManager.AddComponentPart(DISHED_END_ECOMPONENT_PATH);
 
-            ComponentManager.MakeComponentPartIndependent(assemblyOfDishedEndsDoc, dishedEnd, DISHED_END_ECOMPONENT_PATH);
+            ComponentManager.MakeDishedEndIndependent(dishedEnd, DISHED_END_ECOMPONENT_PATH);
 
             // 4. Rename the Component
-            FeatureManager.GetFeatureByName(assemblyOfDishedEndsDoc, dishedEnd.Name2).Name = componentName;
+            FeatureManager.GetFeatureByName(SolidWorksDocumentProvider.GetActiveDoc(), dishedEnd.Name2).Name = componentName;
 
             // 5. Get Features for Mating
             Feature innerDishedEndCenterAxis = FeatureManager.GetFeatureByName(dishedEnd, "Center axis");
@@ -118,9 +114,6 @@ namespace SolidWorksTankDesign
                 // Display a user-friendly error message
                 MessageBox.Show($"Error getting inner dished end entities: {ex.Message}");
             }
-
-            //_dishedEnd = new DishedEnd();
-            //_dishedEnd._dishedEndSettings = _dishedEndSettings;
 
             try
             {
@@ -213,7 +206,7 @@ namespace SolidWorksTankDesign
         /// </summary>
         public void Delete()
         {
-            ModelDoc2 assemblyOfDishedEndsDoc = SolidWorksDocumentProvider.ActiveDoc();
+            ModelDoc2 assemblyOfDishedEndsDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
             SelectionMgr selectionManager = (SelectionMgr)assemblyOfDishedEndsDoc.SelectionManager;
             SelectData selectData = selectionManager.CreateSelectData();

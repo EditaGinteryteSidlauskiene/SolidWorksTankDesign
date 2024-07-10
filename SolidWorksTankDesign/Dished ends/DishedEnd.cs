@@ -13,26 +13,26 @@ namespace SolidWorksTankDesign
             _dishedEndSettings = new DishedEndSettings();
         }
 
-        public Feature GetCenterAxis() => (Feature)SolidWorksDocumentProvider.ActiveDoc().Extension.GetObjectByPersistReference3(
+        public Feature GetCenterAxis() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _dishedEndSettings.PIDCenterAxis,
                         out int error);
 
-        public Feature GetPositionPlane() => (Feature)SolidWorksDocumentProvider.ActiveDoc().Extension.GetObjectByPersistReference3(
+        public Feature GetPositionPlane() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _dishedEndSettings.PIDPositionPlane,
                         out int error);
 
-        public Component2 GetComponent() => (Component2)SolidWorksDocumentProvider.ActiveDoc().Extension.GetObjectByPersistReference3(
+        public Component2 GetComponent() => (Component2)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _dishedEndSettings.PIDComponent,
                         out int error);
 
-        public Feature GetCenterAxisMate() => (Feature)SolidWorksDocumentProvider.ActiveDoc().Extension.GetObjectByPersistReference3(
+        public Feature GetCenterAxisMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _dishedEndSettings.PIDCenterAxisMate,
                         out int error);
 
-        public Feature GetRightPlaneMate() => (Feature)SolidWorksDocumentProvider.ActiveDoc().Extension.GetObjectByPersistReference3(
+        public Feature GetRightPlaneMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _dishedEndSettings.PIDRightPlaneMate,
                         out int error);
-        public Feature GetFrontPlaneMate() => (Feature)SolidWorksDocumentProvider.ActiveDoc().Extension.GetObjectByPersistReference3(
+        public Feature GetFrontPlaneMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _dishedEndSettings.PIDFrontPlaneMate,
                         out int error);
 
@@ -56,7 +56,7 @@ namespace SolidWorksTankDesign
             {
                 // Change the reference plane of this dished end
                 bool success = FeatureManager.ChangeReferenceOfReferencePlane(
-                    SolidWorksDocumentProvider.ActiveDoc(),
+                    SolidWorksDocumentProvider.GetActiveDoc(),
                     newDishedEndPositionPlane,  // New reference plane
                     GetPositionPlane());           // This dished end's current position plane
 

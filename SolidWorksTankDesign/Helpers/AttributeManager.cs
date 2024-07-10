@@ -169,7 +169,7 @@ namespace SolidWorksTankDesign
                 throw new ArgumentException("Attribute name cannot be null or empty.", nameof(attributeName));
 
             // Get the attribute as a feature
-            Feature attributeAsFeature = FeatureManager.GetFeatureByName(attributeOwnerDoc, attributeName);
+            Feature attributeAsFeature = FeatureManager.GetFeatureByName(SolidWorksDocumentProvider.GetActiveDoc(), attributeName);
 
             if (attributeAsFeature == null)
             {

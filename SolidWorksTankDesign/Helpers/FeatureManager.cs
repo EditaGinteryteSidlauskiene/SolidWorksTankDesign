@@ -98,10 +98,10 @@ namespace SolidWorksTankDesign
         /// <param name="name"></param>
         /// <returns></returns>
         /// 
-        public static Feature GetFeatureByName(ModelDoc2 modelDocument, string name)
+        public static Feature GetFeatureByName(ModelDoc2 assemblyModelDoc, string name)
         {
             //Starting from the first feature
-            Feature loopFeature = modelDocument.IFirstFeature();
+            Feature loopFeature = assemblyModelDoc.IFirstFeature();
 
             //Loop features until the requested feature is found
             while (loopFeature != null)
@@ -153,7 +153,6 @@ namespace SolidWorksTankDesign
         /// <param name="Name"></param>
         /// <returns></returns>
         public static Feature CreateReferencePlaneWithDistance(
-            ModelDoc2 modelDocument,
             Feature existingPlane,
             double distance,
             string name)
@@ -162,7 +161,7 @@ namespace SolidWorksTankDesign
             bool status = existingPlane.Select2(false, 0);
 
             //Creates a new reference plane
-            Feature ReferencePlane = (Feature)modelDocument.FeatureManager.InsertRefPlane(8, distance, 0, 0, 0, 0);
+            Feature ReferencePlane = (Feature)SolidWorksDocumentProvider.GetActiveDoc().FeatureManager.InsertRefPlane(8, distance, 0, 0, 0, 0);
 
             //Rename just created reference plane
             RenameFeature(ReferencePlane, name);
@@ -243,7 +242,7 @@ namespace SolidWorksTankDesign
                 referencePlaneFeatureData.Distance = distance;
 
                 //Modify changes
-                return referencePlane.ModifyDefinition(referencePlaneFeatureData, SolidWorksDocumentProvider.ActiveDoc(), null);
+                return referencePlane.ModifyDefinition(referencePlaneFeatureData, SolidWorksDocumentProvider.GetActiveDoc(), null);
             }
             catch (Exception ex)
             {

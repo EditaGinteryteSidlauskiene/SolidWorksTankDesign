@@ -1,5 +1,6 @@
 ﻿using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using System;
 
 namespace SolidWorksTankDesign.Helpers
 {
@@ -12,7 +13,11 @@ namespace SolidWorksTankDesign.Helpers
         /// <param name="ComponentFeature2"></param>
         /// <param name="AlignmentType"></param>
         /// <param name="Name"></param>
-        public static Feature CreateMate(Feature componentFeature1, Feature componentFeature2, MateAlignment alignmentType, string name) =>
+        public static Feature CreateMate(
+            Feature componentFeature1, 
+            Feature componentFeature2, 
+            MateAlignment alignmentType, 
+            string name) =>
            CreateMate((Entity)componentFeature1, (Entity)componentFeature2, alignmentType, name);
 
         /// <summary>
@@ -22,9 +27,13 @@ namespace SolidWorksTankDesign.Helpers
         /// <param name="AssemblyFeature"></param>
         /// <param name="Component"></param>
         /// <param name="ComponentFeature"></param>
-        public static Feature CreateMate(Entity componentFeature1, Entity componentFeature2, MateAlignment alignmentType, string name)
+        public static Feature CreateMate(
+            Entity componentFeature1, 
+            Entity componentFeature2, 
+            MateAlignment alignmentType, 
+            string name)
         {
-            ModelDoc2 currentModelDoc = SolidWorksDocumentProvider.ActiveDoc();
+            ModelDoc2 currentModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
             //Allows to select objects.
             SelectionMgr selectionManager = (SelectionMgr)currentModelDoc.SelectionManager;
@@ -55,6 +64,30 @@ namespace SolidWorksTankDesign.Helpers
             return mate;
         }
 
+        public static Feature CreateMate(
+           Entity ExternalEntity,
+           Entity ComponentEntity,
+           Entity ReferenceEntity,
+           double Angle,
+           bool FlipDimension,
+           string Name)
+        {
+            AssemblyDoc activeAssemblyDoc = (AssemblyDoc)SolidWorksDocumentProvider.GetActiveDoc();
+
+            MateFeatureData mateFeatureData = activeAssemblyDoc.CreateMateData((int)swMateType_e.swMateANGLE);
+            AngleMateFeatureData angleMateFeatureData = (AngleMateFeatureData)mateFeatureData;
+
+            angleMateFeatureData.FlipDimension = FlipDimension;
+            angleMateFeatureData.Angle = Angle;
+            angleMateFeatureData.EntitiesToMate = new Entity[] { ExternalEntity, ComponentEntity };
+            angleMateFeatureData.ReferenceEntity = ReferenceEntity;
+
+            Feature mate = activeAssemblyDoc.CreateMate(angleMateFeatureData);
+            mate.Name = Name;
+
+            return mate;
+        }
+
         /// <summary>
         /// Change alignment of a mate
         /// </summary>
@@ -71,7 +104,7 @@ namespace SolidWorksTankDesign.Helpers
             coincMateData.MateAlignment = (coincMateData.MateAlignment == 0 ? (int)swMateAlign_e.swMateAlignANTI_ALIGNED : (int)swMateAlign_e.swMateAlignALIGNED);
 
             // Updates the definition of a feature with the new values in an associated feature data object
-            return mate.ModifyDefinition(mateData, SolidWorksDocumentProvider.ActiveDoc(), null);
+            return mate.ModifyDefinition(mateData, SolidWorksDocumentProvider.GetActiveDoc(), null);
         }
     }
 }

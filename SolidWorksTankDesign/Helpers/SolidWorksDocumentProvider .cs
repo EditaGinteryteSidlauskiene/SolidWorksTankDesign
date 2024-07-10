@@ -11,7 +11,7 @@ namespace SolidWorksTankDesign
         public static SldWorks _solidWorksApplication;
         public static TankSiteAssembly _tankSiteAssembly;
 
-        public static ModelDoc2 ActiveDoc()
+        public static ModelDoc2 GetActiveDoc()
         {
             return _solidWorksApplication.IActiveDoc2; 
         }

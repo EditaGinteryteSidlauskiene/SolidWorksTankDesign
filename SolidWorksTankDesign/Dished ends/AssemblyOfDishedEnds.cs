@@ -65,7 +65,7 @@ namespace SolidWorksTankDesign
             return true;
         }
 
-        public Feature GetCenterAxis() => FeatureManager.GetFeatureByName(SolidWorksDocumentProvider.ActiveDoc(), "Center axis");
+        public Feature GetCenterAxis() => FeatureManager.GetFeatureByName(currentlyActiveDishedEndsDoc, "Center axis");
     
         /// <summary>
         /// Activates document of assembly of dished ends
@@ -100,7 +100,7 @@ namespace SolidWorksTankDesign
                 InnerDishedEnds.Add(
                 new InnerDishedEnd(
                 GetCenterAxis(),
-                FeatureManager.GetMajorPlane(SolidWorksDocumentProvider.ActiveDoc(), MajorPlane.Front),
+                FeatureManager.GetMajorPlane(SolidWorksDocumentProvider.GetActiveDoc(), MajorPlane.Front),
                 referenceDishedEnd,
                 dishedEndAlignment,
                 distance,
@@ -128,6 +128,8 @@ namespace SolidWorksTankDesign
         /// <param name="defaultDistance">The default distance between dished ends.</param>
         public void SetNumberOfInnerDishedEnds(int requiredNumberOfDishedEnds, DishedEndAlignment defaultDishedEndAlignment, double defaultDistance)
         {
+            ActivateDocument();
+
             // --- 1. Handle Cases Where Fewer Dished Ends Are Needed ---
 
             if (requiredNumberOfDishedEnds < InnerDishedEnds.Count)
@@ -175,7 +177,7 @@ namespace SolidWorksTankDesign
             TankSiteAssemblyDataManager.SerializeAndStoreTankSiteAssemblyData();
 
             // Save and the document of assembly of dished ends
-            SolidWorksDocumentProvider.ActiveDoc().Save3(
+            currentlyActiveDishedEndsDoc.Save3(
                 (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
                 (int)swFileSaveError_e.swGenericSaveError,
                 (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
