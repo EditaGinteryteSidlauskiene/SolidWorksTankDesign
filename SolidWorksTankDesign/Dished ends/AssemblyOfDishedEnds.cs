@@ -1,15 +1,17 @@
 ﻿using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using WarningAndErrorService;
 
 namespace SolidWorksTankDesign
 {
     //This is the highest class of dished ends. It contains all dished ends in the project
     internal class AssemblyOfDishedEnds
     {
+        private ModelDoc2 currentlyActiveDishedEndsDoc;
+
         [JsonProperty("LeftDishedEnd")]
         public DishedEnd LeftDishedEnd { get; private set; }
 
@@ -19,10 +21,7 @@ namespace SolidWorksTankDesign
         [JsonProperty("InnerDishedEnd")]
         public List<InnerDishedEnd> InnerDishedEnds = new List<InnerDishedEnd>();
 
-        public Feature CenterAxis() => FeatureManager.GetFeatureByName(SolidWorksDocumentProvider.ActiveDoc(), "Center axis");
-
         public AssemblyOfDishedEnds() { }
-    
 
         /// <summary>
         /// Initializes a TankSiteAssembly object, representing a SolidWorks tank site assembly model.It ensures 
@@ -42,36 +41,6 @@ namespace SolidWorksTankDesign
 
             LeftDishedEnd = new DishedEnd();
             RightDishedEnd = new DishedEnd();
-        }
-
-        /// <summary>
-        /// Creates a new InnerDishedEnd object, and adds it to the list
-        /// After this method, call TankSiteAssembly.SerializeAndStoreTankAssemblyData()!!!
-        /// </summary>
-        /// <param name="referenceDishedEnd"></param>
-        /// <param name="dishedEndAlignment"></param>
-        /// <param name="distance"></param>
-        /// <param name="compartmentNumber"></param>
-        public void AddInnerDishedEnd(DishedEnd referenceDishedEnd, DishedEndAlignment dishedEndAlignment, double distance, int compartmentNumber)
-        {
-            try
-            {
-                InnerDishedEnds.Add(
-                new InnerDishedEnd(
-                CenterAxis(),
-                FeatureManager.GetMajorPlane(SolidWorksDocumentProvider.ActiveDoc(), MajorPlane.Front),
-                referenceDishedEnd,
-                dishedEndAlignment,
-                distance,
-                compartmentNumber)
-                );
-
-                TankSiteAssemblyDataManager.SerializeAndStoreTankSiteAssemblyData();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-            }
         }
 
         /// <summary>
@@ -96,6 +65,59 @@ namespace SolidWorksTankDesign
             return true;
         }
 
+        public Feature GetCenterAxis() => FeatureManager.GetFeatureByName(SolidWorksDocumentProvider.ActiveDoc(), "Center axis");
+    
+        /// <summary>
+        /// Activates document of assembly of dished ends
+        /// </summary>
+        public void ActivateDocument()
+        {
+            ModelDoc2 AssemblyOfDishedEndsModelDoc = SolidWorksDocumentProvider._tankSiteAssembly.GetDishedEndsAssemblyComponent().GetModelDoc2();
+            currentlyActiveDishedEndsDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(AssemblyOfDishedEndsModelDoc.GetTitle()+ ".sldasm", true, 0, 0);
+        }
+
+        // Closes active document of assembly of dished ends
+        public void CloseDocument()
+        {
+            if (currentlyActiveDishedEndsDoc == null) return;
+
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(currentlyActiveDishedEndsDoc.GetTitle());
+            currentlyActiveDishedEndsDoc = null;
+        }
+
+        /// <summary>
+        /// Creates a new InnerDishedEnd object, and adds it to the list
+        /// After this method, call TankSiteAssembly.SerializeAndStoreTankAssemblyData()!!!
+        /// </summary>
+        /// <param name="referenceDishedEnd"></param>
+        /// <param name="dishedEndAlignment"></param>
+        /// <param name="distance"></param>
+        /// <param name="compartmentNumber"></param>
+        public void AddInnerDishedEnd(DishedEnd referenceDishedEnd, DishedEndAlignment dishedEndAlignment, double distance, int compartmentNumber)
+        {
+            try
+            {
+                InnerDishedEnds.Add(
+                new InnerDishedEnd(
+                GetCenterAxis(),
+                FeatureManager.GetMajorPlane(SolidWorksDocumentProvider.ActiveDoc(), MajorPlane.Front),
+                referenceDishedEnd,
+                dishedEndAlignment,
+                distance,
+                compartmentNumber)
+                );
+
+                InnerDishedEnds[0].GetPositionPlane().Select2(false, 1);
+
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+
         /// <summary>
         /// Sets the number of inner dished ends in the assembly, adding or removing them 
         /// as needed to match the required count. Adjusts the position of the rightmost 
@@ -112,7 +134,7 @@ namespace SolidWorksTankDesign
             {
                 // Reposition the rightmost dished end to maintain continuity.
                 // If there are no inner dished ends left, use the left dished end as the reference.
-                RightDishedEnd.RepositionByReference(requiredNumberOfDishedEnds == 0 ? LeftDishedEnd : InnerDishedEnds[requiredNumberOfDishedEnds - 1]._dishedEnd);
+                RightDishedEnd.RepositionByReference(requiredNumberOfDishedEnds == 0 ? LeftDishedEnd : InnerDishedEnds[requiredNumberOfDishedEnds - 1]);
 
                 // Remove excess dished ends until the count matches the required number.
                 while (requiredNumberOfDishedEnds != InnerDishedEnds.Count)
@@ -133,7 +155,7 @@ namespace SolidWorksTankDesign
                         // Add a new inner dished end, using the previous one as a reference.
                         // If this is the first inner dished end, use the left dished end as the reference.
                         AddInnerDishedEnd(
-                            (InnerDishedEnds.Count == 0 ? LeftDishedEnd : InnerDishedEnds[InnerDishedEnds.Count - 1]._dishedEnd),
+                            (InnerDishedEnds.Count == 0 ? LeftDishedEnd : InnerDishedEnds[InnerDishedEnds.Count - 1]),
                             defaultDishedEndAlignment,
                             defaultDistance,
                             InnerDishedEnds.Count + 1);  // Use the next compartment number
@@ -146,9 +168,24 @@ namespace SolidWorksTankDesign
                 }
 
                 // Reposition the rightmost dished end based on the final state of the inner dished ends.
-                RightDishedEnd.RepositionByReference(InnerDishedEnds.Count == 0 ? LeftDishedEnd : InnerDishedEnds[InnerDishedEnds.Count - 1]._dishedEnd);
+                RightDishedEnd.RepositionByReference(InnerDishedEnds.Count == 0 ? LeftDishedEnd : InnerDishedEnds[InnerDishedEnds.Count - 1]);
             }
 
+            // Update SW attribute parameter
+            TankSiteAssemblyDataManager.SerializeAndStoreTankSiteAssemblyData();
+
+            // Save and the document of assembly of dished ends
+            SolidWorksDocumentProvider.ActiveDoc().Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+            CloseDocument();
+
+            // Save the document of tank site assembly
+            SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc.Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
         }
     }
 }

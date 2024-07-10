@@ -34,6 +34,9 @@ namespace SolidWorksTankDesign
 
         private void button1_Click(object sender, System.EventArgs e)
         {
+            //SolidWorksDocumentProvider._tankSiteAssembly = new TankSiteAssembly();
+            //SolidWorksDocumentProvider._tankSiteAssembly.InitializeAndStoreTankSiteConfiguration();
+
             SolidWorksDocumentProvider._tankSiteAssembly = LoadTankSiteAssemblySettingsFromAttribute();
 
             /// <summary>
@@ -93,14 +96,10 @@ namespace SolidWorksTankDesign
             }
 
 
-            ModelDoc2 doc = SolidWorksDocumentProvider._tankSiteAssembly.dishedEndsAssemblyComponent().GetModelDoc2();
-            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(doc.GetTitle(), true, 0, 0);
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.ActivateDocument();
 
             SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(1, DishedEndAlignment.Right, 1);
 
-            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(3, DishedEndAlignment.Right, 1);
-
-            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(0, DishedEndAlignment.Right, 1);
         }
     }
 }

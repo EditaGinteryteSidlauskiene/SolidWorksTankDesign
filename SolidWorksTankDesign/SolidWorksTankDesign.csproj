@@ -94,24 +94,27 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Cylindrical shells\AssemblyOfCylindricalShells.cs" />
+    <Compile Include="Cylindrical shells\CylindricalShell.cs" />
+    <Compile Include="Cylindrical shells\CylindricalShellSettings.cs" />
     <Compile Include="Enums\MajorPlane.cs" />
     <Compile Include="Enums\MateAlignment.cs" />
     <Compile Include="Helpers\MateManager.cs" />
     <Compile Include="Helpers\MathUtility.cs" />
     <Compile Include="Helpers\SolidWorksDocumentProvider .cs" />
-    <Compile Include="DishedEnd.cs" />
-    <Compile Include="DishedEndSettings.cs" />
-    <Compile Include="AssemblyOfDishedEnds.cs" />
+    <Compile Include="Dished ends\DishedEnd.cs" />
+    <Compile Include="Dished ends\DishedEndSettings.cs" />
+    <Compile Include="Dished ends\AssemblyOfDishedEnds.cs" />
     <Compile Include="Enums\DishedEndAlignment.cs" />
     <Compile Include="Helpers\AttributeManager.cs" />
     <Compile Include="Enums\FeatureType.cs" />
     <Compile Include="Helpers\FeatureManager.cs" />
-    <Compile Include="InnerDishedEnd.cs" />
+    <Compile Include="Dished ends\InnerDishedEnd.cs" />
     <Compile Include="Interfaces\IHasFeature.cs" />
     <Compile Include="Helpers\PrivatePropertyContractResolver.cs" />
     <Compile Include="SolidWorksDocumentWrapper.cs" />
-    <Compile Include="TankSiteAssembly.cs" />
-    <Compile Include="TankSiteAssemblySettings.cs" />
+    <Compile Include="Tank Site Assembly\TankSiteAssembly.cs" />
+    <Compile Include="Tank Site Assembly\TankSiteAssemblySettings.cs" />
     <Compile Include="TaskpaneHostUI.cs">
       <SubType>UserControl</SubType>
     </Compile>

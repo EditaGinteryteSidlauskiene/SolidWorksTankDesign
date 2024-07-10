@@ -2,7 +2,6 @@
 using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
 using System;
-using System.Collections.Generic;
 using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
@@ -187,7 +186,7 @@ namespace SolidWorksTankDesign
         /// 5. Populates the `_dishedEndSettings` of the dished ends with the retrieved PIDs.
         /// 6. Returns the `AssemblyOfDishedEnds` object with initialized settings, or null if errors occur.
         /// </remarks>
-        public AssemblyOfDishedEnds AddDishedEndsPIDs(SldWorks solidWorksApplication, ModelDoc2 tankSiteModelDoc)
+        public AssemblyOfDishedEnds AddDishedEndsPIDs(ModelDoc2 tankSiteModelDoc)
         {
             // Retrieve the dished ends assembly component
             Component2 dishedEndsComponent = (Component2)tankSiteModelDoc.Extension.GetObjectByPersistReference3(PIDDishedEndsAssembly, out _);
@@ -199,23 +198,21 @@ namespace SolidWorksTankDesign
             
             ModelDoc2 dishedEndsModelDoc = dishedEndsComponent.GetModelDoc2();
 
-            using(var document = new SolidWorksDocumentWrapper(solidWorksApplication, dishedEndsModelDoc))
+            using(var document = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, dishedEndsModelDoc))
             {
                 SelectionMgr selectionMgr = (SelectionMgr)dishedEndsModelDoc.SelectionManager;
-
-                List<Component2>innerDishedEndComponentList = new List<Component2>();
 
                 // Create an AssemblyOfDishedEnds object to represent the assembly and store its settings.
                 AssemblyOfDishedEnds assemblyOfDishedEnds = new AssemblyOfDishedEnds(dishedEndsModelDoc);
 
-                GetLeftDishedEndEntities();
+                GetLeftDishedEndEntitiesPIDs();
 
-                GetRightDishedEndEntities();
+                GetRightDishedEndEntitiesPIDs();
 
                 // Return the AssemblyOfDishedEnds object with populated PIDs for the left dished end.
                 return assemblyOfDishedEnds;
 
-                void GetLeftDishedEndEntities()
+                void GetLeftDishedEndEntitiesPIDs()
                 {
                     // Get features and components
                     dishedEndsModelDoc.Extension.SelectByID2(
@@ -284,7 +281,7 @@ namespace SolidWorksTankDesign
                     }
                 }
 
-                void GetRightDishedEndEntities()
+                void GetRightDishedEndEntitiesPIDs()
                 {
                     // Get features and components
                     dishedEndsModelDoc.Extension.SelectByID2(
@@ -351,6 +348,140 @@ namespace SolidWorksTankDesign
                         MessageBox.Show(ex.Message, "The attribute could not be created.");
                         return;
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds persistent reference IDs (PIDs) to the settings of cylindrical shell component within an assembly of cylindrical shells.
+        /// </summary>
+        /// <param name="tankSiteModelDoc">The main SolidWorks model document containing the tank site assembly.</param>
+        /// <returns>An `AssemblyCylindricalShells` object with the first cylindrical shell's PIDs populated, or null if an error occurs.</returns>
+        /// <remarks>
+        /// **Important Assumptions:**
+        /// - The first cylindrical shell component is named "Cylindrical shell-1".
+        /// - Left end plane name "Left End Plane"
+        /// - Right end plane name "Right End Plane"
+        /// - The center axis is named "Center axis".
+        /// - The center axis mate is named "Cylindrical shell 1 - Center axis".
+        /// - The left end mate is named "Cylindrical shell 1 - Left plane".
+        /// - The front plane mate is named "Cylindrical shell 1 - Front plane".
+        /// 
+        /// **Workflow:**
+        /// 1. Retrieves the cylindrical shells assembly component using its PID (`PIDCylindricalShellsAssembly`).
+        /// 2. Locates the cylindrical shell component within the assembly.
+        /// 3. Creates an `AssemblyOfCylindricalShells` object.
+        /// 4. Retrieves PIDs for relevant features/mates of the first cylindrical shell.
+        /// 5. Populates the `_cylindricalShellSettings` of the first cylindrical shell with the retrieved PIDs.
+        /// 6. Returns the `AssemblyOfCylindricalShells` object with initialized settings, or null if errors occur.
+        /// </remarks>
+        public AssemblyOfCylindricalShells AddCylindricalShellsPIDs(ModelDoc2 tankSiteModelDoc)
+        {
+            // Retrieve the cylindrical shells assembly component
+            Component2 cylindricalShellsComponent = (Component2)tankSiteModelDoc.Extension.GetObjectByPersistReference3(PIDCylindricalShellsAssembly, out _);
+            if (cylindricalShellsComponent == null)
+            {
+                MessageBox.Show("Assembly of cylindrical shells was not found.");
+                return null;
+            }
+
+            ModelDoc2 cylindricalShellsModelDoc = cylindricalShellsComponent.GetModelDoc2();
+
+            using (var document = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, cylindricalShellsModelDoc))
+            {
+                SelectionMgr selectionMgr = (SelectionMgr)cylindricalShellsModelDoc.SelectionManager;
+
+                // Create an AssemblyOfCylindricalShells object to represent the assembly and store its settings.
+                AssemblyOfCylindricalShells assemblyOfCylindricalShells = new AssemblyOfCylindricalShells();
+
+                // Create the object of the first cylindrical shell and add it to the cylindrical shells list
+                CylindricalShell cylindricalShell = new CylindricalShell();
+                assemblyOfCylindricalShells.CylindricalShells.Add(cylindricalShell);
+
+                GetCylindricalShellEntitiesPIDs();
+
+                return assemblyOfCylindricalShells;
+
+                void GetCylindricalShellEntitiesPIDs()
+                {
+                    // Get features and components
+                    cylindricalShellsModelDoc.Extension.SelectByID2(
+                       "Left End Plane@Cylindrical shell-1@Assembly of Cylindrical Shells",
+                       "PLANE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature leftEndPlane = selectionMgr.GetSelectedObject6(1, -1);
+
+                    // Get features and components
+                    cylindricalShellsModelDoc.Extension.SelectByID2(
+                       "Right End Plane@Cylindrical shell-1@Assembly of Cylindrical Shells",
+                       "PLANE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature rightEndPlane = selectionMgr.GetSelectedObject6(1, -1);
+                    
+                    // Get features and components
+                    cylindricalShellsModelDoc.Extension.SelectByID2(
+                       "Cylindrical shell-1@Assembly of Cylindrical Shells",
+                       "COMPONENT",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Component2 cylindricalShellComponent = selectionMgr.GetSelectedObject6(1, -1);
+
+                     cylindricalShellsModelDoc.Extension.SelectByID2(
+                       "Center Axis@Cylindrical shell-1@Assembly of Cylindrical Shells",
+                       "AXIS",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature centerAxis = selectionMgr.GetSelectedObject6(1, -1);
+
+                    cylindricalShellsModelDoc.Extension.SelectByID2(
+                        "Cylindrical shell 1 - Left plane",
+                       "MATE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature leftEndMate = selectionMgr.GetSelectedObject6(1, -1);
+
+                    cylindricalShellsModelDoc.Extension.SelectByID2(
+                         "Cylindrical shell 1 - Front plane",
+                        "MATE",
+                        0, 0, 0,
+                        false,
+                        0, null, 0);
+                    Feature frontPlaneMate = selectionMgr.GetSelectedObject6(1, -1);
+
+                    cylindricalShellsModelDoc.Extension.SelectByID2(
+                        "Cylindrical shell 1 - Center axis",
+                        "MATE",
+                        0, 0, 0,
+                        false,
+                        0, null, 0);
+                    Feature centerAxisMate = selectionMgr.GetSelectedObject6(1, -1);
+
+                    try
+                    {
+                        // Populate the _dishedEndSettings with the retrieved PIDs
+                        assemblyOfCylindricalShells.CylindricalShells[0]._cylindricalShellSettings.PIDLeftEndPlane = cylindricalShellsModelDoc.Extension.GetPersistReference3(leftEndPlane);
+                        assemblyOfCylindricalShells.CylindricalShells[0]._cylindricalShellSettings.PIDRightEndPlane = cylindricalShellsModelDoc.Extension.GetPersistReference3(rightEndPlane);
+                        assemblyOfCylindricalShells.CylindricalShells[0]._cylindricalShellSettings.PIDComponent = cylindricalShellsModelDoc.Extension.GetPersistReference3(cylindricalShellComponent);
+                        assemblyOfCylindricalShells.CylindricalShells[0]._cylindricalShellSettings.PIDCenterAxis = cylindricalShellsModelDoc.Extension.GetPersistReference3(centerAxis);
+                        assemblyOfCylindricalShells.CylindricalShells[0]._cylindricalShellSettings.PIDLeftEndMate = cylindricalShellsModelDoc.Extension.GetPersistReference3(leftEndMate);
+                        assemblyOfCylindricalShells.CylindricalShells[0]._cylindricalShellSettings.PIDFrontPlaneMate = cylindricalShellsModelDoc.Extension.GetPersistReference3(frontPlaneMate);
+                        assemblyOfCylindricalShells.CylindricalShells[0]._cylindricalShellSettings.PIDCenterAxisMate = cylindricalShellsModelDoc.Extension.GetPersistReference3(centerAxisMate);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "The attribute could not be created.");
+                        return;
+                    }
+
+                    // Return the AssemblyOfDishedEnds object with populated PIDs for the left dished end.
+                    
                 }
             }
         }

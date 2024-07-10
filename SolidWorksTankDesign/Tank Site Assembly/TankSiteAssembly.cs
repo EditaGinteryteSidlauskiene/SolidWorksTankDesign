@@ -23,9 +23,10 @@ namespace SolidWorksTankDesign
 
         public TankSiteAssemblySettings _tankSiteAssemblySettings;
         public AssemblyOfDishedEnds _assemblyOfDishedEnds;
+        public AssemblyOfCylindricalShells _assemblyOfCylindricalShells;
 
         /// <summary>
-        /// This constructor is used when Json string is deserialized into an object
+        /// DO NOT DELETE IT!!! This constructor is needed for Json deserializer.
         /// </summary>
         public TankSiteAssembly()
         {
@@ -72,11 +73,13 @@ namespace SolidWorksTankDesign
             // to hold settings for the TankSiteAssembly object.
             _tankSiteAssemblySettings = new TankSiteAssemblySettings();
             _assemblyOfDishedEnds = new AssemblyOfDishedEnds();
+            _assemblyOfCylindricalShells = new AssemblyOfCylindricalShells();
 
             try
             {
                 _tankSiteAssemblySettings.AddTankSiteAssemblyPersistentReferenceIds(_tankSiteModelDoc);
-                _assemblyOfDishedEnds = _tankSiteAssemblySettings.AddDishedEndsPIDs(SolidWorksDocumentProvider._solidWorksApplication, _tankSiteModelDoc);
+                _assemblyOfDishedEnds = _tankSiteAssemblySettings.AddDishedEndsPIDs(_tankSiteModelDoc);
+                _assemblyOfCylindricalShells = _tankSiteAssemblySettings.AddCylindricalShellsPIDs(_tankSiteModelDoc);
 
                 // Serialize Settings and Create Attribute
                 var options = new JsonSerializerSettings { ContractResolver = new PrivatePropertyContractResolver() };
@@ -98,28 +101,28 @@ namespace SolidWorksTankDesign
         }
 
         // Properties for Main Entities
-        public Feature centerAxis() => 
+        public Feature GetCenterAxis() => 
             (Feature)_tankSiteDocExtension.GetObjectByPersistReference3(_tankSiteAssemblySettings.PIDCenterAxis, out _);
 
-        public Component2 workshopAssemblyComponent() => 
+        public Component2 GetWorkshopAssemblyComponent() => 
             (Component2)_tankSiteDocExtension.GetObjectByPersistReference3(_tankSiteAssemblySettings.PIDTankWorkshopAssembly, out _);
 
-        public Feature axisMate() => 
+        public Feature GetAxisMate() => 
             (Feature)_tankSiteDocExtension.GetObjectByPersistReference3(_tankSiteAssemblySettings.PIDAxisMate, out _);
 
-        public Component2 tankAssemblyComponent() => 
+        public Component2 GetTankAssemblyComponent() => 
             (Component2)_tankSiteDocExtension.GetObjectByPersistReference3(_tankSiteAssemblySettings.PIDTankAssembly, out _);
 
-        public Component2 shellAssemblyComponent() => 
+        public Component2 GetShellAssemblyComponent() => 
             (Component2)_tankSiteDocExtension.GetObjectByPersistReference3(_tankSiteAssemblySettings.PIDShellAssembly, out _);
 
-        public Component2 dishedEndsAssemblyComponent() => 
+        public Component2 GetDishedEndsAssemblyComponent() => 
             (Component2)_tankSiteDocExtension.GetObjectByPersistReference3(_tankSiteAssemblySettings.PIDDishedEndsAssembly, out _);
 
-        public Component2 cylindricalShellsAssemblyComponent() => 
+        public Component2 GetCylindricalShellsAssemblyComponent() => 
             (Component2)_tankSiteDocExtension.GetObjectByPersistReference3(_tankSiteAssemblySettings.PIDCylindricalShellsAssembly, out _);
 
-        public Component2 compartmentsAssemblyComponent() => 
+        public Component2 GetCompartmentsAssemblyComponent() => 
             (Component2)_tankSiteDocExtension.GetObjectByPersistReference3(_tankSiteAssemblySettings.PIDCompartmentsAssembly, out _);
 
     }
