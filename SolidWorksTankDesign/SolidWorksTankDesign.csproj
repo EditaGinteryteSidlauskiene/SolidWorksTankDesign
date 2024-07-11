@@ -99,6 +99,7 @@
     <Compile Include="Cylindrical shells\CylindricalShellSettings.cs" />
     <Compile Include="Enums\MajorPlane.cs" />
     <Compile Include="Enums\MateAlignment.cs" />
+    <Compile Include="Helpers\DocumentManager.cs" />
     <Compile Include="Helpers\MateManager.cs" />
     <Compile Include="Helpers\MathUtility.cs" />
     <Compile Include="Helpers\SolidWorksDocumentProvider .cs" />

@@ -4,8 +4,6 @@ using SolidWorks.Interop.swconst;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
@@ -26,9 +24,10 @@ namespace SolidWorksTankDesign
         /// </summary>
         private bool RemoveCylindricalShell()
         {
+            // Get the count of cylindrical shells once for efficiency
             int cylindricalShellsCount = CylindricalShells.Count;
-            // Check if there are any dished ends to remove
 
+            // Check if there are enough cylindrical shells to remove
             if (cylindricalShellsCount == 0)
             {
                 MessageBox.Show("There are no cylindrical shells in the assembly.");
@@ -40,21 +39,37 @@ namespace SolidWorksTankDesign
                 return false;
             }
 
-            // Delete the last dished end (assuming it controls the SolidWorks object)
-            CylindricalShells[cylindricalShellsCount - 1].Delete();
+            try
+            {
+                // Attempt to delete the SolidWorks object associated with the shell
+                CylindricalShells[cylindricalShellsCount - 1].Delete();
+            }
+            catch (Exception ex)
+            {
+                // Handle potential exceptions during deletion
+                MessageBox.Show($"Error deleting cylindrical shell: {ex.Message}");
+                return false;
+            }
 
-            // Remove the last dished end reference from the tracking list
+            // Remove the shell from the internal tracking list
             CylindricalShells.RemoveAt(cylindricalShellsCount - 1);
 
             return true;
         }
 
+        /// <summary>
+        /// Adds a new cylindrical shell to a SolidWorks assembly.
+        /// </summary>
+        /// <param name="length"></param>
+        /// <param name="diameter"></param>
         private void AddCylindricalShell(double length, double diameter)
         {
+            // Ensure the correct SolidWorks document is active
             ActivateDocument();
             
             try
             {
+                // Create and add the new cylindrical shell
                 CylindricalShells.Add(
                     new CylindricalShell(
                         CylindricalShells.Last(),
@@ -73,6 +88,7 @@ namespace SolidWorksTankDesign
         
         public void SetNumberOfCylindricalShells(int requiredNumberOfCylindricalShells, double defaultLength, double diameter)
         {
+            // Ensure the correct SolidWorks document is active for modification
             ActivateDocument();
 
             // --- 1. Handle Cases Where Fewer Cylindrical Shells Are Needed ---
@@ -82,11 +98,21 @@ namespace SolidWorksTankDesign
                 // Remove excess cylindrical shells until the count matches the required number.
                 while (requiredNumberOfCylindricalShells != CylindricalShells.Count)
                 {
-                    if (!RemoveCylindricalShell()) return;
+                    try
+                    {
+                        if (!RemoveCylindricalShell()) return;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message);
+                        return;
+                    }
                 }
             }
 
-            else
+            // --- 2. Handle cases where more cylindrical shells are needed ---
+
+            else if(requiredNumberOfCylindricalShells > CylindricalShells.Count)
             {
                 // Add new cylindrical shells until the count matches the required number.
                 while (requiredNumberOfCylindricalShells != CylindricalShells.Count)
@@ -104,21 +130,9 @@ namespace SolidWorksTankDesign
                 }
             }
 
-            // Update SW attribute parameter
-            TankSiteAssemblyDataManager.SerializeAndStoreTankSiteAssemblyData();
-
-            // Save and the document of assembly of dished ends
-            currentlyActiveCylindricalShellsDoc.Save3(
-                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
-                (int)swFileSaveError_e.swGenericSaveError,
-                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
-            CloseDocument();
-
-            // Save the document of tank site assembly
-            SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc.Save3(
-                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
-                (int)swFileSaveError_e.swGenericSaveError,
-                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+            // Update documents and close assembly of cylindrical shell
+            DocumentManager.UpdateAndSaveDocuments(currentlyActiveCylindricalShellsDoc);
+            currentlyActiveCylindricalShellsDoc = null;
         }
 
         /// <summary>

@@ -76,7 +76,9 @@ namespace SolidWorksTankDesign
             currentlyActiveDishedEndsDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(AssemblyOfDishedEndsModelDoc.GetTitle()+ ".sldasm", true, 0, 0);
         }
 
-        // Closes active document of assembly of dished ends
+        /// <summary>
+        /// Closes active document of assembly of dished ends
+        /// </summary>
         public void CloseDocument()
         {
             if (currentlyActiveDishedEndsDoc == null) return;
@@ -116,7 +118,6 @@ namespace SolidWorksTankDesign
                 MessageBox.Show(ex.Message);
             }
         }
-
 
         /// <summary>
         /// Sets the number of inner dished ends in the assembly, adding or removing them 
@@ -173,21 +174,9 @@ namespace SolidWorksTankDesign
                 RightDishedEnd.RepositionByReference(InnerDishedEnds.Count == 0 ? LeftDishedEnd : InnerDishedEnds[InnerDishedEnds.Count - 1]);
             }
 
-            // Update SW attribute parameter
-            TankSiteAssemblyDataManager.SerializeAndStoreTankSiteAssemblyData();
-
-            // Save and the document of assembly of dished ends
-            currentlyActiveDishedEndsDoc.Save3(
-                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
-                (int)swFileSaveError_e.swGenericSaveError,
-                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
-            CloseDocument();
-
-            // Save the document of tank site assembly
-            SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc.Save3(
-                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
-                (int)swFileSaveError_e.swGenericSaveError,
-                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+            // Update documents and close assembly of dished ends
+            DocumentManager.UpdateAndSaveDocuments(currentlyActiveDishedEndsDoc);
+            currentlyActiveDishedEndsDoc = null;
         }
     }
 }

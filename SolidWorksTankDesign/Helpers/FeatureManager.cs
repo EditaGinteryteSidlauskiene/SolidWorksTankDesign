@@ -21,6 +21,14 @@ namespace SolidWorksTankDesign
             {FeatureType.Sketch, "ProfileFeature" },
             {FeatureType.Attribute, "Attribute" }
         };
+
+        /// <summary>
+        /// Finds and returns a specific feature within a sequence of features in a SolidWorks model or assembly.
+        /// </summary>
+        /// <param name="firstFeature"></param>
+        /// <param name="desiredFeatureType"></param>
+        /// <param name="Count"></param>
+        /// <returns></returns>
         private static Feature GetNthFeatureOfType(Feature firstFeature, FeatureType desiredFeatureType, int Count)
         {
             // Error Handling: Ensure the provided count is valid
@@ -56,11 +64,21 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
+        /// Change the state of suppression. Suppression State = 0 to suppress, 1 to unsuppress.
+        /// </summary>
+        /// <param name="feature"></param>
+        /// <param name="suppressionState"></param>
+        private static void ChangeSuppression(Feature feature, int suppressionState)
+        {
+            feature.SetSuppression2(suppressionState, 2, "");
+        }
+
+        /// <summary>
         /// Retrieves the 'nth' feature of a specific type within a ModelDoc2 document.
         /// </summary>
-        /// <param name="ModelDocument">The model document containing the features.</param>
-        /// <param name="DesiredFeatureType">The desired feature type to search for.</param>
-        /// <param name="Count">The ordinal position (1-based) of the desired feature.</param>
+        /// <param name="modelDocument">The model document containing the features.</param>
+        /// <param name="desiredFeatureType">The desired feature type to search for.</param>
+        /// <param name="count">The ordinal position (1-based) of the desired feature.</param>
         /// <returns>The 'nth' Feature object of the specified type, or null if not found or the count is invalid.</returns>
         public static Feature GetNthFeatureOfType(ModelDoc2 modelDocument, FeatureType desiredFeatureType, int count) => 
             GetNthFeatureOfType(modelDocument.IFirstFeature(), desiredFeatureType, count);
@@ -68,17 +86,17 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Retrieves the 'nth' feature of a specific type within a ModelDoc2 document.
         /// </summary>
-        /// <param name="Component">The component document containing the features.</param>
-        /// <param name="DesiredFeatureType">The desired feature type to search for.</param>
-        /// <param name="Count">The ordinal position (1-based) of the desired feature.</param>
+        /// <param name="component">The component document containing the features.</param>
+        /// <param name="desiredFeatureType">The desired feature type to search for.</param>
+        /// <param name="count">The ordinal position (1-based) of the desired feature.</param>
         /// <returns>The 'nth' Feature object of the specified type, or null if not found or the count is invalid.</returns>
         public static Feature GetNthFeatureOfType(Component2 component, FeatureType desiredFeatureType, int count) => GetNthFeatureOfType(component.FirstFeature(), desiredFeatureType, count);
 
         /// <summary>
         /// Returns a major plane of ModelDoc2 document that is requested by providing its type from MajorPlane enum.
         /// </summary>
-        /// <param name="PlaneType"></param>
-        /// <param name="Document"></param>
+        /// <param name="planeType"></param>
+        /// <param name="document"></param>
         /// <returns></returns>
         public static Feature GetMajorPlane(ModelDoc2 document, MajorPlane planeType) =>
             GetNthFeatureOfType(document, FeatureType.RefPlane, (int)planeType);
@@ -86,15 +104,15 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Returns a major plane of Component2 document that is requested by providing its type from MajorPlane enum.
         /// </summary>
-        /// <param name="PlaneType"></param>
-        /// <param name="Component"></param>
+        /// <param name="planeType"></param>
+        /// <param name="component"></param>
         /// <returns></returns>
         public static Feature GetMajorPlane(Component2 component, MajorPlane planeType) => GetNthFeatureOfType(component, FeatureType.RefPlane, (int)planeType);
 
         /// <summary>
         /// Gets feature of the document by name by iterating all features until the requested one is reached.
         /// </summary>
-        /// <param name="modelDocument"></param>
+        /// <param name="assemblyModelDoc"></param>
         /// <param name="name"></param>
         /// <returns></returns>
         /// 
@@ -121,8 +139,8 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Gets feature of the document by name by iterating all features until the requested one is reached.
         /// </summary>
-        /// <param name="Component"></param>
-        /// <param name="Name"></param>
+        /// <param name="component"></param>
+        /// <param name="name"></param>
         /// <returns></returns>
         public static Feature GetFeatureByName(Component2 component, string name)
         {
@@ -147,10 +165,9 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Creates a new reference plane in a SolidWorks model, a specified distance away from an existing plane.
         /// </summary>
-        /// <param name="ModelDocument"></param>
-        /// <param name="ExistingPlane"></param>
-        /// <param name="Distance"></param>
-        /// <param name="Name"></param>
+        /// <param name="existingPlane"></param>
+        /// <param name="distance"></param>
+        /// <param name="name"></param>
         /// <returns></returns>
         public static Feature CreateReferencePlaneWithDistance(
             Feature existingPlane,
@@ -173,7 +190,7 @@ namespace SolidWorksTankDesign
         /// Renames feature
         /// </summary>
         /// <param name="swFeature"></param>
-        /// <param name="Name"></param>
+        /// <param name="name"></param>
         public static void RenameFeature(Feature swFeature, string name) => swFeature.Name = name;
 
         /// <summary>
@@ -190,16 +207,6 @@ namespace SolidWorksTankDesign
         public static void Unsuppress(Feature featureToUnsuppress)
         {
             ChangeSuppression(featureToUnsuppress, 1);
-        }
-
-        /// <summary>
-        /// Change the state of suppression. Suppression State = 0 to suppress, 1 to unsuppress.
-        /// </summary>
-        /// <param name="feature"></param>
-        /// <param name="suppressionState"></param>
-        private static void ChangeSuppression(Feature feature, int suppressionState)
-        {
-            feature.SetSuppression2(suppressionState, 2, "");
         }
 
         /// <summary>
@@ -226,7 +233,6 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Changes the distance of reference plane from the starting plane
         /// </summary>
-        /// <param name="modelDocument"></param>
         /// <param name="referencePlane"></param>
         /// <param name="distance"></param>
         public static bool ChangeDistanceOfReferencePlane(

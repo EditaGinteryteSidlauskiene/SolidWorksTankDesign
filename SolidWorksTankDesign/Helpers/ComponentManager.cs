@@ -41,12 +41,10 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Makes a new component part independent by creating a new file and renames the component in the assembly.
+        /// Makes a new dished end component part independent by creating a new file and renames the component in the assembly.
         /// </summary>
-        /// <param name="AssemblyDocument"></param>
-        /// <param name="ComponentPart"></param>
-        /// <param name="ComponentPartPath"></param>
-        /// <param name="ComponentPartName"></param>
+        /// <param name="componentPart"></param>
+        /// <param name="componentPartPath"></param>
         /// <returns></returns>
         public static bool MakeDishedEndIndependent(Component2 componentPart, string componentPartPath)
         {
@@ -74,13 +72,12 @@ namespace SolidWorksTankDesign
             return true;
         }
 
+
         /// <summary>
-        /// Makes a new component part independent by creating a new file and renames the component in the assembly.
+        /// Makes a new cylindrical shell component part independent by creating a new file and renames the component in the assembly.
         /// </summary>
-        /// <param name="AssemblyDocument"></param>
-        /// <param name="ComponentPart"></param>
-        /// <param name="ComponentPartPath"></param>
-        /// <param name="ComponentPartName"></param>
+        /// <param name="componentPart"></param>
+        /// <param name="componentPartPath"></param>
         /// <returns></returns>
         public static bool MakeCylindricalShellIndependent(Component2 componentPart, string componentPartPath)
         {

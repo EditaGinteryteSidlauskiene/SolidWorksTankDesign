@@ -1,6 +1,7 @@
 ﻿using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using System;
+using System.Windows.Forms;
 
 namespace SolidWorksTankDesign.Helpers
 {
@@ -9,10 +10,10 @@ namespace SolidWorksTankDesign.Helpers
         /// <summary>
         /// Creates mate
         /// </summary>
-        /// <param name="ComponentFeature1"></param>
-        /// <param name="ComponentFeature2"></param>
-        /// <param name="AlignmentType"></param>
-        /// <param name="Name"></param>
+        /// <param name="componentFeature1"></param>
+        /// <param name="componentFeature2"></param>
+        /// <param name="alignmentType"></param>
+        /// <param name="name"></param>
         public static Feature CreateMate(
             Feature componentFeature1, 
             Feature componentFeature2, 
@@ -21,18 +22,27 @@ namespace SolidWorksTankDesign.Helpers
            CreateMate((Entity)componentFeature1, (Entity)componentFeature2, alignmentType, name);
 
         /// <summary>
-        /// Creates mate
+        /// Creates a coincident mate between two component features within the active SolidWorks assembly document.
         /// </summary>
-        /// <param name="ModelDocument"></param>
-        /// <param name="AssemblyFeature"></param>
-        /// <param name="Component"></param>
-        /// <param name="ComponentFeature"></param>
+        /// <param name="componentFeature1"></param>
+        /// <param name="componentFeature2"></param>
+        /// <param name="alignmentType"></param>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="Exception"></exception>
         public static Feature CreateMate(
             Entity componentFeature1, 
             Entity componentFeature2, 
             MateAlignment alignmentType, 
             string name)
         {
+            // Error handling: Null checks
+            if (componentFeature1 == null || componentFeature2 == null)
+            {
+                throw new ArgumentNullException("One or more component features are null.");
+            }
+
             ModelDoc2 currentModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
             //Allows to select objects.
@@ -55,6 +65,12 @@ namespace SolidWorksTankDesign.Helpers
             //Create Mate
             Feature mate = ((AssemblyDoc)currentModelDoc).CreateMate(coincidentMateFeatureData);
 
+            // Error handling: Feature creation
+            if (mate == null)
+            {
+                throw new Exception("Failed to create mate feature.");
+            }
+
             //Assign name for the mate
             mate.Name = name;
 
@@ -64,26 +80,60 @@ namespace SolidWorksTankDesign.Helpers
             return mate;
         }
 
+        /// <summary>
+        /// Creates an angle mate feature within an active SolidWorks assembly document. 
+        /// It establishes a relationship between two entities(externalEntity and componentEntity), 
+        /// constraining their relative angular orientation with respect to a specified reference entity(referenceEntity).
+        /// </summary>
+        /// <param name="externalEntity"></param>
+        /// <param name="componentEntity"></param>
+        /// <param name="referenceEntity"></param>
+        /// <param name="angle"></param>
+        /// <param name="flipDimension"></param>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        /// <exception cref="Exception"></exception>
         public static Feature CreateMate(
-           Entity ExternalEntity,
-           Entity ComponentEntity,
-           Entity ReferenceEntity,
-           double Angle,
-           bool FlipDimension,
-           string Name)
+           Entity externalEntity,
+           Entity componentEntity,
+           Entity referenceEntity,
+           double angle,
+           bool flipDimension,
+           string name)
         {
+            // Error handling: Null checks
+            if (externalEntity == null || componentEntity == null || referenceEntity == null)
+            {
+                throw new ArgumentNullException("One or more entities are null. Please ensure valid entity selections.");
+            }
+
+            // Input validation: Angle
+            if (angle < 0 || angle > 360) // Adjust range as needed
+            {
+                throw new ArgumentOutOfRangeException("Angle must be between 0 and 360 degrees.");
+            }
+
             AssemblyDoc activeAssemblyDoc = (AssemblyDoc)SolidWorksDocumentProvider.GetActiveDoc();
 
             MateFeatureData mateFeatureData = activeAssemblyDoc.CreateMateData((int)swMateType_e.swMateANGLE);
             AngleMateFeatureData angleMateFeatureData = (AngleMateFeatureData)mateFeatureData;
 
-            angleMateFeatureData.FlipDimension = FlipDimension;
-            angleMateFeatureData.Angle = Angle;
-            angleMateFeatureData.EntitiesToMate = new Entity[] { ExternalEntity, ComponentEntity };
-            angleMateFeatureData.ReferenceEntity = ReferenceEntity;
+            angleMateFeatureData.FlipDimension = flipDimension;
+            angleMateFeatureData.Angle = angle;
+            angleMateFeatureData.EntitiesToMate = new Entity[] { externalEntity, componentEntity };
+            angleMateFeatureData.ReferenceEntity = referenceEntity;
 
             Feature mate = activeAssemblyDoc.CreateMate(angleMateFeatureData);
-            mate.Name = Name;
+
+            // Error handling: Feature creation
+            if (mate == null)
+            {
+                throw new Exception("Failed to create mate feature.");
+            }
+
+            mate.Name = name;
 
             return mate;
         }

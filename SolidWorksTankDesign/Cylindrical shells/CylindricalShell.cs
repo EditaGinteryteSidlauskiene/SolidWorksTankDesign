@@ -6,6 +6,7 @@ using System.IO;
 using System.Xml.Linq;
 using AddinWithTaskpane;
 using SolidWorks.Interop.swconst;
+using System.ComponentModel;
 
 namespace SolidWorksTankDesign
 {
@@ -27,6 +28,18 @@ namespace SolidWorksTankDesign
             _cylindricalShellSettings = new CylindricalShellSettings();
         }
 
+        /// <summary>
+        /// This constructor is called when a new cylindrical shell is added.
+        /// Creates and positions a cylindrical shell within a SolidWorks assembly.
+        /// </summary>
+        /// <param name="referenceCylindricalShell"></param>
+        /// <param name="assemblyOfCylindricalShellsCenterAxis"></param>
+        /// <param name="assemblyOfCylindricalShellsFrontPlane"></param>
+        /// <param name="length"></param>
+        /// <param name="diameter"></param>
+        /// <param name="countNumber"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="InvalidOperationException"></exception>
         public CylindricalShell(
             CylindricalShell referenceCylindricalShell,
             Feature assemblyOfCylindricalShellsCenterAxis,
@@ -35,60 +48,83 @@ namespace SolidWorksTankDesign
             double diameter,
             int countNumber)
         {
+            // 1. Input Validation
+            if (assemblyOfCylindricalShellsCenterAxis == null)
+                throw new ArgumentNullException(nameof(assemblyOfCylindricalShellsCenterAxis));
+
+            if (assemblyOfCylindricalShellsFrontPlane == null)
+                throw new ArgumentNullException(nameof(assemblyOfCylindricalShellsFrontPlane));
+
+            if (referenceCylindricalShell == null)
+                throw new ArgumentNullException(nameof(referenceCylindricalShell));
+
             ModelDoc2 assemblyOfCylindricalShellsDoc = SolidWorksDocumentProvider.GetActiveDoc();
-            
+            if (assemblyOfCylindricalShellsDoc == null)
+                throw new InvalidOperationException("Active SolidWorks document not found.");
+
+            // 2. Add and Make Independent Cylindrical Shell Component
             Component2 cylindricalShell = ComponentManager.AddComponentPart(referenceCylindricalShell.GetComponent().GetPathName());
             
             ComponentManager.MakeCylindricalShellIndependent(cylindricalShell, CYLINDRICAL_SHELL_PATH);
 
+            // 3. Rename the Component
             string componentName = $"{CYLINDRICAL_SHELL_COMPONENT_NAME} {countNumber}";
-            Feature cylindricalShellFeature =  FeatureManager.GetFeatureByName(assemblyOfCylindricalShellsDoc, cylindricalShell.Name2);
-            cylindricalShellFeature.Name = componentName;
+            FeatureManager.GetFeatureByName(assemblyOfCylindricalShellsDoc, cylindricalShell.Name2).Name = componentName;
 
+            // 4. Get Features for Mating
             Feature leftEndPlane = FeatureManager.GetFeatureByName(cylindricalShell, "Left End Plane");
             Feature rightEndPlane = FeatureManager.GetFeatureByName(cylindricalShell, "Right End Plane");
             Feature cylindricalShellCenterAxis = FeatureManager.GetFeatureByName(cylindricalShell, "Center Axis");
 
-            Feature leftEndMate = MateManager.CreateMate(
+            
+            // 5. Flip every second cylindrical shell
+            bool flipDimension = false;
+            if (countNumber % 2 == 0) flipDimension = true;
+
+            // 6. Create Mates
+            try
+            {
+                Feature leftEndMate = MateManager.CreateMate(
                 componentFeature1: referenceCylindricalShell.GetRightEndPlane(),
                 componentFeature2: leftEndPlane,
                 alignmentType: MateAlignment.Aligned,
                 name: $"{cylindricalShell.Name2} - {LEFT_END_PLANE_NAME}");
 
-            Feature centerAxisMate = MateManager.CreateMate(
-                componentFeature1: assemblyOfCylindricalShellsCenterAxis,
-                componentFeature2: cylindricalShellCenterAxis,
-                alignmentType: MateAlignment.Anti_Aligned,
-                name: $"{cylindricalShell.Name2} - {CENTER_AXIS_NAME}");
+                Feature centerAxisMate = MateManager.CreateMate(
+                    componentFeature1: assemblyOfCylindricalShellsCenterAxis,
+                    componentFeature2: cylindricalShellCenterAxis,
+                    alignmentType: MateAlignment.Anti_Aligned,
+                    name: $"{cylindricalShell.Name2} - {CENTER_AXIS_NAME}");
 
-            //Flip every second cylindrical shell
-            bool flipDimension = false;
-            if (countNumber % 2 == 0) flipDimension = true;
 
-            //Mates new cylindrical shell's front plane with assembly's front plane with angle.
-            Feature frontPlaneMate = MateManager.CreateMate(
-                ExternalEntity: (Entity)assemblyOfCylindricalShellsFrontPlane,
-                ComponentEntity: (Entity)FeatureManager.GetMajorPlane(cylindricalShell, MajorPlane.Front),
-                ReferenceEntity: (Entity)assemblyOfCylindricalShellsCenterAxis,
-                Angle: 0.78539816339744830961566084581988,
-                FlipDimension: flipDimension,
-                Name: $"{cylindricalShell.Name2} - {FRONT_PLANE_NAME}");
+                //Mates new cylindrical shell's front plane with assembly's front plane with angle.
+                Feature frontPlaneMate = MateManager.CreateMate(
+                    externalEntity: (Entity)assemblyOfCylindricalShellsFrontPlane,
+                    componentEntity: (Entity)FeatureManager.GetMajorPlane(cylindricalShell, MajorPlane.Front),
+                    referenceEntity: (Entity)assemblyOfCylindricalShellsCenterAxis,
+                    angle: 0.78539816339744830961566084581988,
+                    flipDimension: flipDimension,
+                    name: $"{cylindricalShell.Name2} - {FRONT_PLANE_NAME}");
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show(ex.Message );
+            }
 
-            
-            //assemblyOfCylindricalShellsDoc.EditRebuild3();
-
+            // 7. Get Inner Dished End Entities and Initialize Settings
             _cylindricalShellSettings = new CylindricalShellSettings();
             try
             {
                 GetCylindricalShellPIDs();
+
+                // 8. Change diameter
+                ChangeDiameter(diameter);
             }
             catch (Exception ex)
             {
                 // Display a user-friendly error message
                 MessageBox.Show($"Error getting cylindrical shell entities: {ex.Message}");
             }
-
-            ChangeDiameter(diameter);
 
             void GetCylindricalShellPIDs()
             {
@@ -113,15 +149,30 @@ namespace SolidWorksTankDesign
 
         /// <summary>
         /// DOCUMENT MUST BE ALREADY OPEN!!!
+        /// Changes the diameter of a revolved feature (assuming a single relevant sub-feature).
         /// </summary>
         /// <param name="diameter"></param>
         private void ChangeDiameter(double diameter)
         {
-            //Get Revolve feature
-            Feature revolveFeature = FeatureManager.GetFeatureByName(GetComponent(), "Revolve");
+            Component2 component = GetComponent();
+            if (component == null)
+            {
+                throw new InvalidOperationException("Component not found.");
+            }
 
-            Feature childFeature = revolveFeature.GetFirstSubFeature();
-            childFeature.Parameter("Diameter").Value = diameter;
+            Feature revolveFeature = FeatureManager.GetFeatureByName(component, "Revolve");
+            if (revolveFeature == null)
+            {
+                throw new InvalidOperationException("Revolve feature not found.");
+            }
+
+            Feature revolveSubFeature = revolveFeature.GetFirstSubFeature();
+            if (revolveSubFeature == null)
+            {
+                throw new InvalidOperationException("Revolve sub-feature not found.");
+            }
+
+            revolveSubFeature.Parameter("Diameter").Value = diameter;
         }
 
         public Feature GetLeftEndPlane() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
@@ -152,55 +203,90 @@ namespace SolidWorksTankDesign
                         _cylindricalShellSettings.PIDFrontPlaneMate,
                         out int error);
 
+        /// <summary>
+        /// Modifies the length of a cylindrical shell within a larger SolidWorks assembly.
+        /// It achieves this by adjusting the distance of the reference plane associated with the right end of the shell.
+        /// </summary>
+        /// <param name="length"></param>
+        /// <exception cref="InvalidOperationException"></exception>
         public void ChangeLength(double length)
         {
+            // Get the model document
             ModelDoc2 assemblyOfCylindricalShellDoc = SolidWorksDocumentProvider._tankSiteAssembly.GetCylindricalShellsAssemblyComponent().GetModelDoc2();
+            if (assemblyOfCylindricalShellDoc == null)
+            {
+                throw new InvalidOperationException("Cylindrical shell assembly document not found.");
+            }
+
+            // Activate the shell assembly document
             SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(assemblyOfCylindricalShellDoc.GetTitle() + ".sldasm", true, 0, 0);
 
-            FeatureManager.ChangeDistanceOfReferencePlane(GetRightEndPlane(), length);
-
+            // Change plane distance and rebuild the assembly
+            try
+            {
+                FeatureManager.ChangeDistanceOfReferencePlane(GetRightEndPlane(), length);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
             assemblyOfCylindricalShellDoc.EditRebuild3();
 
+            // Save and close the shell assembly document
             assemblyOfCylindricalShellDoc.Save3(
                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
                (int)swFileSaveError_e.swGenericSaveError,
                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(assemblyOfCylindricalShellDoc.GetTitle());
 
+            // Save the tank site assembly document
             SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc.Save3(
                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
                (int)swFileSaveError_e.swGenericSaveError,
                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
         }
 
+        /// <summary>
+        /// Changes angle of front plane mate
+        /// </summary>
+        /// <param name="angleInDegrees"></param>
+        /// <exception cref="InvalidOperationException"></exception>
         public void ChangeAngle(double angleInDegrees)
         {
+            // Get the model document (with null check)
             ModelDoc2 assemblyOfCylindricalShellDoc = SolidWorksDocumentProvider._tankSiteAssembly.GetCylindricalShellsAssemblyComponent().GetModelDoc2();
+            if (assemblyOfCylindricalShellDoc == null)
+            {
+                throw new InvalidOperationException("Assembly of cylindrical shells document not found.");
+            }
+
+            // Activate the shell assembly document
             SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(assemblyOfCylindricalShellDoc.GetTitle() + ".sldasm", true, 0, 0);
 
             MateFeatureData mateFeatureData = GetFrontPlaneMate().GetDefinition();
             AngleMateFeatureData angleMateFeatureData = (AngleMateFeatureData)mateFeatureData;
 
+            // Set the angle
             angleMateFeatureData.Angle = angleInDegrees * (Math.PI / 180);
 
             GetFrontPlaneMate().ModifyDefinition(angleMateFeatureData, assemblyOfCylindricalShellDoc, null);
 
+            // Save and close assembly of cylindrical shells doc
             assemblyOfCylindricalShellDoc.Save3(
                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
                (int)swFileSaveError_e.swGenericSaveError,
                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(assemblyOfCylindricalShellDoc.GetTitle());
 
+            // Save tank site assembly
             SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc.Save3(
                 (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
                 (int)swFileSaveError_e.swGenericSaveError,
                 (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
         }
 
-       
-
         /// <summary>
-        /// Deletes the cylindrical shell component
+        /// Deletes a cylindrical shell component from a SolidWorks assembly, including the associated file.
         /// </summary>
         public void Delete()
         {

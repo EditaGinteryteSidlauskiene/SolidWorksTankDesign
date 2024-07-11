@@ -84,24 +84,32 @@ namespace SolidWorksTankDesign
             // 5. Get Features for Mating
             Feature innerDishedEndCenterAxis = FeatureManager.GetFeatureByName(dishedEnd, "Center axis");
 
-            // 6. Create Mates
-            Feature rightPlaneMate = MateManager.CreateMate(
-                componentFeature1: positionPlane,
-                componentFeature2: FeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Right),
-                alignmentType: MateAlignment.Aligned,
-                name: $"{dishedEnd.Name2} - {RIGHT_PLANE_NAME}");
+            try
+            {
+                // 6. Create Mates
+                Feature rightPlaneMate = MateManager.CreateMate(
+                    componentFeature1: positionPlane,
+                    componentFeature2: FeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Right),
+                    alignmentType: MateAlignment.Aligned,
+                    name: $"{dishedEnd.Name2} - {RIGHT_PLANE_NAME}");
 
-            Feature frontPlaneMate = MateManager.CreateMate(
-                componentFeature1: assemblyOfDishedEndsFrontPlane,
-                componentFeature2: FeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Front),
-                alignmentType: MateAlignment.Aligned,
-                name: $"{dishedEnd.Name2} - {FRONT_PLANE_NAME}");
+                Feature frontPlaneMate = MateManager.CreateMate(
+                    componentFeature1: assemblyOfDishedEndsFrontPlane,
+                    componentFeature2: FeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Front),
+                    alignmentType: MateAlignment.Aligned,
+                    name: $"{dishedEnd.Name2} - {FRONT_PLANE_NAME}");
 
-            Feature centerAxisMate = MateManager.CreateMate(
-                componentFeature1: assemblyOfDishedEndsCenterAxis,
-                componentFeature2: innerDishedEndCenterAxis,
-                alignmentType: MateAlignment.Anti_Aligned,
-                name: $"{dishedEnd.Name2} - {CENTER_AXIS_NAME}");
+                Feature centerAxisMate = MateManager.CreateMate(
+                    componentFeature1: assemblyOfDishedEndsCenterAxis,
+                    componentFeature2: innerDishedEndCenterAxis,
+                    alignmentType: MateAlignment.Anti_Aligned,
+                    name: $"{dishedEnd.Name2} - {CENTER_AXIS_NAME}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+
 
             // 7. Get Inner Dished End Entities and Initialize Settings
             _dishedEndSettings = new DishedEndSettings();
