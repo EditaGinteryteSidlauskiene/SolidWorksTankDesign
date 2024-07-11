@@ -81,16 +81,19 @@ namespace SolidWorksTankDesign
             bool flipDimension = false;
             if (countNumber % 2 == 0) flipDimension = true;
 
+            Feature leftEndMate = null;
+            Feature centerAxisMate = null;
+            Feature frontPlaneMate = null;
             // 6. Create Mates
             try
             {
-                Feature leftEndMate = MateManager.CreateMate(
+                leftEndMate = MateManager.CreateMate(
                 componentFeature1: referenceCylindricalShell.GetRightEndPlane(),
                 componentFeature2: leftEndPlane,
                 alignmentType: MateAlignment.Aligned,
                 name: $"{cylindricalShell.Name2} - {LEFT_END_PLANE_NAME}");
 
-                Feature centerAxisMate = MateManager.CreateMate(
+                centerAxisMate = MateManager.CreateMate(
                     componentFeature1: assemblyOfCylindricalShellsCenterAxis,
                     componentFeature2: cylindricalShellCenterAxis,
                     alignmentType: MateAlignment.Anti_Aligned,
@@ -98,7 +101,7 @@ namespace SolidWorksTankDesign
 
 
                 //Mates new cylindrical shell's front plane with assembly's front plane with angle.
-                Feature frontPlaneMate = MateManager.CreateMate(
+                frontPlaneMate = MateManager.CreateMate(
                     externalEntity: (Entity)assemblyOfCylindricalShellsFrontPlane,
                     componentEntity: (Entity)FeatureManager.GetMajorPlane(cylindricalShell, MajorPlane.Front),
                     referenceEntity: (Entity)assemblyOfCylindricalShellsCenterAxis,

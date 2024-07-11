@@ -148,7 +148,7 @@ namespace SolidWorksTankDesign
 
             // --- 2. Handle Cases Where More Dished Ends Are Needed ---
 
-            else
+            else if (requiredNumberOfDishedEnds > InnerDishedEnds.Count)
             {
                 // Add new dished ends until the count matches the required number.
                 while (requiredNumberOfDishedEnds != InnerDishedEnds.Count)
@@ -163,7 +163,7 @@ namespace SolidWorksTankDesign
                             defaultDistance,
                             InnerDishedEnds.Count + 1);  // Use the next compartment number
                     }
-                    catch (Exception ex) 
+                    catch (Exception ex)
                     {
                         MessageBox.Show(ex.Message);
                         return;
@@ -172,6 +172,12 @@ namespace SolidWorksTankDesign
 
                 // Reposition the rightmost dished end based on the final state of the inner dished ends.
                 RightDishedEnd.RepositionByReference(InnerDishedEnds.Count == 0 ? LeftDishedEnd : InnerDishedEnds[InnerDishedEnds.Count - 1]);
+            }
+
+            else
+            {
+                CloseDocument();
+                return;
             }
 
             // Update documents and close assembly of dished ends

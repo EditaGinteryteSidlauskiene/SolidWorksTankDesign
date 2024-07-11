@@ -84,22 +84,25 @@ namespace SolidWorksTankDesign
             // 5. Get Features for Mating
             Feature innerDishedEndCenterAxis = FeatureManager.GetFeatureByName(dishedEnd, "Center axis");
 
+            Feature rightPlaneMate = null;
+            Feature frontPlaneMate = null;
+            Feature centerAxisMate = null;
             try
             {
                 // 6. Create Mates
-                Feature rightPlaneMate = MateManager.CreateMate(
+                rightPlaneMate = MateManager.CreateMate(
                     componentFeature1: positionPlane,
                     componentFeature2: FeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Right),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{dishedEnd.Name2} - {RIGHT_PLANE_NAME}");
 
-                Feature frontPlaneMate = MateManager.CreateMate(
+                frontPlaneMate = MateManager.CreateMate(
                     componentFeature1: assemblyOfDishedEndsFrontPlane,
                     componentFeature2: FeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Front),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{dishedEnd.Name2} - {FRONT_PLANE_NAME}");
 
-                Feature centerAxisMate = MateManager.CreateMate(
+                centerAxisMate = MateManager.CreateMate(
                     componentFeature1: assemblyOfDishedEndsCenterAxis,
                     componentFeature2: innerDishedEndCenterAxis,
                     alignmentType: MateAlignment.Anti_Aligned,

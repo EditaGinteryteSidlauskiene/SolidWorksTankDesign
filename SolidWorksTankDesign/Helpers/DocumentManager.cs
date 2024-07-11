@@ -16,7 +16,7 @@ namespace SolidWorksTankDesign
             TankSiteAssemblyDataManager.SerializeAndStoreTankSiteAssemblyData();
 
             // If the passed subassembly is currently active, save it and close
-            if (SolidWorksDocumentProvider._solidWorksApplication.ActiveDoc() == subassemblyModelDoc)
+            if (ReferenceEquals(SolidWorksDocumentProvider._solidWorksApplication.ActiveDoc, subassemblyModelDoc))
             {
                 // Save and the document of the passed subassembly
                 subassemblyModelDoc.Save3(

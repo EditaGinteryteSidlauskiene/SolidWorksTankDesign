@@ -1,18 +1,9 @@
 ﻿using AddinWithTaskpane;
-using SolidWorks.Interop.sldworks;
-using SolidWorks.Interop.swconst;
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using Newtonsoft.Json;
+using SolidWorks.Interop.sldworks;
+using System;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using System.Xml.Linq;
-using WarningAndErrorService;
-using Attribute = SolidWorks.Interop.sldworks.Attribute;
-using Newtonsoft.Json.Linq;
-using System.Threading;
-using System.Numerics;
-using System.Linq;
 
 namespace SolidWorksTankDesign
 {
@@ -95,14 +86,15 @@ namespace SolidWorksTankDesign
                 return deserializedObject;
             }
 
-            //SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells[0].ChangeLength(3);
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(
+                (int)numberOfDishedEnds.Value,
+                DishedEndAlignment.Left,
+                2);
 
-            //SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells[1].ChangeAngle(45);
-            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.SetNumberOfCylindricalShells(3, 2, 1500);
-            //SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(1, DishedEndAlignment.Right, 2);
-            //SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc;
-            //FeatureManager.GetFeatureByName();
-
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.SetNumberOfCylindricalShells(
+                (int)numberOfCylindricalShells.Value,
+                2,
+                2500);
         }
     }
 }

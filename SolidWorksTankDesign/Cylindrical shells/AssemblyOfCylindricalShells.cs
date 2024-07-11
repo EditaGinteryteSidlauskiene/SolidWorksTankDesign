@@ -130,6 +130,12 @@ namespace SolidWorksTankDesign
                 }
             }
 
+            else
+            {
+                CloseDocument();
+                return;
+            }
+
             // Update documents and close assembly of cylindrical shell
             DocumentManager.UpdateAndSaveDocuments(currentlyActiveCylindricalShellsDoc);
             currentlyActiveCylindricalShellsDoc = null;
