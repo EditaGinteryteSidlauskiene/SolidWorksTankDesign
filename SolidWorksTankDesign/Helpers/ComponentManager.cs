@@ -41,6 +41,45 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
+        /// Adds Component assembly. First, the parent document has to be activated.
+        /// </summary>
+        /// <param name="SolidWorksApplication"></param>
+        /// <param name="assemblyDocument"></param>
+        /// <param name="componentPath"></param>
+        /// <returns></returns>
+        public static Component2 AddComponentAssembly(ModelDoc2 assemblyDocument, string componentPath)
+        {
+            SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
+
+            // Open the document of the component to be added
+            solidWorksApp.OpenDoc6(componentPath, (int)swDocumentTypes_e.swDocASSEMBLY, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", 1, 1);
+
+            // Add the part to the assembly document
+            Component2 component = ((AssemblyDoc)assemblyDocument).AddComponent5(componentPath, (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig, "", false, "", 0, 0, 0);
+
+            if (component == null)
+            {
+                return null;
+            }
+
+            // Close the document of added component
+            solidWorksApp.CloseDoc(componentPath);
+
+            // Making the added component float
+            // Checking if the component is fixed
+            if (component.IsFixed() == true)
+            {
+                // Selecting the component
+                component.Select2(false, 0);
+
+                // Unfixing component
+                ((AssemblyDoc)assemblyDocument).UnfixComponent();
+            }
+
+            return component;
+        }
+
+        /// <summary>
         /// Makes a new dished end component part independent by creating a new file and renames the component in the assembly.
         /// </summary>
         /// <param name="componentPart"></param>
@@ -79,7 +118,7 @@ namespace SolidWorksTankDesign
         /// <param name="componentPart"></param>
         /// <param name="componentPartPath"></param>
         /// <returns></returns>
-        public static bool MakeCylindricalShellIndependent(Component2 componentPart, string componentPartPath)
+        public static bool MakeComponentIndependent(Component2 componentPart, string componentPartPath)
         {
             ModelDoc2 assemblyDocument = SolidWorksDocumentProvider.GetActiveDoc();
 

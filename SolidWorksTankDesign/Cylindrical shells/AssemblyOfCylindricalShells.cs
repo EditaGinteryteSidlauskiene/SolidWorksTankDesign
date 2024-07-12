@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
-using SolidWorks.Interop.swconst;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,11 +30,13 @@ namespace SolidWorksTankDesign
             if (cylindricalShellsCount == 0)
             {
                 MessageBox.Show("There are no cylindrical shells in the assembly.");
+                CloseDocument();
                 return false;
             }
             if (cylindricalShellsCount == 1)
             {
                 MessageBox.Show("There is only one cylindrical shell in the assembly, and it cannot be removed.");
+                CloseDocument();
                 return false;
             }
 
@@ -64,9 +65,6 @@ namespace SolidWorksTankDesign
         /// <param name="diameter"></param>
         private void AddCylindricalShell(double length, double diameter)
         {
-            // Ensure the correct SolidWorks document is active
-            ActivateDocument();
-            
             try
             {
                 // Create and add the new cylindrical shell
@@ -85,7 +83,13 @@ namespace SolidWorksTankDesign
             }
         }
 
-        
+        /// <summary>
+        /// Sets the number of cylindrical shells in the assembly, adding or removing them 
+        /// as needed to match the required count.
+        /// </summary>
+        /// <param name="requiredNumberOfCylindricalShells"></param>
+        /// <param name="defaultLength"></param>
+        /// <param name="diameter"></param>
         public void SetNumberOfCylindricalShells(int requiredNumberOfCylindricalShells, double defaultLength, double diameter)
         {
             // Ensure the correct SolidWorks document is active for modification
@@ -93,7 +97,13 @@ namespace SolidWorksTankDesign
 
             // --- 1. Handle Cases Where Fewer Cylindrical Shells Are Needed ---
 
-            if (requiredNumberOfCylindricalShells < CylindricalShells.Count)
+            if(requiredNumberOfCylindricalShells == 0)
+            {
+                MessageBox.Show("At least 1 cylindrical shell must be left.");
+                CloseDocument();
+            }
+
+            else if (requiredNumberOfCylindricalShells < CylindricalShells.Count)
             {
                 // Remove excess cylindrical shells until the count matches the required number.
                 while (requiredNumberOfCylindricalShells != CylindricalShells.Count)
@@ -125,6 +135,7 @@ namespace SolidWorksTankDesign
                     catch (Exception ex)
                     {
                         MessageBox.Show(ex.Message);
+                        CloseDocument();
                         return;
                     }
                 }

@@ -19,6 +19,7 @@ namespace AddinWithTaskpane
         {
             this.modelDoc = ModelDoc;
             this.solidWorksApplication = SolidWorksApplication;
+            solidWorksApplication.ActivateDoc3(modelDoc.GetTitle(), true, 0, 0);
         }
 
         /// <summary>

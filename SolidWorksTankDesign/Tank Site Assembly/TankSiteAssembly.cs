@@ -20,8 +20,9 @@ namespace SolidWorksTankDesign
         public ModelDoc2 _tankSiteModelDoc;
         [JsonIgnore]
         private ModelDocExtension _tankSiteDocExtension => _tankSiteModelDoc.Extension;
-
+        
         public TankSiteAssemblySettings _tankSiteAssemblySettings;
+        public Shell _shell;
         public AssemblyOfDishedEnds _assemblyOfDishedEnds;
         public AssemblyOfCylindricalShells _assemblyOfCylindricalShells;
 
@@ -46,7 +47,9 @@ namespace SolidWorksTankDesign
             // Create a default instance of the TankSiteAssemblySettings class
             // to hold settings for the TankSiteAssembly object.
             _tankSiteAssemblySettings = new TankSiteAssemblySettings();
+            _shell = new Shell();
             _assemblyOfDishedEnds = new AssemblyOfDishedEnds();
+            _assemblyOfCylindricalShells = new AssemblyOfCylindricalShells();
         }
 
         /// <summary>
@@ -72,12 +75,14 @@ namespace SolidWorksTankDesign
             // Create a default instance of the TankSiteAssemblySettings class
             // to hold settings for the TankSiteAssembly object.
             _tankSiteAssemblySettings = new TankSiteAssemblySettings();
+            _shell = new Shell();
             _assemblyOfDishedEnds = new AssemblyOfDishedEnds();
             _assemblyOfCylindricalShells = new AssemblyOfCylindricalShells();
 
             try
             {
                 _tankSiteAssemblySettings.AddTankSiteAssemblyPersistentReferenceIds(_tankSiteModelDoc);
+                _shell = _tankSiteAssemblySettings.AddShellPIDs(_tankSiteModelDoc);
                 _assemblyOfDishedEnds = _tankSiteAssemblySettings.AddDishedEndsPIDs(_tankSiteModelDoc);
                 _assemblyOfCylindricalShells = _tankSiteAssemblySettings.AddCylindricalShellsPIDs(_tankSiteModelDoc);
 

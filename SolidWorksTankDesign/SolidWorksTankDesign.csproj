@@ -94,6 +94,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Compartment.cs" />
     <Compile Include="Cylindrical shells\AssemblyOfCylindricalShells.cs" />
     <Compile Include="Cylindrical shells\CylindricalShell.cs" />
     <Compile Include="Cylindrical shells\CylindricalShellSettings.cs" />
@@ -113,6 +114,8 @@
     <Compile Include="Dished ends\InnerDishedEnd.cs" />
     <Compile Include="Interfaces\IHasFeature.cs" />
     <Compile Include="Helpers\PrivatePropertyContractResolver.cs" />
+    <Compile Include="Shell.cs" />
+    <Compile Include="CompartmentSettings.cs" />
     <Compile Include="SolidWorksDocumentWrapper.cs" />
     <Compile Include="Tank Site Assembly\TankSiteAssembly.cs" />
     <Compile Include="Tank Site Assembly\TankSiteAssemblySettings.cs" />

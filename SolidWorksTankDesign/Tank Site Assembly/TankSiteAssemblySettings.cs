@@ -486,5 +486,144 @@ namespace SolidWorksTankDesign
                 }
             }
         }
+
+        /// <summary>
+        /// Adds persistent reference IDs (PIDs) to the settings of cylindrical shell component within an assembly of cylindrical shells.
+        /// </summary>
+        /// <param name="tankSiteModelDoc">The main SolidWorks model document containing the tank site assembly.</param>
+        /// <returns>An `AssemblyCylindricalShells` object with the first cylindrical shell's PIDs populated, or null if an error occurs.</returns>
+        /// <remarks>
+        /// **Important Assumptions:**
+        /// - The first cylindrical shell component is named "Cylindrical shell-1".
+        /// - Left end plane name "Left End Plane"
+        /// - Right end plane name "Right End Plane"
+        /// - The center axis is named "Center axis".
+        /// - The center axis mate is named "Cylindrical shell 1 - Center axis".
+        /// - The left end mate is named "Cylindrical shell 1 - Left plane".
+        /// - The front plane mate is named "Cylindrical shell 1 - Front plane".
+        /// - First cylindrical shells' Front Mate Angle must be 45 degrees.
+        /// 
+        /// **Workflow:**
+        /// 1. Retrieves the cylindrical shells assembly component using its PID (`PIDCylindricalShellsAssembly`).
+        /// 2. Locates the cylindrical shell component within the assembly.
+        /// 3. Creates an `AssemblyOfCylindricalShells` object.
+        /// 4. Retrieves PIDs for relevant features/mates of the first cylindrical shell.
+        /// 5. Populates the `_cylindricalShellSettings` of the first cylindrical shell with the retrieved PIDs.
+        /// 6. Returns the `AssemblyOfCylindricalShells` object with initialized settings, or null if errors occur.
+        /// </remarks>
+        public Shell AddShellPIDs(ModelDoc2 tankSiteModelDoc)
+        {
+            // Retrieve the cylindrical shells assembly component
+            Component2 shellComponent = (Component2)tankSiteModelDoc.Extension.GetObjectByPersistReference3(PIDShellAssembly, out _);
+            if (shellComponent == null)
+            {
+                MessageBox.Show("Assembly of shell was not found.");
+                return null;
+            }
+
+            ModelDoc2 shellModelDoc = shellComponent.GetModelDoc2();
+
+            using (var document = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, shellModelDoc))
+            {
+                SelectionMgr selectionMgr = (SelectionMgr)shellModelDoc.SelectionManager;
+
+                // Create a shell object to represent the assembly and store its settings.
+                Shell shell = new Shell();
+
+                // Create the object of the first compartment and add it to the comparments list in the shell
+                Compartment compartment = new Compartment();
+                shell.Compartments.Add(compartment);
+
+                GetCompartmentEntitiesPIDs();
+
+                return shell;
+
+
+                void GetCompartmentEntitiesPIDs()
+                {
+                    // Get features and components
+                    shellModelDoc.Extension.SelectByID2(
+                       "Left end plane@Compartment A Manholes-1@Shell",
+                       "PLANE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature leftEndPlane = selectionMgr.GetSelectedObject6(1, -1);
+
+                    // Get features and components
+                    shellModelDoc.Extension.SelectByID2(
+                       "Right end plane@Compartment A Manholes-1@Shell",
+                       "PLANE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature rightEndPlane = selectionMgr.GetSelectedObject6(1, -1);
+
+                    // Get features and components
+                    shellModelDoc.Extension.SelectByID2(
+                       "Compartment A Manholes-1@Shell",
+                       "COMPONENT",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Component2 compartmentComponent = selectionMgr.GetSelectedObject6(1, -1);
+
+                    shellModelDoc.Extension.SelectByID2(
+                      "Center Axis@Compartment A Manholes-1@Shell",
+                      "AXIS",
+                      0, 0, 0,
+                      false,
+                      0, null, 0);
+                    Feature centerAxis = selectionMgr.GetSelectedObject6(1, -1);
+
+                    shellModelDoc.Extension.SelectByID2(
+                        "Compartment A - Dished end position plane",
+                       "MATE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature leftEndMate = selectionMgr.GetSelectedObject6(1, -1);
+
+                    shellModelDoc.Extension.SelectByID2(
+                        "Compartment A - Front plane",
+                        "MATE",
+                        0, 0, 0,
+                        false,
+                        0, null, 0);
+                    Feature frontPlaneMate = selectionMgr.GetSelectedObject6(1, -1);
+
+                    shellModelDoc.Extension.SelectByID2(
+                        "Compartment A - Center axis",
+                        "MATE",
+                        0, 0, 0,
+                        false,
+                        0, null, 0);
+                    Feature centerAxisMate = selectionMgr.GetSelectedObject6(1, -1);
+
+                    try
+                    {
+                        // Populate the _dishedEndSettings with the retrieved PIDs
+                        shell.Compartments[0]._compartmentSettings.PIDLeftEndPlane = shellModelDoc.Extension.GetPersistReference3(leftEndPlane);
+                        shell.Compartments[0]._compartmentSettings.PIDRightEndPlane = shellModelDoc.Extension.GetPersistReference3(rightEndPlane);
+                        shell.Compartments[0]._compartmentSettings.PIDComponent = shellModelDoc.Extension.GetPersistReference3(compartmentComponent);
+                        shell.Compartments[0]._compartmentSettings.PIDCenterAxis = shellModelDoc.Extension.GetPersistReference3(centerAxis);
+                        shell.Compartments[0]._compartmentSettings.PIDLeftEndMate = shellModelDoc.Extension.GetPersistReference3(leftEndMate);
+                        shell.Compartments[0]._compartmentSettings.PIDFrontPlaneMate = shellModelDoc.Extension.GetPersistReference3(frontPlaneMate);
+                        shell.Compartments[0]._compartmentSettings.PIDCenterAxisMate = shellModelDoc.Extension.GetPersistReference3(centerAxisMate);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "The attribute could not be created.");
+                        return;
+                    }
+
+                    // Return the AssemblyOfDishedEnds object with populated PIDs for the left dished end.
+
+                }
+
+
+
+            }
+        }
     }
 }

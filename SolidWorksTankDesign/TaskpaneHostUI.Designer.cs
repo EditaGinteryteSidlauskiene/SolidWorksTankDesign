@@ -33,6 +33,7 @@
             this.label2 = new System.Windows.Forms.Label();
             this.numberOfDishedEnds = new System.Windows.Forms.NumericUpDown();
             this.numberOfCylindricalShells = new System.Windows.Forms.NumericUpDown();
+            this.button1 = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.numberOfDishedEnds)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numberOfCylindricalShells)).BeginInit();
             this.SuspendLayout();
@@ -45,7 +46,7 @@
             this.submitButton.TabIndex = 0;
             this.submitButton.Text = "Submit";
             this.submitButton.UseVisualStyleBackColor = true;
-            this.submitButton.Click += new System.EventHandler(this.button1_Click);
+            this.submitButton.Click += new System.EventHandler(this.SubmitButton);
             // 
             // label1
             // 
@@ -81,10 +82,21 @@
             this.numberOfCylindricalShells.Size = new System.Drawing.Size(44, 20);
             this.numberOfCylindricalShells.TabIndex = 4;
             // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(91, 311);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(150, 43);
+            this.button1.TabIndex = 5;
+            this.button1.Text = "Test";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
+            // 
             // TaskpaneHostUI
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.button1);
             this.Controls.Add(this.numberOfCylindricalShells);
             this.Controls.Add(this.numberOfDishedEnds);
             this.Controls.Add(this.label2);
@@ -106,5 +118,6 @@
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.NumericUpDown numberOfDishedEnds;
         private System.Windows.Forms.NumericUpDown numberOfCylindricalShells;
+        private System.Windows.Forms.Button button1;
     }
 }

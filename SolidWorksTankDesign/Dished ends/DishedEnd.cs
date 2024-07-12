@@ -32,6 +32,7 @@ namespace SolidWorksTankDesign
         public Feature GetRightPlaneMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _dishedEndSettings.PIDRightPlaneMate,
                         out int error);
+
         public Feature GetFrontPlaneMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _dishedEndSettings.PIDFrontPlaneMate,
                         out int error);

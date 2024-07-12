@@ -65,7 +65,7 @@ namespace SolidWorksTankDesign
             // 2. Add and Make Independent Cylindrical Shell Component
             Component2 cylindricalShell = ComponentManager.AddComponentPart(referenceCylindricalShell.GetComponent().GetPathName());
             
-            ComponentManager.MakeCylindricalShellIndependent(cylindricalShell, CYLINDRICAL_SHELL_PATH);
+            ComponentManager.MakeComponentIndependent(cylindricalShell, CYLINDRICAL_SHELL_PATH);
 
             // 3. Rename the Component
             string componentName = $"{CYLINDRICAL_SHELL_COMPONENT_NAME} {countNumber}";
@@ -114,7 +114,7 @@ namespace SolidWorksTankDesign
                 MessageBox.Show(ex.Message );
             }
 
-            // 7. Get Inner Dished End Entities and Initialize Settings
+            // 7. Get cylindrical shell Entities and Initialize Settings
             _cylindricalShellSettings = new CylindricalShellSettings();
             try
             {

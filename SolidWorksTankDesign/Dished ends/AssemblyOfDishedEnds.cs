@@ -108,10 +108,6 @@ namespace SolidWorksTankDesign
                 distance,
                 compartmentNumber)
                 );
-
-                InnerDishedEnds[0].GetPositionPlane().Select2(false, 1);
-
-
             }
             catch (Exception ex)
             {

@@ -27,11 +27,6 @@ namespace SolidWorksTankDesign
                 SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(subassemblyModelDoc.GetTitle());
             }
 
-            else
-            {
-                MessageBox.Show($"Cannot save {subassemblyModelDoc.GetTitle()} because it is not active");
-            }
-           
             // Save the document of tank site assembly
             SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc.Save3(
                 (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
