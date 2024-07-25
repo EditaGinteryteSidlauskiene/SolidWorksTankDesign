@@ -6,16 +6,16 @@ using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
-    internal class Shell
+    internal class CompartmentsManager
     {
-        private ModelDoc2 currentlyActiveShellDoc;
+        private ModelDoc2 _currentlyActiveShellDoc;
 
         [JsonProperty("Compartments")]
         public List<Compartment> Compartments = new List<Compartment>();
 
-        public Feature GetCenterAxis() => FeatureManager.GetFeatureByName(currentlyActiveShellDoc, "Center axis");
+        public Feature GetCenterAxis() => FeatureManager.GetFeatureByName(_currentlyActiveShellDoc, "Center axis");
 
-        public Shell() { }
+        public CompartmentsManager() { }
 
         /// <summary>
         /// CURRENTLY ACTIVE SHELL DOC MUST BE ACTIVATED!!!
@@ -24,15 +24,15 @@ namespace SolidWorksTankDesign
         /// <returns></returns>
         private Feature GetDishedEndPositionPlane(DishedEnd dishedEnd)
         {
-            currentlyActiveShellDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            _currentlyActiveShellDoc = SolidWorksDocumentProvider.GetActiveDoc();
             //Left end plane@Assembly of Dished ends-1@Shell
             // Get position plane's name from assembly of dished ends perspective
             string positionPlaneName = GetPositionPlaneName(dishedEnd);
 
-            SelectionMgr selectionMgr = currentlyActiveShellDoc.SelectionManager;
+            SelectionMgr selectionMgr = _currentlyActiveShellDoc.SelectionManager;
 
             // Select position plane using this name
-            currentlyActiveShellDoc.Extension.SelectByID2(positionPlaneName, "PLANE", 0, 0, 0, false, 0, null, 0);
+            _currentlyActiveShellDoc.Extension.SelectByID2(positionPlaneName, "PLANE", 0, 0, 0, false, 0, null, 0);
 
             // Get selected object
             return selectionMgr.GetSelectedObject6(1, -1);
@@ -71,17 +71,18 @@ namespace SolidWorksTankDesign
         /// Adds a new compartment to a SolidWorks shell assembly.
         /// </summary>
         /// <param name="dishedEnd"></param>
-        private void AddCompartment(DishedEnd dishedEnd)
+        private void AddCompartment(DishedEnd dishedEnd, double distanceBetweenNozzleAndRefPlane)
         {
             try
             {
                 // Create and add the new compartment
                 Compartments.Add(
                     new Compartment(
-                FeatureManager.GetMajorPlane(currentlyActiveShellDoc, MajorPlane.Front),
-                GetCenterAxis(),
-                GetDishedEndPositionPlane(dishedEnd),
-                Compartments.Count));
+                        FeatureManager.GetMajorPlane(_currentlyActiveShellDoc, MajorPlane.Front),
+                        GetCenterAxis(),
+                        GetDishedEndPositionPlane(dishedEnd),
+                        Compartments.Count,
+                        distanceBetweenNozzleAndRefPlane));
             }
             catch (Exception ex)
             {
@@ -135,7 +136,7 @@ namespace SolidWorksTankDesign
         /// </summary>
         /// <param name="requiredNumberOfCompartments"></param>
         /// <param name="dishedEnd"></param>
-        public void SetNumberOfCompartments(int requiredNumberOfCompartments, DishedEnd dishedEnd)
+        public void SetNumberOfCompartments(int requiredNumberOfCompartments, DishedEnd dishedEnd, double distanceBetweenNozzleAndRefPlane)
         {
             // Ensure the correct SolidWorks document is active for modification
             ActivateDocument();
@@ -175,7 +176,7 @@ namespace SolidWorksTankDesign
                     try
                     {
                         // Add a new compartment
-                        AddCompartment(dishedEnd);
+                        AddCompartment(dishedEnd, distanceBetweenNozzleAndRefPlane);
                     }
                     catch (Exception ex)
                     {
@@ -193,8 +194,8 @@ namespace SolidWorksTankDesign
             }
 
             // Update documents and close assembly of shell
-            DocumentManager.UpdateAndSaveDocuments(currentlyActiveShellDoc);
-            currentlyActiveShellDoc = null;
+            DocumentManager.UpdateAndSaveDocuments(_currentlyActiveShellDoc);
+            _currentlyActiveShellDoc = null;
         }
 
         /// <summary>
@@ -203,7 +204,7 @@ namespace SolidWorksTankDesign
         public void ActivateDocument()
         {
             ModelDoc2 shellModelDoc = SolidWorksDocumentProvider._tankSiteAssembly.GetShellAssemblyComponent().GetModelDoc2();
-            currentlyActiveShellDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(shellModelDoc.GetTitle() + ".sldasm", true, 0, 0);
+            _currentlyActiveShellDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(shellModelDoc.GetTitle() + ".sldasm", true, 0, 0);
         }
 
         /// <summary>
@@ -211,10 +212,10 @@ namespace SolidWorksTankDesign
         /// </summary>
         public void CloseDocument()
         {
-            if (currentlyActiveShellDoc == null) return;
+            if (_currentlyActiveShellDoc == null) return;
 
-            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(currentlyActiveShellDoc.GetTitle());
-            currentlyActiveShellDoc = null;
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(_currentlyActiveShellDoc.GetTitle());
+            _currentlyActiveShellDoc = null;
         }
     }
 }

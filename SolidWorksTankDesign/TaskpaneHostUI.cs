@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
 using SolidWorksTankDesign.Helpers;
 using System;
+using System.Linq;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -90,20 +91,27 @@ namespace SolidWorksTankDesign
 
             TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
 
-            //tankSiteAssembly._shell.SetNumberOfCompartments(1, null);
+            //tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
+            //tankSiteAssembly._compartmentsManager.Compartments[0].Nozzles[0].AddNozzleAssembly();
+            //tankSiteAssembly._compartmentsManager.Compartments[0].CloseDocument();
 
-            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.SetNumberOfInnerDishedEnds(
-                (int)numberOfDishedEnds.Value,
-                DishedEndAlignment.Left,
-                2);
 
-            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.SetNumberOfCylindricalShells(
-                (int)numberOfCylindricalShells.Value,
-                2,
-                2500);
 
-            DishedEnd innerDishedEnd = tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds[0];
-            tankSiteAssembly._shell.SetNumberOfCompartments(2, innerDishedEnd);
+
+            //tankSiteAssembly._compartmentsManager.SetNumberOfCompartments(2, tankSiteAssembly._assemblyOfDishedEnds.RightDishedEnd, 3);
+
+            //tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
+            //tankSiteAssembly._compartmentsManager.Compartments[0].AddNozzle(
+            //    1,
+            //    tankSiteAssembly._compartmentsManager.Compartments[0].Nozzles[0].GetPositionPlane(),
+            //    1);
+
+            tankSiteAssembly._compartmentsManager.Compartments[1].ActivateDocument();
+            tankSiteAssembly._compartmentsManager.Compartments[1].AddNozzle(
+                1,
+                tankSiteAssembly._compartmentsManager.Compartments[1].Nozzles[0].GetPositionPlane(),
+                1);
+
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -169,11 +177,12 @@ namespace SolidWorksTankDesign
             TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
 
             ModelDoc2 shellModelDoc = SolidWorksDocumentProvider._tankSiteAssembly.GetShellAssemblyComponent().GetModelDoc2();
+
             SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(shellModelDoc.GetTitle(), true, 0, 0);
 
             DishedEnd leftDishedEnd = tankSiteAssembly._assemblyOfDishedEnds.LeftDishedEnd;
 
-            tankSiteAssembly._shell.SetNumberOfCompartments(1, null);
+            //tankSiteAssembly._compartmentsManager.SetNumberOfCompartments(1, null);
 
         }
     }

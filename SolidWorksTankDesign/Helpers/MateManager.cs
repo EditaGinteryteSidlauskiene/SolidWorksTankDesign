@@ -61,7 +61,7 @@ namespace SolidWorksTankDesign.Helpers
 
             //Alignment - Aligned
             coincidentMateFeatureData.MateAlignment = (int)alignmentType;
-
+            
             //Create Mate
             Feature mate = ((AssemblyDoc)currentModelDoc).CreateMate(coincidentMateFeatureData);
 
@@ -134,6 +134,76 @@ namespace SolidWorksTankDesign.Helpers
             }
 
             mate.Name = name;
+
+            return mate;
+        }
+
+        /// <summary>
+        /// Creates distance mate
+        /// </summary>
+        /// <param name="componentFeature1"></param>
+        /// <param name="componentFeature2"></param>
+        /// <param name="alignmentType"></param>
+        /// <param name="distance"></param>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static Feature CreateMate(
+            Feature componentFeature1,
+            Feature componentFeature2,
+            MateAlignment alignmentType,
+            double distance,
+            string name) =>
+            CreateMate((Entity)componentFeature1, (Entity)componentFeature2, alignmentType, distance, name);
+
+        /// <summary>
+        /// Creates distance mate
+        /// </summary>
+        /// <param name="componentFeature1"></param>
+        /// <param name="componentFeature2"></param>
+        /// <param name="alignmentType"></param>
+        /// <param name="distance"></param>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        private static Feature CreateMate(
+            Entity componentFeature1,
+            Entity componentFeature2,
+            MateAlignment alignmentType,
+            double distance,
+            string name)
+        {
+            // Error handling: Null checks
+            if (componentFeature1 == null || componentFeature2 == null)
+            {
+                throw new ArgumentNullException("One or more component features are null.");
+            }
+
+            ModelDoc2 currentModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
+            //Allows to select objects.
+            SelectionMgr selectionManager = (SelectionMgr)currentModelDoc.SelectionManager;
+            SelectData selectData = selectionManager.CreateSelectData();
+            selectData.Mark = 1;
+
+            //Select entities
+            componentFeature1.Select4(false, selectData);
+            componentFeature2.Select4(true, selectData);
+
+            //Create Mate
+            Feature mate = (Feature)((AssemblyDoc)currentModelDoc).AddDistanceMate(
+                AlignFromEnum: (int)alignmentType,
+                Flip: false,
+                Distance: distance,
+                DistanceAbsUpperLimit: distance,
+                DistanceAbsLowerLimit: distance,
+                FirstArcCondition: 0,
+                SecondArcCondition: 0,
+                ErrorStatus: out _);
+
+            //Assign name for the mate
+            mate.Name = name;
+
+            currentModelDoc.ClearSelection2(true);
 
             return mate;
         }

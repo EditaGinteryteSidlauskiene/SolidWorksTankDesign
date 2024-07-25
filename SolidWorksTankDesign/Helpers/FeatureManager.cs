@@ -176,7 +176,7 @@ namespace SolidWorksTankDesign
         {
             //Selects the existing plane 
             bool status = existingPlane.Select2(false, 0);
-
+            
             //Creates a new reference plane
             Feature ReferencePlane = (Feature)SolidWorksDocumentProvider.GetActiveDoc().FeatureManager.InsertRefPlane(8, distance, 0, 0, 0, 0);
 
@@ -255,6 +255,35 @@ namespace SolidWorksTankDesign
                 MessageBox.Show($"Distance of reference plane could not be changed: {ex.Message}");
                 return false;
             }
+        }
+
+        public static Feature GetFeature(byte[] PIDFeature, byte[] PIDComponent2, byte[] PIDComponent1)
+        {
+            // Activate component's doc
+            Component2 component1FromPID = (Component2)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                       PIDComponent1,
+                       out int error);
+
+            ModelDoc2 component1Doc = component1FromPID.GetModelDoc2();
+
+            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(component1Doc.GetTitle(), true, 0, 0);
+
+            // Activate child component's doc
+            Component2 component2FromPID = (Component2)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                       PIDComponent2,
+                       out error);
+
+            // Close parent doc
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(component1Doc.GetTitle());
+
+           ModelDoc2 component2Doc = component2FromPID.GetModelDoc2();
+
+            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(component2Doc.GetTitle(), true, 0, 0);
+
+            // Get feature from PID
+            return (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                       PIDFeature,
+                       out error);
         }
     }
 }

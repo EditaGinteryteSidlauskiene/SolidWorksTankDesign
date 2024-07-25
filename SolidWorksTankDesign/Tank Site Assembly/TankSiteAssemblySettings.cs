@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
 using System;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
@@ -488,32 +489,49 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Adds persistent reference IDs (PIDs) to the settings of cylindrical shell component within an assembly of cylindrical shells.
+        /// Initializes and populates persistent reference IDs (PIDs) for the compartment and its associated nozzle within the tank site assembly model.
         /// </summary>
-        /// <param name="tankSiteModelDoc">The main SolidWorks model document containing the tank site assembly.</param>
-        /// <returns>An `AssemblyCylindricalShells` object with the first cylindrical shell's PIDs populated, or null if an error occurs.</returns>
+        /// <param name="tankSiteModelDoc">The SolidWorks model document representing the main tank site assembly.</param>
+        /// <returns>
+        /// A `CompartmentsManager` object with PIDs for the first compartment and its nozzle initialized,
+        /// or `null` if an error occurs during PID retrieval or component/feature access.
+        /// </returns>
         /// <remarks>
-        /// **Important Assumptions:**
-        /// - The first cylindrical shell component is named "Cylindrical shell-1".
-        /// - Left end plane name "Left End Plane"
-        /// - Right end plane name "Right End Plane"
-        /// - The center axis is named "Center axis".
-        /// - The center axis mate is named "Cylindrical shell 1 - Center axis".
-        /// - The left end mate is named "Cylindrical shell 1 - Left plane".
-        /// - The front plane mate is named "Cylindrical shell 1 - Front plane".
-        /// - First cylindrical shells' Front Mate Angle must be 45 degrees.
-        /// 
+        /// This method specifically targets the first compartment (named "Compartment A Manholes-1") and its first nozzle (named "Manhole 1") within the shell assembly.
+        ///
+        /// **Component and Feature Naming Assumptions:**
+        /// * Shell Assembly: "Shell"
+        /// * Compartment: "Compartment A Manholes-1"
+        ///     * Left End Plane: "Left end plane"
+        ///     * Right End Plane: "Right end plane"
+        ///     * Center Axis: "Center Axis"
+        ///     * Left End Mate: "Compartment A - Dished end position plane"
+        ///     * Front Plane Mate: "Compartment A - Front plane"
+        ///     * Center Axis Mate: "Compartment A - Center axis"
+        /// * Nozzle: "Manhole 1"
+        ///     * Position Plane: "Manhole 1 position plane"
+        ///     * Nozzle Component: "M1 Manhole-1@Compartment A Manholes"
+        ///     * Nozzle Center Axis: "Center Axis"
+        ///     * Nozzle Points (Datum): "External point", "Internal point", "Inside point", "Mid point"
+        ///     * Nozzle Right Reference Plane: "Nozzle Right Reference Plane"
+        ///     * ... (Additional nozzle features: PLANE1, Sketch, Manhole DN600, etc.)
+        ///
+        /// **Error Handling:**
+        /// * Displays a MessageBox if the shell assembly cannot be found.
+        /// * Displays a MessageBox with exception details if a PID cannot be retrieved or an entity (feature, component, mate) cannot be accessed.
+        ///
         /// **Workflow:**
-        /// 1. Retrieves the cylindrical shells assembly component using its PID (`PIDCylindricalShellsAssembly`).
-        /// 2. Locates the cylindrical shell component within the assembly.
-        /// 3. Creates an `AssemblyOfCylindricalShells` object.
-        /// 4. Retrieves PIDs for relevant features/mates of the first cylindrical shell.
-        /// 5. Populates the `_cylindricalShellSettings` of the first cylindrical shell with the retrieved PIDs.
-        /// 6. Returns the `AssemblyOfCylindricalShells` object with initialized settings, or null if errors occur.
+        /// 1. Accesses the shell assembly component using its PID.
+        /// 2. Creates `CompartmentsManager` and `Compartment` objects to store settings.
+        /// 3. Iterates over compartment and nozzle features/components/mates.
+        /// 4. Uses `SelectByID2` to select each entity by its name within the appropriate context (shell, compartment, or nozzle).
+        /// 5. Retrieves the PID for the selected entity using `GetPersistReference3`.
+        /// 6. Populates the corresponding PID property within the `_compartmentSettings` or `_nozzleSettings` objects.
+        /// 7. Returns the populated `CompartmentsManager` object or null if errors occur.
         /// </remarks>
-        public Shell AddShellPIDs(ModelDoc2 tankSiteModelDoc)
+        public CompartmentsManager AddCompartmentsManagerPIDs(ModelDoc2 tankSiteModelDoc)
         {
-            // Retrieve the cylindrical shells assembly component
+            // Retrieve the shell assembly component
             Component2 shellComponent = (Component2)tankSiteModelDoc.Extension.GetObjectByPersistReference3(PIDShellAssembly, out _);
             if (shellComponent == null)
             {
@@ -521,44 +539,39 @@ namespace SolidWorksTankDesign
                 return null;
             }
 
+            // Get the SolidWorks model document associated with the shell assembly component.
             ModelDoc2 shellModelDoc = shellComponent.GetModelDoc2();
 
+            // Use a SolidWorksDocumentWrapper for managing the shell model document.
             using (var document = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, shellModelDoc))
             {
+                // Get the selection manager to interact with selections within the shell model.
                 SelectionMgr selectionMgr = (SelectionMgr)shellModelDoc.SelectionManager;
 
                 // Create a shell object to represent the assembly and store its settings.
-                Shell shell = new Shell();
+                CompartmentsManager compartmentManager = new CompartmentsManager();
 
                 // Create the object of the first compartment and add it to the comparments list in the shell
                 Compartment compartment = new Compartment();
-                shell.Compartments.Add(compartment);
+                compartmentManager.Compartments.Add(compartment);
 
+                Component2 compartmentComponent;
+
+                // Call the helper method to retrieve and store PIDs for compartment entities.
                 GetCompartmentEntitiesPIDs();
 
-                return shell;
+                // Create a nozzle object representing the first nozzle associated with the compartment.
+                Nozzle nozzle = new Nozzle();
+                compartmentManager.Compartments[0].Nozzles.Add(nozzle); // Add the nozzle to the compartment's list.
 
+                // Call the helper method to retrieve and store PIDs for nozzle entities.
+                GetNozzleEntitiesPIDs();
 
+                return compartmentManager;
+
+                // Helper method to retrieve and store PIDs for features and components within the compartment.
                 void GetCompartmentEntitiesPIDs()
                 {
-                    // Get features and components
-                    shellModelDoc.Extension.SelectByID2(
-                       "Left end plane@Compartment A Manholes-1@Shell",
-                       "PLANE",
-                       0, 0, 0,
-                       false,
-                       0, null, 0);
-                    Feature leftEndPlane = selectionMgr.GetSelectedObject6(1, -1);
-
-                    // Get features and components
-                    shellModelDoc.Extension.SelectByID2(
-                       "Right end plane@Compartment A Manholes-1@Shell",
-                       "PLANE",
-                       0, 0, 0,
-                       false,
-                       0, null, 0);
-                    Feature rightEndPlane = selectionMgr.GetSelectedObject6(1, -1);
-
                     // Get features and components
                     shellModelDoc.Extension.SelectByID2(
                        "Compartment A Manholes-1@Shell",
@@ -566,15 +579,7 @@ namespace SolidWorksTankDesign
                        0, 0, 0,
                        false,
                        0, null, 0);
-                    Component2 compartmentComponent = selectionMgr.GetSelectedObject6(1, -1);
-
-                    shellModelDoc.Extension.SelectByID2(
-                      "Center Axis@Compartment A Manholes-1@Shell",
-                      "AXIS",
-                      0, 0, 0,
-                      false,
-                      0, null, 0);
-                    Feature centerAxis = selectionMgr.GetSelectedObject6(1, -1);
+                    compartmentComponent = selectionMgr.GetSelectedObject6(1, -1);
 
                     shellModelDoc.Extension.SelectByID2(
                         "Compartment A - Dished end position plane",
@@ -584,32 +589,44 @@ namespace SolidWorksTankDesign
                        0, null, 0);
                     Feature leftEndMate = selectionMgr.GetSelectedObject6(1, -1);
 
-                    shellModelDoc.Extension.SelectByID2(
-                        "Compartment A - Front plane",
-                        "MATE",
-                        0, 0, 0,
-                        false,
-                        0, null, 0);
-                    Feature frontPlaneMate = selectionMgr.GetSelectedObject6(1, -1);
+                    ModelDoc2 compartmentModelDoc = compartmentComponent.GetModelDoc2();
+                    using (var compartmentDoc = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, compartmentModelDoc))
+                    {
+                        // Get the selection manager to interact with selections within the shell model.
+                        SelectionMgr selectionMgrAtCompartmentDoc = (SelectionMgr)compartmentModelDoc.SelectionManager;
 
-                    shellModelDoc.Extension.SelectByID2(
-                        "Compartment A - Center axis",
-                        "MATE",
-                        0, 0, 0,
-                        false,
-                        0, null, 0);
-                    Feature centerAxisMate = selectionMgr.GetSelectedObject6(1, -1);
+                        compartmentModelDoc.Extension.SelectByID2(
+                            "Left end plane",
+                            "PLANE",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature leftEndPlane = selectionMgrAtCompartmentDoc.GetSelectedObject6(1, -1);
+
+                        compartmentModelDoc.Extension.SelectByID2(
+                           "Right end plane",
+                           "PLANE",
+                           0, 0, 0,
+                           false,
+                           0, null, 0);
+                        Feature rightEndPlane = selectionMgrAtCompartmentDoc.GetSelectedObject6(1, -1); compartmentModelDoc.Extension.SelectByID2(
+                            "Center Axis",
+                            "AXIS",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature centerAxis = selectionMgrAtCompartmentDoc.GetSelectedObject6(1, -1);
+
+                        compartmentManager.Compartments[0]._compartmentSettings.PIDLeftEndPlane = compartmentModelDoc.Extension.GetPersistReference3(leftEndPlane);
+                        compartmentManager.Compartments[0]._compartmentSettings.PIDRightEndPlane = compartmentModelDoc.Extension.GetPersistReference3(rightEndPlane);
+                        compartmentManager.Compartments[0]._compartmentSettings.PIDCenterAxis = compartmentModelDoc.Extension.GetPersistReference3(centerAxis);
+                    }
 
                     try
                     {
-                        // Populate the _dishedEndSettings with the retrieved PIDs
-                        shell.Compartments[0]._compartmentSettings.PIDLeftEndPlane = shellModelDoc.Extension.GetPersistReference3(leftEndPlane);
-                        shell.Compartments[0]._compartmentSettings.PIDRightEndPlane = shellModelDoc.Extension.GetPersistReference3(rightEndPlane);
-                        shell.Compartments[0]._compartmentSettings.PIDComponent = shellModelDoc.Extension.GetPersistReference3(compartmentComponent);
-                        shell.Compartments[0]._compartmentSettings.PIDCenterAxis = shellModelDoc.Extension.GetPersistReference3(centerAxis);
-                        shell.Compartments[0]._compartmentSettings.PIDLeftEndMate = shellModelDoc.Extension.GetPersistReference3(leftEndMate);
-                        shell.Compartments[0]._compartmentSettings.PIDFrontPlaneMate = shellModelDoc.Extension.GetPersistReference3(frontPlaneMate);
-                        shell.Compartments[0]._compartmentSettings.PIDCenterAxisMate = shellModelDoc.Extension.GetPersistReference3(centerAxisMate);
+                        // Populate the _compartmentSettings with the retrieved PIDs
+                        compartmentManager.Compartments[0]._compartmentSettings.PIDComponent = shellModelDoc.Extension.GetPersistReference3(compartmentComponent);
+                        compartmentManager.Compartments[0]._compartmentSettings.PIDLeftEndMate = shellModelDoc.Extension.GetPersistReference3(leftEndMate);
                     }
                     catch (Exception ex)
                     {
@@ -617,11 +634,155 @@ namespace SolidWorksTankDesign
                         return;
                     }
 
-                    // Return the AssemblyOfDishedEnds object with populated PIDs for the left dished end.
-
                 }
 
+                // Helper method to retrieve and store PIDs for features and components within the nozzle.
+                void GetNozzleEntitiesPIDs()
+                {
+                    // Get the SolidWorks model document associated with the compartment's assembly component.
+                    ModelDoc2 compartmentModelDoc = compartmentComponent.GetModelDoc2();
 
+                    Component2 nozzle1;
+
+                    // Use a SolidWorksDocumentWrapper for managing the compartment's model document.
+                    using (var compartmentDocument = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, compartmentModelDoc))
+                    {
+                        // Get the selection manager to interact with selections within the compartment's model
+                        SelectionMgr selectionMgrAtCompartment = (SelectionMgr)compartmentModelDoc.SelectionManager;
+
+                        // Get features and components
+                       compartmentModelDoc.Extension.SelectByID2(
+                            "Manhole 1 position plane",
+                            "PLANE",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                       Feature nozzle1PostionPlane = selectionMgrAtCompartment.GetSelectedObject6(1, -1);
+
+                       compartmentModelDoc.Extension.SelectByID2(
+                            "M1 Manhole-1@Compartment A Manholes",
+                            "COMPONENT",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        nozzle1 = selectionMgrAtCompartment.GetSelectedObject6(1, -1);
+
+                        compartmentModelDoc.Extension.SelectByID2(
+                           "M1 - Position plane",
+                           "MATE",
+                           0, 0, 0,
+                           false,
+                           0, null, 0);
+                        Feature positionPlaneMate = selectionMgrAtCompartment.GetSelectedObject6(1, -1);
+
+                        try
+                        {
+                            // Populate the _nozzleSettings with the retrieved PIDs for those entities that has to be reachable from compartment's document
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDPositionPlane = compartmentModelDoc.Extension.GetPersistReference3(nozzle1PostionPlane);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDComponent = compartmentModelDoc.Extension.GetPersistReference3(nozzle1);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDPositionPlaneMate = compartmentModelDoc.Extension.GetPersistReference3(positionPlaneMate);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex.Message, "The attribute could not be created.");
+                            return;
+                        }
+                    }
+
+                    // Get the SolidWorks model document associated with the nozzle's assembly component.
+                    ModelDoc2 nozzleModelDoc = nozzle1.GetModelDoc2();
+
+                    // Use a SolidWorksDocumentWrapper for managing the nozzle's model document.
+                    using (var nozzleDocument = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, nozzleModelDoc))
+                    {
+                        // Get the selection manager to interact with selections within the nozzle's model
+                        SelectionMgr selectionMgrAtNozzle = (SelectionMgr)nozzleModelDoc.SelectionManager;
+
+                        // Get features and components
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "Center Axis",
+                            "AXIS",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature nozzleCenterAxis = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "External point",
+                            "DATUMPOINT",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature externalPoint = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "Internal point",
+                            "DATUMPOINT",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature internalPoint = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "Inside point",
+                            "DATUMPOINT",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature insidePoint = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "Mid point",
+                            "DATUMPOINT",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature midPoint = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "Nozzle Right Reference Plane",
+                            "PLANE",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature nozzleRightRefPlane = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        //-------------- PERVADINTI --------------------------
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "PLANE1",
+                            "PLANE",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature plane1 = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "Sketch",
+                            "SKETCH",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature sketch = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        try
+                        {
+                            // Populate the _nozzleSettings with the retrieved PIDs for those entities that has to be reachable from nozzle's document
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDCenterAxis = nozzleModelDoc.Extension.GetPersistReference3(nozzleCenterAxis);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDExternalPoint = nozzleModelDoc.Extension.GetPersistReference3(externalPoint);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDInternalPoint = nozzleModelDoc.Extension.GetPersistReference3(internalPoint);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDInsidePoint = nozzleModelDoc.Extension.GetPersistReference3(insidePoint);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDMidPoint = nozzleModelDoc.Extension.GetPersistReference3(midPoint);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDNozzleRightRefPlane = nozzleModelDoc.Extension.GetPersistReference3(nozzleRightRefPlane);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDCutPlane = nozzleModelDoc.Extension.GetPersistReference3(plane1);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDSketch = nozzleModelDoc.Extension.GetPersistReference3(sketch);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex.Message, "The attribute could not be created.");
+                            return;
+                        }
+                    }
+                }
 
             }
         }

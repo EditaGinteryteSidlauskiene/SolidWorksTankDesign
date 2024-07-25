@@ -53,7 +53,7 @@ namespace SolidWorksTankDesign
 
             // Open the document of the component to be added
             solidWorksApp.OpenDoc6(componentPath, (int)swDocumentTypes_e.swDocASSEMBLY, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", 1, 1);
-
+            
             // Add the part to the assembly document
             Component2 component = ((AssemblyDoc)assemblyDocument).AddComponent5(componentPath, (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig, "", false, "", 0, 0, 0);
 

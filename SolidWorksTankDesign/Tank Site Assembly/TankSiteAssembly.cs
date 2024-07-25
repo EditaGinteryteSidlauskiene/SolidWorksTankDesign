@@ -1,14 +1,7 @@
 ﻿using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
-using SolidWorks.Interop.swconst;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Net.NetworkInformation;
 using System.Windows.Forms;
-using WarningAndErrorService;
-using Attribute = SolidWorks.Interop.sldworks.Attribute;
 
 namespace SolidWorksTankDesign
 {
@@ -22,7 +15,7 @@ namespace SolidWorksTankDesign
         private ModelDocExtension _tankSiteDocExtension => _tankSiteModelDoc.Extension;
         
         public TankSiteAssemblySettings _tankSiteAssemblySettings;
-        public Shell _shell;
+        public CompartmentsManager _compartmentsManager;
         public AssemblyOfDishedEnds _assemblyOfDishedEnds;
         public AssemblyOfCylindricalShells _assemblyOfCylindricalShells;
 
@@ -47,7 +40,7 @@ namespace SolidWorksTankDesign
             // Create a default instance of the TankSiteAssemblySettings class
             // to hold settings for the TankSiteAssembly object.
             _tankSiteAssemblySettings = new TankSiteAssemblySettings();
-            _shell = new Shell();
+            _compartmentsManager = new CompartmentsManager();
             _assemblyOfDishedEnds = new AssemblyOfDishedEnds();
             _assemblyOfCylindricalShells = new AssemblyOfCylindricalShells();
         }
@@ -75,14 +68,14 @@ namespace SolidWorksTankDesign
             // Create a default instance of the TankSiteAssemblySettings class
             // to hold settings for the TankSiteAssembly object.
             _tankSiteAssemblySettings = new TankSiteAssemblySettings();
-            _shell = new Shell();
+            _compartmentsManager = new CompartmentsManager();
             _assemblyOfDishedEnds = new AssemblyOfDishedEnds();
             _assemblyOfCylindricalShells = new AssemblyOfCylindricalShells();
 
             try
             {
                 _tankSiteAssemblySettings.AddTankSiteAssemblyPersistentReferenceIds(_tankSiteModelDoc);
-                _shell = _tankSiteAssemblySettings.AddShellPIDs(_tankSiteModelDoc);
+                _compartmentsManager = _tankSiteAssemblySettings.AddCompartmentsManagerPIDs(_tankSiteModelDoc);
                 _assemblyOfDishedEnds = _tankSiteAssemblySettings.AddDishedEndsPIDs(_tankSiteModelDoc);
                 _assemblyOfCylindricalShells = _tankSiteAssemblySettings.AddCylindricalShellsPIDs(_tankSiteModelDoc);
 
