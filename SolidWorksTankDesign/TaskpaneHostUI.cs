@@ -1,10 +1,9 @@
 ﻿using AddinWithTaskpane;
 using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
-using SolidWorksTankDesign.Helpers;
+using SolidWorks.Interop.swconst;
 using System;
 using System.Linq;
-using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -28,8 +27,8 @@ namespace SolidWorksTankDesign
 
         private void SubmitButton(object sender, System.EventArgs e)
         {
-            //SolidWorksDocumentProvider._tankSiteAssembly = new TankSiteAssembly();
-            //SolidWorksDocumentProvider._tankSiteAssembly.InitializeAndStoreTankSiteConfiguration();
+            SolidWorksDocumentProvider._tankSiteAssembly = new TankSiteAssembly();
+            SolidWorksDocumentProvider._tankSiteAssembly.InitializeAndStoreTankSiteConfiguration();
 
             SolidWorksDocumentProvider._tankSiteAssembly = LoadTankSiteAssemblySettingsFromAttribute();
 
@@ -91,26 +90,10 @@ namespace SolidWorksTankDesign
 
             TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
 
-            //tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
-            //tankSiteAssembly._compartmentsManager.Compartments[0].Nozzles[0].AddNozzleAssembly();
-            //tankSiteAssembly._compartmentsManager.Compartments[0].CloseDocument();
+            tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
+            tankSiteAssembly._compartmentsManager.Compartments[0].Nozzles[0].AddNozzleAssembly();
 
-
-
-
-            //tankSiteAssembly._compartmentsManager.SetNumberOfCompartments(2, tankSiteAssembly._assemblyOfDishedEnds.RightDishedEnd, 3);
-
-            //tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
-            //tankSiteAssembly._compartmentsManager.Compartments[0].AddNozzle(
-            //    1,
-            //    tankSiteAssembly._compartmentsManager.Compartments[0].Nozzles[0].GetPositionPlane(),
-            //    1);
-
-            tankSiteAssembly._compartmentsManager.Compartments[1].ActivateDocument();
-            tankSiteAssembly._compartmentsManager.Compartments[1].AddNozzle(
-                1,
-                tankSiteAssembly._compartmentsManager.Compartments[1].Nozzles[0].GetPositionPlane(),
-                1);
+            tankSiteAssembly._compartmentsManager.ActivateDocument();
 
         }
 

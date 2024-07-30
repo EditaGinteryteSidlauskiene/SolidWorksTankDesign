@@ -589,6 +589,30 @@ namespace SolidWorksTankDesign
                        0, null, 0);
                     Feature leftEndMate = selectionMgr.GetSelectedObject6(1, -1);
 
+                    shellModelDoc.Extension.SelectByID2(
+                       "Compartment A - Front plane",
+                       "MATE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature frontPlaneMate = selectionMgr.GetSelectedObject6(1, -1);
+
+                    shellModelDoc.Extension.SelectByID2(
+                       "Compartment A - Center axis",
+                       "MATE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature centerAxisMate = selectionMgr.GetSelectedObject6(1, -1);
+
+                    shellModelDoc.Extension.SelectByID2(
+                        "Left end plane@Assembly of Dished ends-1@Shell",
+                       "PLANE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                    Feature dishedEndPositionPlane = selectionMgr.GetSelectedObject6(1, -1);
+
                     ModelDoc2 compartmentModelDoc = compartmentComponent.GetModelDoc2();
                     using (var compartmentDoc = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, compartmentModelDoc))
                     {
@@ -609,7 +633,9 @@ namespace SolidWorksTankDesign
                            0, 0, 0,
                            false,
                            0, null, 0);
-                        Feature rightEndPlane = selectionMgrAtCompartmentDoc.GetSelectedObject6(1, -1); compartmentModelDoc.Extension.SelectByID2(
+                        Feature rightEndPlane = selectionMgrAtCompartmentDoc.GetSelectedObject6(1, -1); 
+
+                        compartmentModelDoc.Extension.SelectByID2(
                             "Center Axis",
                             "AXIS",
                             0, 0, 0,
@@ -627,6 +653,9 @@ namespace SolidWorksTankDesign
                         // Populate the _compartmentSettings with the retrieved PIDs
                         compartmentManager.Compartments[0]._compartmentSettings.PIDComponent = shellModelDoc.Extension.GetPersistReference3(compartmentComponent);
                         compartmentManager.Compartments[0]._compartmentSettings.PIDLeftEndMate = shellModelDoc.Extension.GetPersistReference3(leftEndMate);
+                        compartmentManager.Compartments[0]._compartmentSettings.PIDFrontPlaneMate = shellModelDoc.Extension.GetPersistReference3(frontPlaneMate);
+                        compartmentManager.Compartments[0]._compartmentSettings.PIDCenterAxisMate = shellModelDoc.Extension.GetPersistReference3(centerAxisMate);
+                        compartmentManager.Compartments[0]._compartmentSettings.PIDDishedEndPositionPlane = shellModelDoc.Extension.GetPersistReference3(dishedEndPositionPlane);
                     }
                     catch (Exception ex)
                     {

@@ -1,8 +1,11 @@
 ﻿using AddinWithTaskpane;
 using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 using SolidWorksTankDesign.Helpers;
 using System;
+using System.IO;
 using System.Windows.Forms;
+using WarningAndErrorService;
 
 namespace SolidWorksTankDesign
 {
@@ -16,8 +19,12 @@ namespace SolidWorksTankDesign
         private const string FRONT_PLANE_NAME = "Front plane";
         private const string RIGHT_PLANE_NAME = "Right plane";
         private const string TOP_PLANE_NAME = "Top plane";
-        private const string NOZZLE_PATH = "C:\\Users\\Edita\\TankDesignStudio\\ClassA\\d2500\\Nozzles\\M1 Manhole.SLDASM";
+        private const string NOZZLE_PATH = "C:\\Users\\Edita\\TankDesignStudio\\ClassA\\d2500\\Nozzles\\Empty M1 Manhole.SLDASM";
         private const string NOZZLE_ASSEMBLY_PATH = "C:\\Users\\Edita\\Desktop\\Automation tank\\Manhole DN600 Neck with flange.SLDASM";
+        private const string SHELL_DIAMETER_EXTERNAL = "ShellDiameterExternal";
+        private const string SHELL_DIAMETER_INTERNAL = "ShellDiameterInternal";
+        private const string CENTER_AXIS_ROTATION_ANGLE = "CenterAxisRotationAngle";
+        private const string OFFSET = "Offset";
 
         public NozzleSettings _nozzleSettings;
 
@@ -61,6 +68,7 @@ namespace SolidWorksTankDesign
 
             ModelDoc2 nozzleModelDoc = nozzle.GetModelDoc2();
 
+            Feature positionPlaneMate = null;
             MateNozzle();
 
             // Get nozzle Entities and Initialize Settings
@@ -83,13 +91,11 @@ namespace SolidWorksTankDesign
                 MessageBox.Show($"Error adding nozzle assembly: {ex.Message}");
             }
 
-            DocumentManager.UpdateAndSaveDocuments(compartmentDoc);
-
             void MateNozzle()
             {
                 try
                 {
-                    MateManager.CreateMate(
+                    positionPlaneMate = MateManager.CreateMate(
                         componentFeature1: positionPlane,
                         componentFeature2: FeatureManager.GetMajorPlane(nozzle, MajorPlane.Right),
                         alignmentType: MateAlignment.Aligned,
@@ -120,6 +126,7 @@ namespace SolidWorksTankDesign
                 {
                     _nozzleSettings.PIDPositionPlane = compartmentDoc.Extension.GetPersistReference3(positionPlane);
                     _nozzleSettings.PIDComponent = compartmentDoc.Extension.GetPersistReference3(nozzle);
+                    _nozzleSettings.PIDPositionPlaneMate = compartmentDoc.Extension.GetPersistReference3(positionPlaneMate);
 
                     // Use a SolidWorksDocumentWrapper for managing the nozzle's model document.
                     using (var nozzleDocument = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, nozzleModelDoc))
@@ -221,6 +228,205 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
+        /// Changes reference plane of the nozzle's position plane
+        /// Compartment doc must be open.
+        /// </summary>
+        /// <param name="newRefPlane"></param>
+        public void ChangeReferencePlane(Feature newRefPlane)
+        {
+            try
+            {
+                //Change refence plane
+                FeatureManager.ChangeReferenceOfReferencePlane(newRefPlane, GetPositionPlane());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error while changing nozzle's reference plane", ex.Message);
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Flips dimension of the nozzle.
+        /// Compartment's document must be open
+        /// </summary>
+        public void FlipDimension()
+        {
+            Feature positionPlane = GetPositionPlane();
+            RefPlaneFeatureData refPlaneFeatureData = positionPlane.GetDefinition();
+
+            // Toggle the dimension
+            refPlaneFeatureData.ReversedReferenceDirection[0] = !refPlaneFeatureData.ReversedReferenceDirection[0];
+
+            // Modify the feature within the model
+            positionPlane.ModifyDefinition(refPlaneFeatureData, SolidWorksDocumentProvider.GetActiveDoc(), null);
+        }
+
+        /// <summary>
+        /// Changes distance of the nozzle's position plane from the starting plane.
+        /// Compartment document must be open
+        /// </summary>
+        /// <param name="distance"></param>
+        public void ChangeDistance(double distance)
+        {
+            try
+            {
+                FeatureManager.ChangeDistanceOfReferencePlane(GetPositionPlane(), distance);
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show("Error when changing nozzle position plane's distance.", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Deletes a nozzle component from a SolidWorks compartment assembly, including the associated file.
+        /// </summary>
+        public void DeleteNozzle()
+        {
+            ModelDoc2 compartmentDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            Component2 nozzleComponent = GetComponent();
+
+            SelectionMgr selectionManager = (SelectionMgr)compartmentDoc.SelectionManager;
+            SelectData selectData = selectionManager.CreateSelectData();
+
+            //Select the nozzle and its position plane to be deleted
+            nozzleComponent.Select4(false, selectData, false);
+            GetPositionPlane().Select2(true, 1);
+
+            //Get nozzle document's path to delete the file
+            ModelDoc2 componentDocument = nozzleComponent.GetModelDoc2();
+            string path = componentDocument.GetPathName();
+
+            //Delete selected nozzle
+            ((AssemblyDoc)compartmentDoc).DeleteSelections(0);
+
+            //Rebuild assembly to release the file to be deleted
+            compartmentDoc.EditRebuild3();
+
+            //Delete the file
+            File.Delete(path);
+        }
+
+        /// <summary>
+        /// Sets a new offset value in meters. Positive value to move nozzle to the right from the middle point, negative - to the left.
+        /// </summary>
+        /// <param name="distanceInMeters"></param>
+        public void SetOffset(double distanceInMeters)
+        {
+            // Activate Nozzle doc
+            ActivateDocument();
+
+            Feature nozzleSketch = GetSketch();
+
+            //Set limit, which is a half of internal diameter.
+            double limit = nozzleSketch.Parameter(SHELL_DIAMETER_INTERNAL).Value / 2 / 1000;
+            //Set starting point which is a half of external diameter
+            double startingPoint = nozzleSketch.Parameter(SHELL_DIAMETER_EXTERNAL).Value / 2 / 1000;
+
+            //Distance must be between limit values to both directions.
+            if ((distanceInMeters) <= -limit ||
+                (distanceInMeters) >= limit)
+            {
+                MessageBox.Show($"Incorrect distance value. Distance cannot be < -{limit} and > {limit}");
+                return;
+            }
+
+            //Set new offset value
+            double newOffsetValue = startingPoint - distanceInMeters;
+            nozzleSketch.Parameter(OFFSET).SetSystemValue3(
+                newOffsetValue, 
+                (int)swSetValueInConfiguration_e.swSetValue_UseCurrentSetting, 
+                null);
+
+            ((AssemblyDoc)_currentlyActiveNozzleDoc).EditRebuild();
+
+            CloseDocument();
+        }
+
+        /// <summary>
+        /// Rotates the nozzle according to its central vertical axis.
+        /// </summary>
+        /// <param name="angleInDegrees"></param>
+        public void RotateNozzle(double angleInDegrees)
+        {
+            // Activate Nozzle doc
+            ActivateDocument();
+
+            // Get nozzle right reference plane
+            Feature rightRefPlane = GetNozzleRightRefPlane();
+
+            //Get feature definition
+            RefPlaneFeatureData rightRefPlaneFeatData = rightRefPlane.GetDefinition();
+
+            //Set angle before converting it into radians
+            rightRefPlaneFeatData.Angle = angleInDegrees * (Math.PI / 180);
+
+            //Modify feature definition
+            rightRefPlane.ModifyDefinition(rightRefPlaneFeatData, _currentlyActiveNozzleDoc, null);
+
+            CloseDocument();
+        }
+
+        /// <summary>
+        /// Rotates nozzle according sketch circle.
+        /// </summary>
+        /// <param name="angleInDegrees"></param>
+        public void SetRotationAngle(double angleInDegrees)
+        {
+            // Normalize angle to 0-360 degrees (using modulo operator)
+            angleInDegrees = (angleInDegrees % 360 + 360) % 360;
+
+            // Activate Nozzle doc
+            ActivateDocument();
+
+            try
+            {
+                //Set angle
+                GetSketch().Parameter(CENTER_AXIS_ROTATION_ANGLE)?.SetSystemValue3(
+                    angleInDegrees * (Math.PI / 180),
+                    (int)swSetValueInConfiguration_e.swSetValue_UseCurrentSetting,
+                    null);
+
+                _currentlyActiveNozzleDoc.EditRebuild3();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error setting rotation angle: {ex.Message}");
+            }
+
+            CloseDocument();
+        }
+
+        /// <summary>
+        /// Changes distance between nozzle's top plane and sketch external point. This allows the nozzle to be moved up and down.
+        /// </summary>
+        /// <param name="distanceInMeters"></param>
+        public void ChangeNozzleDistance(double distanceInMeters)
+        {
+            // Activate Nozzle doc
+            ActivateDocument();
+
+            // Get top plane mate
+            Feature topPlaneMate = GetTopPlaneMate();
+
+            try
+            {
+                // Change mate distance
+                MateManager.ChangeDistance(topPlaneMate, distanceInMeters);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error changing nozzle distance: {ex.Message}");
+            }
+
+            // Update attribute with the new PID
+            _nozzleSettings.PIDTopPlaneMate = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(topPlaneMate);
+
+            DocumentManager.UpdateAndSaveDocuments();
+        }
+
+        /// <summary>
         /// This method inserts a pre-defined nozzle assembly into the currently active nozzle document. 
         /// It aligns and positions the assembly using mates, stores relevant persistent IDs, and handles potential errors during the process.
         /// Finally, it closes the active nozzle document.
@@ -269,8 +475,33 @@ namespace SolidWorksTankDesign
             }
 
             // Updates and saves attribute and nozzle document
-            DocumentManager.UpdateAndSaveDocuments(_currentlyActiveNozzleDoc);
+            DocumentManager.UpdateAndSaveDocuments();
             CloseDocument();
+        }
+
+        /// <summary>
+        /// Deletes nozzle assembly in the nozzle 
+        /// </summary>
+        public void DeleteNozzleAssembly()
+        {
+            ActivateDocument();
+
+            try
+            {
+                SelectionMgr selectionManager = (SelectionMgr)_currentlyActiveNozzleDoc.SelectionManager;
+                SelectData selectData = selectionManager.CreateSelectData();
+
+                //Select the nozzle assembly to be deleted
+                GetNozzleAssemblyComp().Select4(false, selectData, false);
+
+                //Delete selected dished end
+                ((AssemblyDoc)_currentlyActiveNozzleDoc).DeleteSelections(0);
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show("Error while trying to delete nozzle assembly.", ex.Message);
+                CloseDocument();
+            }
         }
 
         /// <summary>

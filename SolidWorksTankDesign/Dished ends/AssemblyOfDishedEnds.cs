@@ -100,14 +100,14 @@ namespace SolidWorksTankDesign
             try
             {
                 InnerDishedEnds.Add(
-                new InnerDishedEnd(
-                GetCenterAxis(),
-                FeatureManager.GetMajorPlane(SolidWorksDocumentProvider.GetActiveDoc(), MajorPlane.Front),
-                referenceDishedEnd,
-                dishedEndAlignment,
-                distance,
-                compartmentNumber)
-                );
+                    new InnerDishedEnd(
+                        GetCenterAxis(),
+                        FeatureManager.GetMajorPlane(SolidWorksDocumentProvider.GetActiveDoc(), MajorPlane.Front),
+                        referenceDishedEnd,
+                        dishedEndAlignment,
+                        distance,
+                        compartmentNumber)
+                        );
             }
             catch (Exception ex)
             {
@@ -177,7 +177,7 @@ namespace SolidWorksTankDesign
             }
 
             // Update documents and close assembly of dished ends
-            DocumentManager.UpdateAndSaveDocuments(currentlyActiveDishedEndsDoc);
+            DocumentManager.UpdateAndSaveDocuments();
             currentlyActiveDishedEndsDoc = null;
         }
     }

@@ -214,8 +214,15 @@ namespace SolidWorksTankDesign.Helpers
         /// <param name="mate"></param>
         public static bool ChangeAlignment(Feature mate)
         {
+            // Check mate type to ensure it's a coincident mate
+            if (!(mate.GetDefinition() is CoincidentMateFeatureData mateData))
+            {
+                MessageBox.Show("The selected feature is not a coincident mate.");
+                return false;
+            }
+
             // Access mate's feature and get the MateFeatureData object. 
-            IMateFeatureData mateData = mate.GetDefinition();
+            mateData = mate.GetDefinition();
 
             // Cast the MateFeatureData object to a CoincidentMateFeatureData object. 
             CoincidentMateFeatureData coincMateData = (CoincidentMateFeatureData)mateData;
@@ -225,6 +232,110 @@ namespace SolidWorksTankDesign.Helpers
 
             // Updates the definition of a feature with the new values in an associated feature data object
             return mate.ModifyDefinition(mateData, SolidWorksDocumentProvider.GetActiveDoc(), null);
+        }
+
+        /// <summary>
+        /// Changes distance property of the mate
+        /// </summary>
+        /// <param name="mate"></param>
+        /// <param name="newDistance"></param>
+        public static void ChangeDistance(Feature mate, double newDistance)
+        {
+            // Check mate type to ensure it's a distance mate
+            if (!(mate.GetDefinition() is DistanceMateFeatureData mateData))
+            {
+                MessageBox.Show("The selected feature is not a distance mate.");
+                return;
+            }
+
+            // Validate the new distance
+            if (newDistance < 0)
+            {
+                MessageBox.Show("Invalid distance. Distance must be a positive value.");
+                return;
+            }
+
+            mateData.Distance = newDistance;
+            // Toggle the dimension
+            mateData.FlipDimension = true;
+
+            // Updates the definition of a feature with the new values in an associated feature data object 
+            mate.ModifyDefinition(mateData, SolidWorksDocumentProvider.GetActiveDoc(), null);
+        }
+
+        /// <summary>
+        /// Moves entities to opposite sides of the dimension of this distance mate
+        /// </summary>
+        /// <param name="mate"></param>
+        public static void FlipDimension(Feature mate)
+        {
+            // Check mate type to ensure it's a distance mate
+            if (!(mate.GetDefinition() is IDistanceMateFeatureData mateData))
+            {
+                MessageBox.Show("The selected feature is not a distance mate.");
+                return;
+            }
+
+            // Toggle the flip dimension state
+            mateData.FlipDimension = !mateData.FlipDimension;
+
+            try
+            {
+                // Updates the definition of a feature with the new values in an associated feature data object 
+                mate.ModifyDefinition(mateData, SolidWorksDocumentProvider.GetActiveDoc(), null);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error flipping mate dimension: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Edits an existing coincident mate within the active SolidWorks assembly document.
+        /// </summary>
+        /// <param name="mate">The existing coincident mate feature to be modified.</param>
+        /// <param name="entity1">The first feature/entity involved in the mate.</param>
+        /// <param name="entity2">The second feature/entity involved in the mate.</param>
+        public static void EditCoincidentMate(Feature mate, Feature entity1, Feature entity2)
+        {
+            // Get a reference to the currently active SOLIDWORKS assembly document
+            ModelDoc2 activeModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
+            // 1. SELECT FEATURES FOR EDITING:
+            // Select the mate and both associated entities to initiate the mate edit operation
+            mate.Select2(false, 1);
+            entity1.Select2(true, 1);
+            entity2.Select2(true, 1);
+
+            // 2. RETRIEVE EXISTING MATE DATA:
+            // Obtain the current definition of the coincident mate to access its properties
+            CoincidentMateFeatureData coincMateData = (CoincidentMateFeatureData)mate.GetDefinition();
+
+            // 3. APPLY MATE EDITS:
+            // Perform the actual mate edit using SolidWorks' EditMate4 method. Parameters are 
+            // based on the retrieved mate data, maintaining the coincident type, original alignment,
+            // and locking rotation. 
+            ((AssemblyDoc)activeModelDoc).EditMate4(
+                MateTypeFromEnum: 0,
+                AlignFromEnum: coincMateData.MateAlignment,
+                Flip: false,
+                Distance: 0,
+                DistanceAbsUpperLimit: 0,
+                DistanceAbsLowerLimit: 0,
+                GearRatioNumerator: 0,
+                GearRatioDenominator: 0,
+                Angle: 0,
+                AngleAbsUpperLimit: 0,
+                AngleAbsLowerLimit: 0,
+                ForPositioningOnly: false,
+                LockRotation: true,
+                WidthMateOption: 0,
+                RepairMatesWithSameMissingEntity: false,
+                ErrorStatus: out int _);
+
+            // 4. CLEANUP:
+            // Clear any remaining selections to avoid unintended interactions in the document
+            activeModelDoc.ClearSelection2(true);
         }
     }
 }

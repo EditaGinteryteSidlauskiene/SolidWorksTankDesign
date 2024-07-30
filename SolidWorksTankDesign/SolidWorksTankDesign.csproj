@@ -116,8 +116,8 @@
     <Compile Include="Helpers\PrivatePropertyContractResolver.cs" />
     <Compile Include="Compartments\CompartmentsManager.cs" />
     <Compile Include="Compartments\CompartmentSettings.cs" />
-    <Compile Include="Nozzle.cs" />
-    <Compile Include="NozzleSettings.cs" />
+    <Compile Include="Nozzles\Nozzle.cs" />
+    <Compile Include="Nozzles\NozzleSettings.cs" />
     <Compile Include="SolidWorksDocumentWrapper.cs" />
     <Compile Include="Tank Site Assembly\TankSiteAssembly.cs" />
     <Compile Include="Tank Site Assembly\TankSiteAssemblySettings.cs" />

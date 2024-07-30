@@ -10,21 +10,22 @@ namespace SolidWorksTankDesign
         /// Updates tanksite assembly attribute, saves and closes subassembly, and saves tank site assembly doc.
         /// </summary>
         /// <param name="subassemblyModelDoc"></param>
-        public static void UpdateAndSaveDocuments(ModelDoc2 subassemblyModelDoc)
+        public static void UpdateAndSaveDocuments()
         {
             // Update SW attribute parameter
             TankSiteAssemblyDataManager.SerializeAndStoreTankSiteAssemblyData();
 
-            // If the passed subassembly is currently active, save it and close
-            if (ReferenceEquals(SolidWorksDocumentProvider._solidWorksApplication.ActiveDoc, subassemblyModelDoc))
+            //Save and close all subassemblies starting from the lowest in the hierarchy
+            while (!ReferenceEquals(SolidWorksDocumentProvider._solidWorksApplication.ActiveDoc, SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc))
             {
-                // Save and the document of the passed subassembly
-                subassemblyModelDoc.Save3(
-                    (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
-                    (int)swFileSaveError_e.swGenericSaveError,
-                    (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+                ModelDoc2 subassemblyDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
-                SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(subassemblyModelDoc.GetTitle());
+                subassemblyDoc.Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+
+                SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(subassemblyDoc.GetTitle());
             }
 
             // Save the document of tank site assembly

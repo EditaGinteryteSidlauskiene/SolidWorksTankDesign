@@ -19,6 +19,15 @@ namespace SolidWorksTankDesign
         [JsonProperty("PIDLeftEndMate")]
         public byte[] PIDLeftEndMate { get; set; }
 
+        [JsonProperty("PIDFrontPlaneMate")]
+        public byte[] PIDFrontPlaneMate { get; set; }
+
+        [JsonProperty("PIDCenterAxisMate")]
+        public byte[] PIDCenterAxisMate { get; set; }
+
+        [JsonProperty("PIDDishedEndPositionPlane")]
+        public byte[] PIDDishedEndPositionPlane { get; set; }
+
         public CompartmentSettings() { }
     }
 }

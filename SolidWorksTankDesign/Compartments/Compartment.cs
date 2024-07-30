@@ -1,5 +1,6 @@
 ﻿using AddinWithTaskpane;
 using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 using SolidWorksTankDesign.Helpers;
 using System;
 using System.Collections.Generic;
@@ -14,7 +15,7 @@ namespace SolidWorksTankDesign
 
         private const string COMPARTMENT_ASSEMBLY_PATH = "C:\\Users\\Edita\\TankDesignStudio\\ClassA\\d2500\\Shell\\Empty Compartment.SLDASM";
         private const string COMPARTMENT_COMPONENT_NAME = "Compartment";
-        private const string LEFT_END_PLANE_NAME = "Left end plane";
+        private const string LEFT_END_PLANE_NAME = "Dished end position plane";
         private const string CENTER_AXIS_NAME = "Center axis";
         private const string FRONT_PLANE_NAME = "Front plane";
 
@@ -68,6 +69,8 @@ namespace SolidWorksTankDesign
             ModelDoc2 compartmentModelDoc = compartment.GetModelDoc2();
 
             Feature leftEndMate = null;
+            Feature frontPlaneMate = null;
+            Feature centerAxisMate = null;
 
             // 6. Create Mates
             try
@@ -78,14 +81,14 @@ namespace SolidWorksTankDesign
                     alignmentType: MateAlignment.Aligned,
                     name: $"{compartment.Name2} - {LEFT_END_PLANE_NAME}");
 
-                MateManager.CreateMate(
+                centerAxisMate = MateManager.CreateMate(
                     componentFeature1: shellCenterAxis,
                     componentFeature2: FeatureManager.GetFeatureByName(compartment, "Center axis"),
                     alignmentType: MateAlignment.Anti_Aligned,
                     name: $"{compartment.Name2} - {CENTER_AXIS_NAME}");
 
 
-                MateManager.CreateMate(
+                frontPlaneMate = MateManager.CreateMate(
                     componentFeature1: shellFrontPlane,
                     componentFeature2: FeatureManager.GetMajorPlane(compartment, MajorPlane.Front),
                     alignmentType: MateAlignment.Aligned,
@@ -106,10 +109,10 @@ namespace SolidWorksTankDesign
 
                 AddNozzle(
                     countNumber,
-                    GetRightEndPlane(),
+                    GetLeftEndPlane(),
                     distanceBetweenNozzleAndRefPlane);
 
-                CloseDocument();
+                
             }
             catch (Exception ex)
             {
@@ -124,6 +127,9 @@ namespace SolidWorksTankDesign
                     // Populate the _compartmentSettings with the retrieved PIDs
                     _compartmentSettings.PIDComponent = shellModelDoc.Extension.GetPersistReference3(compartment);
                     _compartmentSettings.PIDLeftEndMate = shellModelDoc.Extension.GetPersistReference3(leftEndMate);
+                    _compartmentSettings.PIDFrontPlaneMate = shellModelDoc.Extension.GetPersistReference3(frontPlaneMate);
+                    _compartmentSettings.PIDCenterAxisMate = shellModelDoc.Extension.GetPersistReference3(centerAxisMate);
+                    _compartmentSettings.PIDDishedEndPositionPlane = shellModelDoc.Extension.GetPersistReference3(dishedEndPositionPlane);
 
                     using (var compartmentDoc = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, compartmentModelDoc))
                     {
@@ -154,7 +160,7 @@ namespace SolidWorksTankDesign
             SelectionMgr selectionManager = (SelectionMgr)shellModelDoc.SelectionManager;
             SelectData selectData = selectionManager.CreateSelectData();
 
-            //Select the dished end to be deleted
+            //Select the compartment to be deleted
             GetComponent().Select4(false, selectData, false);
 
             //Get compartment document's path to delete the file
@@ -196,6 +202,49 @@ namespace SolidWorksTankDesign
             {
                 MessageBox.Show(ex.Message);
             }
+
+            DocumentManager.UpdateAndSaveDocuments();
+        }
+
+        /// <summary>
+        /// Removes the last nozzle component from the compartment assembly.
+        /// </summary>
+        public bool DeleteNozzle()
+        {
+            // Activates compartment document
+            ActivateDocument();
+
+            // Get the count of nozzles in the current compartment once for efficiency
+            int nozzlesCount = Nozzles.Count;
+
+            // Check if there are enough nozzles to remove
+            if (nozzlesCount == 0)
+            {
+                MessageBox.Show($"There are no nozzles in the compartment assembly.");
+                CloseDocument();
+                return false;
+            }
+
+            try
+            {
+                // Attempt to delete the SolidWorks object associated with the compartment
+                Nozzles[nozzlesCount - 1].DeleteNozzle();
+            }
+            catch (Exception ex)
+            {
+                // Handle potential exceptions during deletion
+                MessageBox.Show($"Error deleting nozzle: {ex.Message}");
+                return false;
+            }
+
+            // Remove the nozzle from the internal tracking list
+            Nozzles.RemoveAt(nozzlesCount - 1);
+
+            // Update documents and close assembly of compartment
+            DocumentManager.UpdateAndSaveDocuments();
+            _currentlyActiveCompartmentDoc = null;
+
+            return true;
         }
 
         /// <summary>
@@ -209,9 +258,6 @@ namespace SolidWorksTankDesign
             // Get compartment doc
             ModelDoc2 compartmentModelDoc = GetComponent().GetModelDoc2();
 
-            // Close shell doc
-            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.CloseDocument();
-
             // Activate compartment doc
             _currentlyActiveCompartmentDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(compartmentModelDoc.GetTitle() + ".sldasm", true, 0, 0);
         }
@@ -222,6 +268,11 @@ namespace SolidWorksTankDesign
         public void CloseDocument()
         {
             if (_currentlyActiveCompartmentDoc == null) return;
+
+            _currentlyActiveCompartmentDoc.Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
 
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(_currentlyActiveCompartmentDoc.GetTitle());
             _currentlyActiveCompartmentDoc = null;
@@ -245,6 +296,18 @@ namespace SolidWorksTankDesign
 
         public Feature GetLeftEndMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _compartmentSettings.PIDLeftEndMate,
+                        out int error);
+
+        public Feature GetFrontPlaneMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                        _compartmentSettings.PIDFrontPlaneMate,
+                        out int error);
+
+        public Feature GetCenterAxisMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                        _compartmentSettings.PIDCenterAxisMate,
+                        out int error);
+
+        public Feature GetDishedEndPositionPlane() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                        _compartmentSettings.PIDDishedEndPositionPlane,
                         out int error);
     }
 }

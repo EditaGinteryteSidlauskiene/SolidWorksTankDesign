@@ -216,10 +216,12 @@ namespace SolidWorksTankDesign
         /// <param name="newReferencePlane"></param>
         /// <param name="referencedPlane"></param>
         public static bool ChangeReferenceOfReferencePlane(
-            ModelDoc2 modelDocument,
             Feature newReferencePlane,
             Feature referencedPlane)
         {
+            // Currently active model doc
+            ModelDoc2 activeDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
             //Get access to reference plane properties
             RefPlaneFeatureData referencePlaneFeatureData = referencedPlane.GetDefinition();
 
@@ -227,7 +229,7 @@ namespace SolidWorksTankDesign
             referencePlaneFeatureData.Reference[0] = newReferencePlane;
 
             //Modify changes
-            return referencedPlane.ModifyDefinition(referencePlaneFeatureData, modelDocument, null);
+            return referencedPlane.ModifyDefinition(referencePlaneFeatureData, activeDoc, null);
         }
 
         /// <summary>
