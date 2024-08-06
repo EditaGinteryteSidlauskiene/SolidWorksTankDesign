@@ -3,7 +3,11 @@ using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorksTankDesign.Helpers;
 using System;
+using System.ComponentModel;
+using System.Drawing;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using WarningAndErrorService;
 
@@ -53,7 +57,7 @@ namespace SolidWorksTankDesign
 
             string positionPlaneName = $"{MANHOLE_NAME}{SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber-1].Nozzles.Count+1} {POSITION_PLANE_NAME}";
             // Create nozzle's position plane
-            Feature positionPlane = FeatureManager.CreateReferencePlaneWithDistance(
+            Feature positionPlane = SWFeatureManager.CreateReferencePlaneWithDistance(
                 existingPlane: referencePlane,
                 distance: distance,
                 name: positionPlaneName);
@@ -64,7 +68,7 @@ namespace SolidWorksTankDesign
 
             // Rename nozzle component
             string componentName = $"{MANHOLE_NAME}{SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber-1].Nozzles.Count+1}";
-            FeatureManager.GetFeatureByName(compartmentDoc, nozzle.Name2).Name = componentName;
+            SWFeatureManager.GetFeatureByName(compartmentDoc, nozzle.Name2).Name = componentName;
 
             ModelDoc2 nozzleModelDoc = nozzle.GetModelDoc2();
 
@@ -82,34 +86,25 @@ namespace SolidWorksTankDesign
                 MessageBox.Show($"Error getting nozzle entities: {ex.Message}");
             }
 
-            try
-            {
-                AddNozzleAssembly();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error adding nozzle assembly: {ex.Message}");
-            }
-
             void MateNozzle()
             {
                 try
                 {
                     positionPlaneMate = MateManager.CreateMate(
                         componentFeature1: positionPlane,
-                        componentFeature2: FeatureManager.GetMajorPlane(nozzle, MajorPlane.Right),
+                        componentFeature2: SWFeatureManager.GetMajorPlane(nozzle, MajorPlane.Right),
                         alignmentType: MateAlignment.Aligned,
                         name: $"{nozzle.Name2} - {POSITION_PLANE_NAME}");
 
                     MateManager.CreateMate(
                         componentFeature1: compartmentCenterAxis,
-                        componentFeature2: FeatureManager.GetFeatureByName(nozzle, "Center Axis"),
+                        componentFeature2: SWFeatureManager.GetFeatureByName(nozzle, "Center Axis"),
                         alignmentType: MateAlignment.Anti_Aligned,
                         name: $"{nozzle.Name2} - {CENTER_AXIS_NAME}");
 
                     MateManager.CreateMate(
                         componentFeature1: compartmentFrontPlane,
-                        componentFeature2: FeatureManager.GetMajorPlane(nozzle, MajorPlane.Front),
+                        componentFeature2: SWFeatureManager.GetMajorPlane(nozzle, MajorPlane.Front),
                         alignmentType: MateAlignment.Aligned,
                         name: $"{nozzle.Name2} - {FRONT_PLANE_NAME}");
                 }
@@ -142,6 +137,14 @@ namespace SolidWorksTankDesign
                             false,
                             0, null, 0);
                         Feature nozzleCenterAxis = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "Nozzle axis",
+                            "AXIS",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature nozzleAxis = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
 
                         nozzleModelDoc.Extension.SelectByID2(
                             "External point",
@@ -204,6 +207,7 @@ namespace SolidWorksTankDesign
                         {
                             // Populate the _nozzleSettings with the retrieved PIDs for those entities that has to be reachable from nozzle's document
                             _nozzleSettings.PIDCenterAxis = nozzleModelDoc.Extension.GetPersistReference3(nozzleCenterAxis);
+                            _nozzleSettings.PIDNozzleAxis = nozzleModelDoc.Extension.GetPersistReference3(nozzleAxis);
                             _nozzleSettings.PIDExternalPoint = nozzleModelDoc.Extension.GetPersistReference3(externalPoint);
                             _nozzleSettings.PIDInternalPoint = nozzleModelDoc.Extension.GetPersistReference3(internalPoint);
                             _nozzleSettings.PIDInsidePoint = nozzleModelDoc.Extension.GetPersistReference3(insidePoint);
@@ -227,6 +231,277 @@ namespace SolidWorksTankDesign
             }
         }
 
+        private void AddCutOutExtrude()
+        {
+            AddCutOutPlane();
+
+            AddCutOutSketch();
+
+            CreateCutExtrude();
+        }
+
+        /// <summary>
+        /// Creates a reference plane(a flat construction surface) in the main shell document of a tank assembly.
+        /// The reference plane is positioned perpendicular to the axis of the most recently added nozzle and passes 
+        /// through the nozzle's midpoint. 
+        /// </summary>
+        /// <param name="compartmentNumber"></param>
+        private void AddCutOutPlane()
+        {
+            // Get a reference to the main tank assembly in SolidWorks.
+            TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
+
+            // Get references to the specific compartment and the latest nozzle added to it.
+            Compartment compartment = tankSiteAssembly._compartmentsManager.Compartments.Last();
+            Nozzle nozzle = compartment.Nozzles.Last();
+
+            // Activate the compartment document to make it the active document in SolidWorks.
+            tankSiteAssembly._compartmentsManager.ActivateDocument();
+            compartment.ActivateDocument();
+
+            // Get the nozzle component object.
+            Component2 nozzleComp = nozzle.GetComponent();
+
+            // Activate the nozzle document to access its features.
+            nozzle.ActivateDocument();
+
+            // Retrieve the axis and midpoint features of the nozzle.
+            Feature nozzleAxis = nozzle.GetNozzleAxis();
+            Feature midPoint = nozzle.GetMidPoint();
+
+            // Close the nozzle and compartment documents as we've extracted the needed information.
+            nozzle.CloseDocument();
+            compartment.CloseDocument();
+
+            // Get a reference to the currently active document, which should be the main shell document.
+            ModelDoc2 shellDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
+            // Get the SolidWorks component object representing the compartment in the main shell document.
+            Component2 compartmentComp = compartment.GetComponent();
+
+            // Ensure nothing is pre-selected to avoid conflicts.
+            shellDoc.ClearSelection2(true);
+
+            // Select the nozzle axis and midpoint in the context of the main shell document.
+            // This includes references to the compartment and nozzle assembly names for accurate selection.
+            shellDoc.Extension.SelectByID2(
+                            $"{nozzleAxis.Name}@{compartmentComp.Name2}@{shellDoc.GetTitle()}/{nozzleComp.Name2}@{compartmentComp.Name2.Split('-')[0]}",
+                            "AXIS",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+
+            shellDoc.Extension.SelectByID2(
+                            $"{midPoint.Name}@{compartmentComp.Name2}@{shellDoc.GetTitle()}/{nozzleComp.Name2}@{compartmentComp.Name2.Split('-')[0]}",
+                            "DATUMPOINT",
+                            0, 0, 0,
+                            true,
+                            1, null, 0);
+
+            // Get access to the feature manager of the shell document.
+            FeatureManager featureManager = shellDoc.FeatureManager;
+
+            // Create a new reference plane that is perpendicular to the nozzle axis and passes through the midpoint.
+            Feature cutOutPlane = (Feature)featureManager.InsertRefPlane(
+                (int)swRefPlaneReferenceConstraints_e.swRefPlaneReferenceConstraint_Perpendicular,
+                0,
+                (int)swRefPlaneReferenceConstraints_e.swRefPlaneReferenceConstraint_Coincident,
+                0, 0, 0);
+
+            // Set a descriptive name for the reference plane.
+            cutOutPlane.Name = $"{compartmentComp.Name2.Split('-')[0]} {nozzleComp.Name2.Split('-')[0]} Cut out plane";
+
+            // Store the reference plane information in the nozzle settings for later use.
+            nozzle._nozzleSettings.PIDCutOutPlane = shellDoc.Extension.GetPersistReference3(cutOutPlane);
+        }
+
+        /// <summary>
+        /// creates a circular sketch on the main shell document of a tank assembly. 
+        /// The circle is centered on the axis of the latest nozzle added to a specific compartment, 
+        /// and its radius is determined by the "D1" dimension(representing the diameter) of a "Cutout sketch" 
+        /// found within the "Neck" component of the nozzle assembly.This sketch is typically used to define the 
+        /// cutout shape for the nozzle on the tank shell.
+        /// </summary>
+        /// <param name="compartmentNumber"></param>
+        private void AddCutOutSketch()
+        {
+            // 1. Get References to Objects:
+            // Retrieve the main tank site assembly object that holds all the tank components.
+            TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
+
+            // Get references to the specific compartment and the latest nozzle added to it.
+            Compartment compartment = tankSiteAssembly._compartmentsManager.Compartments.Last();
+            Nozzle nozzle = compartment.Nozzles.Last();
+
+            // 2. Activate Documents:
+            // Make the compartment document the currently active document in SolidWorks.
+            compartment.ActivateDocument();
+
+            // Get the SolidWorks component object that represents the nozzle in the tank site assembly.
+            Component2 nozzleComp = nozzle.GetComponent();
+
+            // Activate the nozzle document to gain access to its features and geometry.
+            nozzle.ActivateDocument();
+
+            // Get the nozzle axis
+            Feature nozzleAxis = GetNozzleAxis();
+
+            // Get the nozzle assembly document, containing all parts of the nozzle assembly.
+            ModelDoc2 nozzleAssemblyDoc = nozzle.GetNozzleAssemblyComp().GetModelDoc2();
+
+            // 3. Extract Cutout Radius:
+            // Initialize a variable to store the radius of the cutout.
+            double radius = 0;
+
+            // Open the nozzle assembly document using a wrapper for convenient access.
+            using (var document = new SolidWorksDocumentWrapper(
+                SolidWorksDocumentProvider._solidWorksApplication,
+               nozzleAssemblyDoc))
+            {
+                // Iterate through each component within the nozzle assembly.
+                foreach (object component in (object[])((AssemblyDoc)nozzleAssemblyDoc).GetComponents(true))
+                {
+                    // Look for a component named "Neck".
+                    if (((Component2)component).Name2.Contains("Neck"))
+                    {
+                        // Get the "Cutout sketch" feature within the "Neck" component.
+                        Feature cutOutScketch = SWFeatureManager.GetFeatureByName((Component2)component, "Cutout sketch");
+
+                        // Get the "D1" dimension from the cutout sketch, which is assumed to represent the diameter.
+                        Dimension dimension = cutOutScketch.Parameter("D1");
+
+                        // Extract the dimension value as a double and convert it to a radius.
+                        radius = dimension.GetValue3(
+                            (int)swInConfigurationOpts_e.swAllConfiguration,
+                            null)[0];
+
+                        // Exit the loop since the radius has been found.
+                        break;
+                    }
+                }
+            }
+
+            // 4. Create Cutout Sketch on Shell:
+            // Close the nozzle and compartment documents, as they are no longer needed.
+            nozzle.CloseDocument();
+            compartment.CloseDocument();
+
+            // Get the currently active document, which should now be the main shell document.
+            ModelDoc2 shellDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
+            // Get the SolidWorks component representing the compartment within the shell document.
+            Component2 compartmentComp = compartment.GetComponent();
+
+            // Access the sketch manager to manipulate sketches on the shell document.
+            SketchManager sketchManager = shellDoc.SketchManager;
+
+            // Select the previously created cutout plane to create the sketch on.
+            GetCutOutPlane().Select2(false, 1);
+
+            // Start a new sketch on the selected cutout plane.
+            sketchManager.InsertSketch(true);
+
+            // Enter sketch editing mode.
+            shellDoc.EditSketch();
+
+            // Create a circle on the sketch with the extracted radius, centered at a default position (0, 0, 0).
+            sketchManager.CreateCircleByRadius(0, 0, 0, radius/2000);
+
+            // Select the nozzle axis and the center point of the circle for constraint application.
+            shellDoc.Extension.SelectByID2(
+                            $"{nozzleAxis.Name}@{compartmentComp.Name2}@{shellDoc.GetTitle()}/{nozzleComp.Name2}@{compartmentComp.Name2.Split('-')[0]}",
+                            "AXIS",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+
+            shellDoc.Extension.SelectByID2(
+                           "Point2",
+                           "SKETCHPOINT",
+                           0, 0, 0,
+                           true,
+                           0, null, 0);
+
+            // Add a coincident constraint to align the circle's center with the nozzle axis.
+            shellDoc.SketchAddConstraints("sgCOINCIDENT");
+        }
+
+        private void CreateCutExtrude()
+        {
+            // 1. Get References and Setup:
+            // Retrieve the main tank site assembly object.
+            TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
+
+            // Get references to the specific compartment and the latest nozzle added to it.
+            Compartment compartment = tankSiteAssembly._compartmentsManager.Compartments.Last();
+            Nozzle nozzle = compartment.Nozzles.Last();
+
+            // Get the main shell document where the cut-extrude will be applied.
+            ModelDoc2 shellDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            FeatureManager featureManager = shellDoc.FeatureManager;
+
+            // Select all cylindrical shells in the assembly for the cut-extrude operation.
+            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.SelectAllCylindricalShells();
+
+            // 2.Temporarily Suppress Nozzle Assembly:
+            // Activate the compartment document to work with it
+             compartment.ActivateDocument();
+
+            // Activate the nozzle document to access its components.
+             nozzle.ActivateDocument();
+
+           // Get the SolidWorks component object representing the nozzle assembly.
+           Component2 nozzleAssemblyComp = nozzle.GetNozzleAssemblyComp();
+
+            // Close the nozzle and compartment documents after obtaining the nozzle assembly component.
+             nozzle.CloseDocument();
+            compartment.CloseDocument();
+
+           // Suppress the nozzle assembly to avoid it being affected by the cut-extrude operation.
+           SWFeatureManager.Suppress(nozzleAssemblyComp);
+
+            // 3. Create Cut-Extrude Feature:
+            // Perform the cut-extrude operation on the selected cylindrical shells.
+            Feature cutExtrude = (Feature)featureManager.FeatureCut4(
+                true,
+                false,
+                false,
+                (int)swEndConditions_e.swEndCondThroughAll,
+                (int)swEndConditions_e.swEndCondBlind,
+                0.01,
+                0.01,
+                false,
+                false,
+                false,
+                false,
+                0,
+                0,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                true,
+                true,
+                (int)swStartConditions_e.swStartSketchPlane,
+                0,
+                false,
+                false);
+
+            // 4. Unsuppress Nozzle Assembly and Save:
+            // Unsuppress the nozzle assembly, making it visible again.
+            SWFeatureManager.Unsuppress(nozzleAssemblyComp);
+
+            // Store a reference to the newly created cut-extrude feature in the nozzle settings for later use.
+            nozzle._nozzleSettings.PIDCutExtrude = shellDoc.Extension.GetPersistReference3(cutExtrude);
+
+            // Update the SolidWorks documents to reflect the changes and save them.
+            DocumentManager.UpdateAndSaveDocuments();
+        }
+
         /// <summary>
         /// Changes reference plane of the nozzle's position plane
         /// Compartment doc must be open.
@@ -237,7 +512,7 @@ namespace SolidWorksTankDesign
             try
             {
                 //Change refence plane
-                FeatureManager.ChangeReferenceOfReferencePlane(newRefPlane, GetPositionPlane());
+                SWFeatureManager.ChangeReferenceOfReferencePlane(newRefPlane, GetPositionPlane());
             }
             catch (Exception ex)
             {
@@ -271,7 +546,7 @@ namespace SolidWorksTankDesign
         {
             try
             {
-                FeatureManager.ChangeDistanceOfReferencePlane(GetPositionPlane(), distance);
+                SWFeatureManager.ChangeDistanceOfReferencePlane(GetPositionPlane(), distance);
             }
             catch(Exception ex)
             {
@@ -431,7 +706,7 @@ namespace SolidWorksTankDesign
         /// It aligns and positions the assembly using mates, stores relevant persistent IDs, and handles potential errors during the process.
         /// Finally, it closes the active nozzle document.
         /// </summary>
-        public void AddNozzleAssembly()
+        public void AddNozzleAssembly(int compartmentNumber)
     {
         // Activate current nozzle document
             ActivateDocument();
@@ -441,26 +716,26 @@ namespace SolidWorksTankDesign
             ComponentManager.MakeComponentIndependent(nozzleAssembly, NOZZLE_ASSEMBLY_PATH);
 
             // Get features for mating
-            Feature nozzleAssemblyCenterAxis = FeatureManager.GetFeatureByName(nozzleAssembly, "Center axis");
+            Feature nozzleAssemblyCenterAxis = SWFeatureManager.GetFeatureByName(nozzleAssembly, "Center axis");
 
             // Create Mates
             try
             {
                 MateManager.CreateMate(
-                    componentFeature1: FeatureManager.GetFeatureByName(_currentlyActiveNozzleDoc, "Nozzle axis"),
+                    componentFeature1: SWFeatureManager.GetFeatureByName(_currentlyActiveNozzleDoc, "Nozzle axis"),
                     componentFeature2: nozzleAssemblyCenterAxis,
                     alignmentType: MateAlignment.Aligned,
                     name: $"{nozzleAssembly.Name2} - {CENTER_AXIS_NAME}");
 
                 MateManager.CreateMate(
                     componentFeature1: GetNozzleRightRefPlane(),
-                    componentFeature2: FeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{nozzleAssembly.Name2} - {RIGHT_PLANE_NAME}");
 
                 Feature topPlaneMate = MateManager.CreateMate(
                     componentFeature1: GetCutPlane(),
-                    componentFeature2: FeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Top),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Top),
                     alignmentType: MateAlignment.Anti_Aligned,
                     distance: 0,
                     name: $"{nozzleAssembly.Name2} - {TOP_PLANE_NAME}");
@@ -476,8 +751,13 @@ namespace SolidWorksTankDesign
 
             // Updates and saves attribute and nozzle document
             DocumentManager.UpdateAndSaveDocuments();
-            CloseDocument();
+
+            AddCutOutExtrude();
+
+            DocumentManager.UpdateAndSaveDocuments();
         }
+
+        
 
         /// <summary>
         /// Deletes nozzle assembly in the nozzle 
@@ -502,6 +782,8 @@ namespace SolidWorksTankDesign
                 MessageBox.Show("Error while trying to delete nozzle assembly.", ex.Message);
                 CloseDocument();
             }
+
+            CloseDocument();
         }
 
         /// <summary>
@@ -529,6 +811,10 @@ namespace SolidWorksTankDesign
 
         public Feature GetCenterAxis() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                       _nozzleSettings.PIDCenterAxis,
+                      out int error);
+
+        public Feature GetNozzleAxis() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                      _nozzleSettings.PIDNozzleAxis,
                       out int error);
 
         public Feature GetPositionPlane() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
@@ -574,6 +860,14 @@ namespace SolidWorksTankDesign
 
         public Component2 GetNozzleAssemblyComp() => (Component2)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                      _nozzleSettings.PIDNozzleAssemblyComp,
+                     out int error);
+
+        public Feature GetCutOutPlane() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                     _nozzleSettings.PIDCutOutPlane,
+                     out int error);
+
+        public Feature GetCutExtrude() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                     _nozzleSettings.PIDCutExtrude,
                      out int error);
     }
 }

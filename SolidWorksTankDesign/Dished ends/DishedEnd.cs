@@ -56,7 +56,7 @@ namespace SolidWorksTankDesign
             try
             {
                 // Change the reference plane of this dished end
-                bool success = FeatureManager.ChangeReferenceOfReferencePlane(
+                bool success = SWFeatureManager.ChangeReferenceOfReferencePlane(
                     newDishedEndPositionPlane,  // New reference plane
                     GetPositionPlane());           // This dished end's current position plane
 

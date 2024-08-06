@@ -5,6 +5,7 @@ using SolidWorksTankDesign.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
@@ -40,8 +41,7 @@ namespace SolidWorksTankDesign
             Feature shellFrontPlane,
             Feature shellCenterAxis,
             Feature dishedEndPositionPlane,
-            int countNumber,
-            double distanceBetweenNozzleAndRefPlane)
+            int countNumber)
         {
             // 1. Input Validation
             if (shellCenterAxis == null)
@@ -64,7 +64,7 @@ namespace SolidWorksTankDesign
             // 3. Rename the Component
             char letter = (char)(65 + countNumber);
             string componentName = $"{COMPARTMENT_COMPONENT_NAME} {letter}";
-            FeatureManager.GetFeatureByName(shellModelDoc, compartment.Name2).Name = componentName;
+            SWFeatureManager.GetFeatureByName(shellModelDoc, compartment.Name2).Name = componentName;
 
             ModelDoc2 compartmentModelDoc = compartment.GetModelDoc2();
 
@@ -77,20 +77,20 @@ namespace SolidWorksTankDesign
             {
                 leftEndMate = MateManager.CreateMate(
                     componentFeature1: dishedEndPositionPlane,
-                    componentFeature2: FeatureManager.GetMajorPlane(compartment, MajorPlane.Right),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(compartment, MajorPlane.Right),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{compartment.Name2} - {LEFT_END_PLANE_NAME}");
 
                 centerAxisMate = MateManager.CreateMate(
                     componentFeature1: shellCenterAxis,
-                    componentFeature2: FeatureManager.GetFeatureByName(compartment, "Center axis"),
+                    componentFeature2: SWFeatureManager.GetFeatureByName(compartment, "Center axis"),
                     alignmentType: MateAlignment.Anti_Aligned,
                     name: $"{compartment.Name2} - {CENTER_AXIS_NAME}");
 
 
                 frontPlaneMate = MateManager.CreateMate(
                     componentFeature1: shellFrontPlane,
-                    componentFeature2: FeatureManager.GetMajorPlane(compartment, MajorPlane.Front),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(compartment, MajorPlane.Front),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{compartment.Name2} - {FRONT_PLANE_NAME}");
             }
@@ -104,15 +104,6 @@ namespace SolidWorksTankDesign
             try
             {
                 GetCompartmentPIDs();
-
-                ActivateDocument();
-
-                AddNozzle(
-                    countNumber,
-                    GetLeftEndPlane(),
-                    distanceBetweenNozzleAndRefPlane);
-
-                
             }
             catch (Exception ex)
             {
@@ -133,9 +124,9 @@ namespace SolidWorksTankDesign
 
                     using (var compartmentDoc = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, compartmentModelDoc))
                     {
-                        Feature leftEndPlane = FeatureManager.GetFeatureByName(compartmentModelDoc, "Left end plane");
-                        Feature rightEndPlane = FeatureManager.GetFeatureByName(compartmentModelDoc, "Right end plane");
-                        Feature compartmentCenterAxis = FeatureManager.GetFeatureByName(compartmentModelDoc, "Center axis");
+                        Feature leftEndPlane = SWFeatureManager.GetFeatureByName(compartmentModelDoc, "Left end plane");
+                        Feature rightEndPlane = SWFeatureManager.GetFeatureByName(compartmentModelDoc, "Right end plane");
+                        Feature compartmentCenterAxis = SWFeatureManager.GetFeatureByName(compartmentModelDoc, "Center axis");
 
                         _compartmentSettings.PIDCenterAxis = compartmentModelDoc.Extension.GetPersistReference3(compartmentCenterAxis);
                         _compartmentSettings.PIDLeftEndPlane = compartmentModelDoc.Extension.GetPersistReference3(leftEndPlane);
@@ -195,8 +186,10 @@ namespace SolidWorksTankDesign
                         compartmentNumber,
                         referencePlane,
                         GetCenterAxis(),
-                        FeatureManager.GetMajorPlane(_currentlyActiveCompartmentDoc, MajorPlane.Front),
+                        SWFeatureManager.GetMajorPlane(_currentlyActiveCompartmentDoc, MajorPlane.Front),
                         distance));
+
+                SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber - 1].Nozzles.Last().AddNozzleAssembly(compartmentNumber);
             }
             catch (Exception ex)
             {

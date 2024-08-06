@@ -3,7 +3,6 @@ using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using System;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -27,8 +26,8 @@ namespace SolidWorksTankDesign
 
         private void SubmitButton(object sender, System.EventArgs e)
         {
-            SolidWorksDocumentProvider._tankSiteAssembly = new TankSiteAssembly();
-            SolidWorksDocumentProvider._tankSiteAssembly.InitializeAndStoreTankSiteConfiguration();
+            //SolidWorksDocumentProvider._tankSiteAssembly = new TankSiteAssembly();
+            //SolidWorksDocumentProvider._tankSiteAssembly.InitializeAndStoreTankSiteConfiguration();
 
             SolidWorksDocumentProvider._tankSiteAssembly = LoadTankSiteAssemblySettingsFromAttribute();
 
@@ -90,11 +89,17 @@ namespace SolidWorksTankDesign
 
             TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
 
-            tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
-            tankSiteAssembly._compartmentsManager.Compartments[0].Nozzles[0].AddNozzleAssembly();
+            //tankSiteAssembly._assemblyOfDishedEnds.ActivateDocument();
+            //Feature dishedEndPositionPlane = tankSiteAssembly._assemblyOfDishedEnds.LeftDishedEnd.GetPositionPlane();
+            //tankSiteAssembly._assemblyOfDishedEnds.CloseDocument();
+
+            //tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
+            //tankSiteAssembly._compartmentsManager.Compartments[0].Nozzles[0].AddNozzleAssembly(1);
 
             tankSiteAssembly._compartmentsManager.ActivateDocument();
 
+            tankSiteAssembly._compartmentsManager.SetNumberOfCompartments(1, tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds[0], 1);
+            tankSiteAssembly._compartmentsManager.SetNumberOfCompartments(2, tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds[0], 1);
         }
 
         private void button1_Click(object sender, EventArgs e)

@@ -65,7 +65,7 @@ namespace SolidWorksTankDesign
             return true;
         }
 
-        public Feature GetCenterAxis() => FeatureManager.GetFeatureByName(currentlyActiveDishedEndsDoc, "Center axis");
+        public Feature GetCenterAxis() => SWFeatureManager.GetFeatureByName(currentlyActiveDishedEndsDoc, "Center axis");
     
         /// <summary>
         /// Activates document of assembly of dished ends
@@ -102,7 +102,7 @@ namespace SolidWorksTankDesign
                 InnerDishedEnds.Add(
                     new InnerDishedEnd(
                         GetCenterAxis(),
-                        FeatureManager.GetMajorPlane(SolidWorksDocumentProvider.GetActiveDoc(), MajorPlane.Front),
+                        SWFeatureManager.GetMajorPlane(SolidWorksDocumentProvider.GetActiveDoc(), MajorPlane.Front),
                         referenceDishedEnd,
                         dishedEndAlignment,
                         distance,

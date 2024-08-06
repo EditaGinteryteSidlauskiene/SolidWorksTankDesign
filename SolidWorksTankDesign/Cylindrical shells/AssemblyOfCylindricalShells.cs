@@ -14,7 +14,7 @@ namespace SolidWorksTankDesign
         [JsonProperty("CylindricalShells")]
         public List<CylindricalShell> CylindricalShells = new List<CylindricalShell>();
 
-        public Feature GetCenterAxis() => FeatureManager.GetFeatureByName(currentlyActiveCylindricalShellsDoc, "Center axis");
+        public Feature GetCenterAxis() => SWFeatureManager.GetFeatureByName(currentlyActiveCylindricalShellsDoc, "Center axis");
 
         public AssemblyOfCylindricalShells() { }
 
@@ -72,7 +72,7 @@ namespace SolidWorksTankDesign
                     new CylindricalShell(
                         CylindricalShells.Last(),
                         GetCenterAxis(),
-                        FeatureManager.GetMajorPlane(SolidWorksDocumentProvider.GetActiveDoc(), MajorPlane.Front),
+                        SWFeatureManager.GetMajorPlane(SolidWorksDocumentProvider.GetActiveDoc(), MajorPlane.Front),
                         length,
                         diameter,
                         CylindricalShells.Count + 1));

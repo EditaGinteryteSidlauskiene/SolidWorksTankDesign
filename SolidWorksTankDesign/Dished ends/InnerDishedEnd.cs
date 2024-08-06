@@ -68,7 +68,7 @@ namespace SolidWorksTankDesign
             string componentName = $"{INNER_DISHED_END_NAME} {compartmentNumber}";
 
             // 2. Create Position Plane
-            Feature positionPlane = FeatureManager.CreateReferencePlaneWithDistance(
+            Feature positionPlane = SWFeatureManager.CreateReferencePlaneWithDistance(
                 existingPlane: referenceDishedEnd.GetPositionPlane(),
                 distance: distance,
                 name: positionPlaneName);
@@ -79,10 +79,10 @@ namespace SolidWorksTankDesign
             ComponentManager.MakeDishedEndIndependent(dishedEnd, DISHED_END_ECOMPONENT_PATH);
 
             // 4. Rename the Component
-            FeatureManager.GetFeatureByName(SolidWorksDocumentProvider.GetActiveDoc(), dishedEnd.Name2).Name = componentName;
+            SWFeatureManager.GetFeatureByName(SolidWorksDocumentProvider.GetActiveDoc(), dishedEnd.Name2).Name = componentName;
 
             // 5. Get Features for Mating
-            Feature innerDishedEndCenterAxis = FeatureManager.GetFeatureByName(dishedEnd, "Center axis");
+            Feature innerDishedEndCenterAxis = SWFeatureManager.GetFeatureByName(dishedEnd, "Center axis");
 
             Feature rightPlaneMate = null;
             Feature frontPlaneMate = null;
@@ -92,13 +92,13 @@ namespace SolidWorksTankDesign
                 // 6. Create Mates
                 rightPlaneMate = MateManager.CreateMate(
                     componentFeature1: positionPlane,
-                    componentFeature2: FeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Right),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Right),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{dishedEnd.Name2} - {RIGHT_PLANE_NAME}");
 
                 frontPlaneMate = MateManager.CreateMate(
                     componentFeature1: assemblyOfDishedEndsFrontPlane,
-                    componentFeature2: FeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Front),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(dishedEnd, MajorPlane.Front),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{dishedEnd.Name2} - {FRONT_PLANE_NAME}");
 
@@ -181,14 +181,14 @@ namespace SolidWorksTankDesign
         {
             try
             {
-                FeatureManager.Suppress(GetCenterAxisMate());
+                SWFeatureManager.Suppress(GetCenterAxisMate());
 
                 //Change alignment of the component
                 //Warning message if ChangeAlignement() did not work
                 if (!MateManager.ChangeAlignment(GetRightPlaneMate()))
                 {
                     MessageBox.Show("Failed to change the right plane mate alignment.");
-                    FeatureManager.Unsuppress(GetCenterAxisMate());
+                    SWFeatureManager.Unsuppress(GetCenterAxisMate());
                     return;
                 }
 
@@ -198,12 +198,12 @@ namespace SolidWorksTankDesign
                 {
                     MessageBox.Show("Failed to change the center axis mate alignment.");
                     MateManager.ChangeAlignment(GetRightPlaneMate());
-                    FeatureManager.Unsuppress(GetCenterAxisMate());
+                    SWFeatureManager.Unsuppress(GetCenterAxisMate());
                     return;
                 }
 
                 //Unsuppress axis mate
-                FeatureManager.Unsuppress(GetCenterAxisMate());
+                SWFeatureManager.Unsuppress(GetCenterAxisMate());
             }
             catch (Exception ex)
             {

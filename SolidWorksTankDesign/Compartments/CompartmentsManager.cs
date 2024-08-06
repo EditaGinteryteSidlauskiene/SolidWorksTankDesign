@@ -16,7 +16,7 @@ namespace SolidWorksTankDesign
         [JsonProperty("Compartments")]
         public List<Compartment> Compartments = new List<Compartment>();
 
-        public Feature GetCenterAxis() => FeatureManager.GetFeatureByName(_currentlyActiveShellDoc, "Center axis");
+        public Feature GetCenterAxis() => SWFeatureManager.GetFeatureByName(_currentlyActiveShellDoc, "Center axis");
 
         public CompartmentsManager() { }
 
@@ -81,11 +81,16 @@ namespace SolidWorksTankDesign
                 // Create and add the new compartment
                 Compartments.Add(
                     new Compartment(
-                        FeatureManager.GetMajorPlane(_currentlyActiveShellDoc, MajorPlane.Front),
+                        SWFeatureManager.GetMajorPlane(_currentlyActiveShellDoc, MajorPlane.Front),
                         GetCenterAxis(),
                         GetDishedEndPositionPlane(dishedEnd),
-                        Compartments.Count,
-                        distanceBetweenNozzleAndRefPlane));
+                        Compartments.Count));
+
+                Compartments.Last().ActivateDocument();
+                Compartments.Last().AddNozzle(
+                    Compartments.Count(),
+                    Compartments.Last().GetLeftEndPlane(),
+                    distanceBetweenNozzleAndRefPlane);
             }
             catch (Exception ex)
             {
@@ -131,6 +136,25 @@ namespace SolidWorksTankDesign
             Compartments.RemoveAt(compartmentsCount - 1);
 
             return true;
+        }
+
+        public void SelectAllCylindricalShells()
+        {
+            _currentlyActiveShellDoc.ClearSelection2(true);
+
+            int cylindricalShellsCount = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells.Count;
+
+            for (int i = 0; i < cylindricalShellsCount; i++)
+            {
+                SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.ActivateDocument();
+                ModelDoc2 cylindricalShellsDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
+                Component2 cylindricalShell = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells[i].GetComponent();
+
+                SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CloseDocument();
+
+                cylindricalShell.Select2(true, 1);
+            }
         }
 
         /// <summary>
@@ -256,16 +280,20 @@ namespace SolidWorksTankDesign
                 MateManager.EditCoincidentMate(
                     compartment1.GetLeftEndMate(),
                     compartment2.GetDishedEndPositionPlane(),
-                    FeatureManager.GetMajorPlane(compartment1.GetComponent(), MajorPlane.Right));
+                    SWFeatureManager.GetMajorPlane((Component2)compartment1.GetComponent(), MajorPlane.Right));
                 MateManager.EditCoincidentMate(
                     compartment2.GetLeftEndMate(),
                     compartment1.GetDishedEndPositionPlane(),
-                    FeatureManager.GetMajorPlane(compartment2.GetComponent(), MajorPlane.Right));
+                    SWFeatureManager.GetMajorPlane((Component2)compartment2.GetComponent(), MajorPlane.Right));
             }
             catch(Exception ex)
             {
                 MessageBox.Show("Error trying to edit the mates.", ex.Message);
             }
+
+            // These variables will store the modified mate features after the swapping process, which will be used later for renaming.
+            Feature editedMate1 = null;
+            Feature editedMate2 = null;
 
             try
             {
@@ -273,10 +301,6 @@ namespace SolidWorksTankDesign
                 // and update their associated properties, such as the persistent IDs (PIDs) of the dished end position planes.
                 // This ensures that the data referencing the compartments remains correct after the swap.
                 SwapObjectsAndProperties();
-
-                // These variables will store the modified mate features after the swapping process, which will be used later for renaming.
-                Feature editedMate1 = null;
-                Feature editedMate2 = null;
 
                 // Update the persistent IDs (PIDs) of the mates that were edited in the previous steps.
                 // These PIDs are used to uniquely identify the features within the SolidWorks document.
@@ -324,8 +348,7 @@ namespace SolidWorksTankDesign
             /// Updates the persistent IDs (PIDs) of two edited mates within a SolidWorks document. 
             /// PIDs are unique identifiers for features, and updating them ensures that the compartment objects 
             /// correctly reference the modified mates after they have been swapped in the assembly.
-           
-                       void UpdateMatesPIDs()
+            void UpdateMatesPIDs()
             {
                 // 1. Get Selection Manager:
                 // Obtain the SelectionMgr object from the currently active SolidWorks document. 

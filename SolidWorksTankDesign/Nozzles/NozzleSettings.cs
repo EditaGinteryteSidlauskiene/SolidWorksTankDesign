@@ -7,6 +7,9 @@ namespace SolidWorksTankDesign
         [JsonProperty("PIDCenterAxis")]
         public byte[] PIDCenterAxis { get; set; }
 
+        [JsonProperty("PIDNozzleAxis")]
+        public byte[] PIDNozzleAxis { get; set; }
+
         [JsonProperty("PIDPositionPlane")]
         public byte[] PIDPositionPlane { get; set; }
 
@@ -43,6 +46,12 @@ namespace SolidWorksTankDesign
 
         [JsonProperty("PIDNozzleAssemblyComp")]
         public byte[] PIDNozzleAssemblyComp { get; set; }
+
+        [JsonProperty("PIDCutOutPlane")]
+        public byte[] PIDCutOutPlane { get; set; }
+
+        [JsonProperty("PIDCutExtrude")]
+        public byte[] PIDCutExtrude { get; set; }
 
         public NozzleSettings() { }
     }

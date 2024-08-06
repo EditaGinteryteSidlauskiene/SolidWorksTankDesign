@@ -1,4 +1,5 @@
 ﻿using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -6,7 +7,7 @@ using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
-    internal static class FeatureManager
+    internal static class SWFeatureManager
     {
         /// <summary>
         /// Dictionary of Feature Type Names. It can be used to get Feature TypeName as a string
@@ -27,12 +28,12 @@ namespace SolidWorksTankDesign
         /// </summary>
         /// <param name="firstFeature"></param>
         /// <param name="desiredFeatureType"></param>
-        /// <param name="Count"></param>
+        /// <param name="count"></param>
         /// <returns></returns>
-        private static Feature GetNthFeatureOfType(Feature firstFeature, FeatureType desiredFeatureType, int Count)
+        private static Feature GetNthFeatureOfType(Feature firstFeature, FeatureType desiredFeatureType, int count)
         {
             // Error Handling: Ensure the provided count is valid
-            if (Count <= 0)
+            if (count <= 0)
             {
                 return null;
             }
@@ -53,7 +54,7 @@ namespace SolidWorksTankDesign
                 {
                     featureCounter++;
 
-                    if (featureCounter == Count)
+                    if (featureCounter == count)
                         return loopFeature;
                 }
 
@@ -175,15 +176,15 @@ namespace SolidWorksTankDesign
             string name)
         {
             //Selects the existing plane 
-            bool status = existingPlane.Select2(false, 0);
+            existingPlane.Select2(false, 0);
             
             //Creates a new reference plane
-            Feature ReferencePlane = (Feature)SolidWorksDocumentProvider.GetActiveDoc().FeatureManager.InsertRefPlane(8, distance, 0, 0, 0, 0);
+            Feature referencePlane = (Feature)SolidWorksDocumentProvider.GetActiveDoc().FeatureManager.InsertRefPlane(8, distance, 0, 0, 0, 0);
 
             //Rename just created reference plane
-            RenameFeature(ReferencePlane, name);
+            RenameFeature(referencePlane, name);
 
-            return ReferencePlane;
+            return referencePlane;
         }
 
         /// <summary>
@@ -202,11 +203,27 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
+        /// Suppress component
+        /// </summary>
+        public static void Suppress(Component2 componentToSuppress)
+        {
+            componentToSuppress.SetSuppression2((int)swComponentSuppressionState_e.swComponentSuppressed);
+        }
+
+        /// <summary>
         /// Unsuppress feature
         /// </summary>
         public static void Unsuppress(Feature featureToUnsuppress)
         {
             ChangeSuppression(featureToUnsuppress, 1);
+        }
+
+        /// <summary>
+        /// Unsuppress component
+        /// </summary>
+        public static void Unsuppress(Component2 componentToUnsuppress)
+        {
+            componentToUnsuppress.SetSuppression2((int)swComponentSuppressionState_e.swComponentFullyResolved);
         }
 
         /// <summary>

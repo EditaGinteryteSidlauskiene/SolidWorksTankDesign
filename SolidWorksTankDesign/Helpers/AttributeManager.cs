@@ -169,7 +169,7 @@ namespace SolidWorksTankDesign
                 throw new ArgumentException("Attribute name cannot be null or empty.", nameof(attributeName));
 
             // Get the attribute as a feature
-            Feature attributeAsFeature = FeatureManager.GetFeatureByName(SolidWorksDocumentProvider.GetActiveDoc(), attributeName);
+            Feature attributeAsFeature = SWFeatureManager.GetFeatureByName(SolidWorksDocumentProvider.GetActiveDoc(), attributeName);
 
             if (attributeAsFeature == null)
             {
@@ -206,7 +206,7 @@ namespace SolidWorksTankDesign
                 throw new ArgumentException("Parameter name cannot be null or empty.", nameof(parameterName));
 
             // Get the attribute as feature
-            Feature attributeFeature = FeatureManager.GetFeatureByName(attributeOwnerDoc, attributeName);
+            Feature attributeFeature = SWFeatureManager.GetFeatureByName(attributeOwnerDoc, attributeName);
 
             // Handle the case where the attribute is not found
             if (attributeFeature == null)
@@ -258,7 +258,7 @@ namespace SolidWorksTankDesign
             }
 
             // 2. Feature Retrieval (Improved Error Handling)
-            Feature attributeFeature = FeatureManager.GetFeatureByName(attributeOwnerDoc, attributeName);
+            Feature attributeFeature = SWFeatureManager.GetFeatureByName(attributeOwnerDoc, attributeName);
             if (attributeFeature == null)
             {
                 throw new InvalidOperationException($"Attribute '{attributeName}' not found.");

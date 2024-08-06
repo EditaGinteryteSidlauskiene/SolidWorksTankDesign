@@ -110,7 +110,7 @@
     <Compile Include="Enums\DishedEndAlignment.cs" />
     <Compile Include="Helpers\AttributeManager.cs" />
     <Compile Include="Enums\FeatureType.cs" />
-    <Compile Include="Helpers\FeatureManager.cs" />
+    <Compile Include="Helpers\SWFeatureManager.cs" />
     <Compile Include="Dished ends\InnerDishedEnd.cs" />
     <Compile Include="Interfaces\IHasFeature.cs" />
     <Compile Include="Helpers\PrivatePropertyContractResolver.cs" />

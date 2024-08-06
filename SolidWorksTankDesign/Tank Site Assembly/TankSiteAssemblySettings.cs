@@ -737,6 +737,14 @@ namespace SolidWorksTankDesign
                         Feature nozzleCenterAxis = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
 
                         nozzleModelDoc.Extension.SelectByID2(
+                            "Nozzle axis",
+                            "AXIS",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature nozzleAxis = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
+                        nozzleModelDoc.Extension.SelectByID2(
                             "External point",
                             "DATUMPOINT",
                             0, 0, 0,
@@ -797,6 +805,7 @@ namespace SolidWorksTankDesign
                         {
                             // Populate the _nozzleSettings with the retrieved PIDs for those entities that has to be reachable from nozzle's document
                             compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDCenterAxis = nozzleModelDoc.Extension.GetPersistReference3(nozzleCenterAxis);
+                            compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDNozzleAxis = nozzleModelDoc.Extension.GetPersistReference3(nozzleAxis);
                             compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDExternalPoint = nozzleModelDoc.Extension.GetPersistReference3(externalPoint);
                             compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDInternalPoint = nozzleModelDoc.Extension.GetPersistReference3(internalPoint);
                             compartmentManager.Compartments[0].Nozzles[0]._nozzleSettings.PIDInsidePoint = nozzleModelDoc.Extension.GetPersistReference3(insidePoint);
