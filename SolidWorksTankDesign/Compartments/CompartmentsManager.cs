@@ -138,25 +138,6 @@ namespace SolidWorksTankDesign
             return true;
         }
 
-        public void SelectAllCylindricalShells()
-        {
-            _currentlyActiveShellDoc.ClearSelection2(true);
-
-            int cylindricalShellsCount = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells.Count;
-
-            for (int i = 0; i < cylindricalShellsCount; i++)
-            {
-                SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.ActivateDocument();
-                ModelDoc2 cylindricalShellsDoc = SolidWorksDocumentProvider.GetActiveDoc();
-
-                Component2 cylindricalShell = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells[i].GetComponent();
-
-                SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CloseDocument();
-
-                cylindricalShell.Select2(true, 1);
-            }
-        }
-
         /// <summary>
         /// Sets the number of compartments in the assembly, adding or removing them 
         /// as needed to match the required count.

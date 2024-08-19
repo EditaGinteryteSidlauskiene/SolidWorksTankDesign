@@ -7,9 +7,11 @@ using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using WarningAndErrorService;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace SolidWorksTankDesign
 {
@@ -29,6 +31,7 @@ namespace SolidWorksTankDesign
         private const string SHELL_DIAMETER_INTERNAL = "ShellDiameterInternal";
         private const string CENTER_AXIS_ROTATION_ANGLE = "CenterAxisRotationAngle";
         private const string OFFSET = "Offset";
+        private const string PACK_AND_GO_FOLDER_PATH = "C:\\Users\\Edita\\Desktop\\Pack and go";
 
         public NozzleSettings _nozzleSettings;
 
@@ -231,13 +234,23 @@ namespace SolidWorksTankDesign
             }
         }
 
+        /// <summary>
+        /// Attempts to create a cutout(hole or removal of material) in the active SolidWorks document
+        /// </summary>
         private void AddCutOutExtrude()
         {
-            AddCutOutPlane();
+            try
+            {
+                AddCutOutPlane();
 
-            AddCutOutSketch();
+                string sketchName = AddCutOutSketch();
 
-            CreateCutExtrude();
+                CreateCutExtrude(sketchName);
+            }
+           catch(Exception ex)
+            {
+                MessageBox.Show("Error while adding cut extrude.", ex.Message);
+            }
         }
 
         /// <summary>
@@ -323,7 +336,7 @@ namespace SolidWorksTankDesign
         /// cutout shape for the nozzle on the tank shell.
         /// </summary>
         /// <param name="compartmentNumber"></param>
-        private void AddCutOutSketch()
+        private string AddCutOutSketch()
         {
             // 1. Get References to Objects:
             // Retrieve the main tank site assembly object that holds all the tank components.
@@ -346,40 +359,21 @@ namespace SolidWorksTankDesign
             // Get the nozzle axis
             Feature nozzleAxis = GetNozzleAxis();
 
-            // Get the nozzle assembly document, containing all parts of the nozzle assembly.
-            ModelDoc2 nozzleAssemblyDoc = nozzle.GetNozzleAssemblyComp().GetModelDoc2();
+            // Get the nozzle assembly component, containing all parts of the nozzle assembly.
+            Component2 nozzleAssemblyComp = nozzle.GetNozzleAssemblyComp();
 
             // 3. Extract Cutout Radius:
-            // Initialize a variable to store the radius of the cutout.
-            double radius = 0;
 
-            // Open the nozzle assembly document using a wrapper for convenient access.
-            using (var document = new SolidWorksDocumentWrapper(
-                SolidWorksDocumentProvider._solidWorksApplication,
-               nozzleAssemblyDoc))
-            {
-                // Iterate through each component within the nozzle assembly.
-                foreach (object component in (object[])((AssemblyDoc)nozzleAssemblyDoc).GetComponents(true))
-                {
-                    // Look for a component named "Neck".
-                    if (((Component2)component).Name2.Contains("Neck"))
-                    {
-                        // Get the "Cutout sketch" feature within the "Neck" component.
-                        Feature cutOutScketch = SWFeatureManager.GetFeatureByName((Component2)component, "Cutout sketch");
+            // Get the "Cutout sketch" feature within the nozzle assembly component.
+            Feature cutOutScketch = SWFeatureManager.GetFeatureByName(nozzleAssemblyComp, "Cut out sketch");
 
-                        // Get the "D1" dimension from the cutout sketch, which is assumed to represent the diameter.
-                        Dimension dimension = cutOutScketch.Parameter("D1");
+            // Get the "D1" dimension from the cutout sketch, which is assumed to represent the diameter.
+            Dimension dimension = cutOutScketch.Parameter("D1");
 
-                        // Extract the dimension value as a double and convert it to a radius.
-                        radius = dimension.GetValue3(
-                            (int)swInConfigurationOpts_e.swAllConfiguration,
-                            null)[0];
-
-                        // Exit the loop since the radius has been found.
-                        break;
-                    }
-                }
-            }
+            // Extract the dimension value as a double and convert it to a radius.
+            double radius = dimension.GetValue3(
+                (int)swInConfigurationOpts_e.swAllConfiguration,
+                null)[0];
 
             // 4. Create Cutout Sketch on Shell:
             // Close the nozzle and compartment documents, as they are no longer needed.
@@ -424,13 +418,24 @@ namespace SolidWorksTankDesign
 
             // Add a coincident constraint to align the circle's center with the nozzle axis.
             shellDoc.SketchAddConstraints("sgCOINCIDENT");
+
+            // Get active sketch
+            Sketch sketch = shellDoc.GetActiveSketch2();
+
+            return ((Feature)sketch).Name;
         }
 
-        private void CreateCutExtrude()
+        /// <summary>
+        /// Creates a cut-out in the cylindrical shells of a tank assembly in SolidWorks. 
+        /// The cut-out is specifically designed to accommodate a nozzle that has been recently added to the tank.
+        /// </summary>
+        private void CreateCutExtrude(string sketchName)
         {
             // 1. Get References and Setup:
             // Retrieve the main tank site assembly object.
             TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
+
+            
 
             // Get references to the specific compartment and the latest nozzle added to it.
             Compartment compartment = tankSiteAssembly._compartmentsManager.Compartments.Last();
@@ -440,12 +445,9 @@ namespace SolidWorksTankDesign
             ModelDoc2 shellDoc = SolidWorksDocumentProvider.GetActiveDoc();
             FeatureManager featureManager = shellDoc.FeatureManager;
 
-            // Select all cylindrical shells in the assembly for the cut-extrude operation.
-            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.SelectAllCylindricalShells();
-
             // 2.Temporarily Suppress Nozzle Assembly:
             // Activate the compartment document to work with it
-             compartment.ActivateDocument();
+            compartment.ActivateDocument();
 
             // Activate the nozzle document to access its components.
              nozzle.ActivateDocument();
@@ -457,11 +459,8 @@ namespace SolidWorksTankDesign
              nozzle.CloseDocument();
             compartment.CloseDocument();
 
-           // Suppress the nozzle assembly to avoid it being affected by the cut-extrude operation.
-           SWFeatureManager.Suppress(nozzleAssemblyComp);
-
-            // 3. Create Cut-Extrude Feature:
-            // Perform the cut-extrude operation on the selected cylindrical shells.
+            //3.Create Cut - Extrude Feature:
+            //Perform the cut - extrude operation on the selected cylindrical shells.
             Feature cutExtrude = (Feature)featureManager.FeatureCut4(
                 true,
                 false,
@@ -481,25 +480,85 @@ namespace SolidWorksTankDesign
                 false,
                 false,
                 false,
-                false,
                 true,
                 false,
                 true,
-                true,
+                false,
+                false,
                 (int)swStartConditions_e.swStartSketchPlane,
                 0,
                 false,
                 false);
 
-            // 4. Unsuppress Nozzle Assembly and Save:
-            // Unsuppress the nozzle assembly, making it visible again.
-            SWFeatureManager.Unsuppress(nozzleAssemblyComp);
+            if (cutExtrude == null)
+            {
+                MessageBox.Show("Cut extrude was not created.");
+            }
+
+            ExtrudeFeatureData2 cutExtrudeFeatData = cutExtrude.GetDefinition();
+
+            cutExtrude.Select2(false, 1);
+
+            foreach (CylindricalShell cylindricalShell in tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells)
+            {
+                tankSiteAssembly._assemblyOfCylindricalShells.ActivateDocument();
+
+                ModelDoc2 assemblyOfCylindricalShellsDoc = SolidWorksDocumentProvider.GetActiveDoc();
+                string cylindricalShellName = cylindricalShell.GetComponent().Name2;
+
+                tankSiteAssembly._assemblyOfCylindricalShells.CloseDocument();
+
+                ((AssemblyDoc)shellDoc).AddToFeatureScope($"{assemblyOfCylindricalShellsDoc.GetTitle()}-1@{shellDoc.GetTitle()}/{cylindricalShellName}@{assemblyOfCylindricalShellsDoc.GetTitle()}");
+                ((AssemblyDoc)shellDoc).UpdateFeatureScope();
+            }
+
+
+            shellDoc.ClearSelection2(true);
+
+            cutExtrude.ModifyDefinition(cutExtrudeFeatData, shellDoc, null);
 
             // Store a reference to the newly created cut-extrude feature in the nozzle settings for later use.
             nozzle._nozzleSettings.PIDCutExtrude = shellDoc.Extension.GetPersistReference3(cutExtrude);
 
             // Update the SolidWorks documents to reflect the changes and save them.
             DocumentManager.UpdateAndSaveDocuments();
+        }
+
+        /// <summary>
+        /// Packages a SolidWorks assembly document (along with its associated drawings) into  a single, 
+        /// timestamped folder. It ensures file uniqueness by incorporating the current 
+        /// timestamp into both the folder name and the packed file names. The method returns the full path 
+        /// to the packed assembly file (.SLDASM) for further processing or reference.
+        /// </summary>
+        /// <param name="assemblyModelDoc"></param>
+        /// <returns></returns>
+        private string PackAndGo(ModelDoc2 assemblyModelDoc)
+        {
+            // Get the Pack and Go interface for the assembly document
+            PackAndGo packAndGo = assemblyModelDoc.Extension.GetPackAndGo();
+
+            // Configure Pack and Go options
+            packAndGo.IncludeDrawings = true;           // Include associated drawings in the Pack and Go
+            packAndGo.FlattenToSingleFolder = true;     // Save all files to a single folder (no subfolders)
+
+            // Define the base folder where Pack and Go files will be saved
+            string packAndGoFolderPath = PACK_AND_GO_FOLDER_PATH;
+
+            // Generate a unique folder name using the current timestamp (ticks)
+            double ticks = DateTime.Now.Ticks;
+            string timestampedPackAndGoFolder = $"{packAndGoFolderPath}\\{ticks}";
+
+            // Add a prefix to all Pack and Go file names using the timestamp
+            packAndGo.AddPrefix = ticks.ToString();
+
+            // Set the save location for the Pack and Go files
+            packAndGo.SetSaveToName(true, timestampedPackAndGoFolder);
+
+            // Execute the Pack and Go operation
+            assemblyModelDoc.Extension.SavePackAndGo(packAndGo);
+
+            // Construct and return the full path to the packed assembly file
+            return $"{packAndGoFolderPath}\\{ticks}\\{ticks}{assemblyModelDoc.GetTitle()}.SLDASM";
         }
 
         /// <summary>
@@ -552,6 +611,16 @@ namespace SolidWorksTankDesign
             {
                 MessageBox.Show("Error when changing nozzle position plane's distance.", ex.Message);
             }
+        }
+
+        public bool DeleteCutExtrude()
+        {
+            ModelDoc2 shellDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            GetCutOutPlane().Select2(false, 1);
+            shellDoc.Extension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Children);
+            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.CloseDocument();
+
+            return true;
         }
 
         /// <summary>
@@ -702,37 +771,54 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// This method inserts a pre-defined nozzle assembly into the currently active nozzle document. 
-        /// It aligns and positions the assembly using mates, stores relevant persistent IDs, and handles potential errors during the process.
-        /// Finally, it closes the active nozzle document.
+        /// Inserts a pre-designed nozzle assembly into the currently active SolidWorks document. 
+        /// It first prepares the nozzle assembly by packaging it using the PackAndGo functionality. 
+        /// Then, it adds the packaged assembly to the active document and precisely positions it using mates (geometric constraints)
+        /// that align key features of the assembly with corresponding features in the active document.
+        /// Finally, it creates a cutout to accommodate the newly added nozzle assembly and saves the modified document.
         /// </summary>
-        public void AddNozzleAssembly(int compartmentNumber)
-    {
-        // Activate current nozzle document
+        public void AddNozzleAssembly()
+        {
+            // Activate current nozzle document
             ActivateDocument();
 
-            // Add nozzle assembly and make it independent
-            Component2 nozzleAssembly = ComponentManager.AddComponentAssembly(_currentlyActiveNozzleDoc, NOZZLE_ASSEMBLY_PATH);
-            ComponentManager.MakeComponentIndependent(nozzleAssembly, NOZZLE_ASSEMBLY_PATH);
+            // Open the nozzle assembly document in SolidWorks silently (without displaying it to the user)
+            ModelDoc2 nozzleAssemblyDoc = SolidWorksDocumentProvider._solidWorksApplication.OpenDoc6(
+                NOZZLE_ASSEMBLY_PATH, 
+                (int)swDocumentTypes_e.swDocASSEMBLY, 
+                (int)swOpenDocOptions_e.swOpenDocOptions_Silent, 
+                "", 1, 1);
 
-            // Get features for mating
+            // Package the nozzle assembly and its associated files using Pack and Go, and get the path to the packed assembly
+            string path = PackAndGo(nozzleAssemblyDoc);
+
+            // Close the nozzle assembly document after it has been packed
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(nozzleAssemblyDoc.GetTitle());
+
+            // Add the packed nozzle assembly to the currently active nozzle document as a component
+            Component2 nozzleAssembly = ComponentManager.AddComponentAssembly(_currentlyActiveNozzleDoc, path);
+
+            // Get a reference to the "Center axis" feature of the added nozzle assembly, which will be used for mating
             Feature nozzleAssemblyCenterAxis = SWFeatureManager.GetFeatureByName(nozzleAssembly, "Center axis");
 
-            // Create Mates
             try
             {
+                // Create mates to position and align the nozzle assembly within the active document
+                // 1. Align the "Nozzle axis" of the active document with the "Center axis" of the nozzle assembly
                 MateManager.CreateMate(
                     componentFeature1: SWFeatureManager.GetFeatureByName(_currentlyActiveNozzleDoc, "Nozzle axis"),
                     componentFeature2: nozzleAssemblyCenterAxis,
                     alignmentType: MateAlignment.Aligned,
                     name: $"{nozzleAssembly.Name2} - {CENTER_AXIS_NAME}");
 
+                // 2. Align the right plane of the active nozzle with the right plane of the nozzle assembly
                 MateManager.CreateMate(
                     componentFeature1: GetNozzleRightRefPlane(),
                     componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{nozzleAssembly.Name2} - {RIGHT_PLANE_NAME}");
 
+                // 3. Anti-align the top plane of the nozzle assembly with a "Cut plane" in the active document
                 Feature topPlaneMate = MateManager.CreateMate(
                     componentFeature1: GetCutPlane(),
                     componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Top),
@@ -740,7 +826,7 @@ namespace SolidWorksTankDesign
                     distance: 0,
                     name: $"{nozzleAssembly.Name2} - {TOP_PLANE_NAME}");
 
-                // Get nozzle assembly PIDs
+                // Store persistent references (PIDs) to the nozzle assembly component and the top plane mate for future use
                 _nozzleSettings.PIDNozzleAssemblyComp = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(nozzleAssembly);
                 _nozzleSettings.PIDTopPlaneMate = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(topPlaneMate);
             }
@@ -749,15 +835,15 @@ namespace SolidWorksTankDesign
                 MessageBox.Show(ex.Message, "At least one of nozzle assembly mates could not be created.");
             }
 
-            // Updates and saves attribute and nozzle document
+            // Update and save the active document and any associated attribute documents
             DocumentManager.UpdateAndSaveDocuments();
 
+            // Add a cutout extrude feature (presumably to create space for the nozzle assembly)
             AddCutOutExtrude();
 
+            // Update and save the active document and any associated attribute documents
             DocumentManager.UpdateAndSaveDocuments();
         }
-
-        
 
         /// <summary>
         /// Deletes nozzle assembly in the nozzle 

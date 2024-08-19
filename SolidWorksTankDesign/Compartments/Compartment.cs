@@ -144,12 +144,25 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Deletes a compartment component from a SolidWorks shell assembly, including the associated file.
         /// </summary>
-        public void Delete()
+        private void Delete()
         {
             ModelDoc2 shellModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
+            shellModelDoc.ClearSelection2(true);
+
             SelectionMgr selectionManager = (SelectionMgr)shellModelDoc.SelectionManager;
             SelectData selectData = selectionManager.CreateSelectData();
+
+            // Get compartment's cut out planes
+            if(Nozzles.Count > 0)
+            {
+                foreach(Nozzle nozzle in Nozzles)
+                {
+                    nozzle.GetCutOutPlane().Select2(true, 1);
+                }
+
+                shellModelDoc.Extension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Children);
+            }
 
             //Select the compartment to be deleted
             GetComponent().Select4(false, selectData, false);
@@ -189,7 +202,7 @@ namespace SolidWorksTankDesign
                         SWFeatureManager.GetMajorPlane(_currentlyActiveCompartmentDoc, MajorPlane.Front),
                         distance));
 
-                SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber - 1].Nozzles.Last().AddNozzleAssembly(compartmentNumber);
+                SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber - 1].Nozzles.Last().AddNozzleAssembly();
             }
             catch (Exception ex)
             {
@@ -204,8 +217,7 @@ namespace SolidWorksTankDesign
         /// </summary>
         public bool DeleteNozzle()
         {
-            // Activates compartment document
-            ActivateDocument();
+            
 
             // Get the count of nozzles in the current compartment once for efficiency
             int nozzlesCount = Nozzles.Count;
@@ -220,6 +232,11 @@ namespace SolidWorksTankDesign
 
             try
             {
+                SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
+                Nozzles[nozzlesCount - 1].DeleteCutExtrude();
+
+                // Activates compartment document
+                ActivateDocument();
                 // Attempt to delete the SolidWorks object associated with the compartment
                 Nozzles[nozzlesCount - 1].DeleteNozzle();
             }

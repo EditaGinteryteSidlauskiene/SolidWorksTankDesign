@@ -74,6 +74,9 @@ namespace SolidWorksTankDesign
             }
         }
 
-       
+        public void ChangeDistance(double distance)
+        {
+            SWFeatureManager.ChangeDistanceOfReferencePlane(GetPositionPlane(), distance);
+        }
     }
 }
