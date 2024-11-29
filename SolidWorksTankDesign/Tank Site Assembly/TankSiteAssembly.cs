@@ -52,30 +52,10 @@ namespace SolidWorksTankDesign
         /// <exception cref="ArgumentNullException"></exception>
         public void InitializeAndStoreTankSiteConfiguration()
         {
-            // Null checks
-            if (SolidWorksDocumentProvider._solidWorksApplication == null)
-            {
-                throw new ArgumentNullException(nameof(SolidWorksDocumentProvider._solidWorksApplication), "SolidWorks application is required.");
-            }
-            if (SolidWorksDocumentProvider.GetActiveDoc() == null)
-            {
-                throw new ArgumentNullException(nameof(TankSiteAssembly._tankSiteModelDoc), "Tank site model document is required.");
-            }
-
-            // Store references to the model doc object
-            _tankSiteModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
-
-            // Create a default instance of the TankSiteAssemblySettings class
-            // to hold settings for the TankSiteAssembly object.
-            _tankSiteAssemblySettings = new TankSiteAssemblySettings();
-            _compartmentsManager = new CompartmentsManager();
-            _assemblyOfDishedEnds = new AssemblyOfDishedEnds();
-            _assemblyOfCylindricalShells = new AssemblyOfCylindricalShells();
-
             try
             {
                 _tankSiteAssemblySettings.AddTankSiteAssemblyPersistentReferenceIds(_tankSiteModelDoc);
-                _compartmentsManager = _tankSiteAssemblySettings.AddCompartmentsManagerPIDs(_tankSiteModelDoc);
+                //_compartmentsManager = _tankSiteAssemblySettings.AddCompartmentsManagerPIDs(_tankSiteModelDoc);
                 _assemblyOfDishedEnds = _tankSiteAssemblySettings.AddDishedEndsPIDs(_tankSiteModelDoc);
                 _assemblyOfCylindricalShells = _tankSiteAssemblySettings.AddCylindricalShellsPIDs(_tankSiteModelDoc);
 
@@ -83,13 +63,15 @@ namespace SolidWorksTankDesign
                 var options = new JsonSerializerSettings { ContractResolver = new PrivatePropertyContractResolver() };
                 string tankSiteAssemblyString = JsonConvert.SerializeObject(this, Formatting.Indented, options);
 
+                // Create attribute
                 AttributeManager.CreateAttribute(
                         SolidWorksDocumentProvider._solidWorksApplication,
                         _tankSiteModelDoc,
                         "TankSiteAssembly",
                         "MainEntities",
                         "MainEntities",
-                        tankSiteAssemblyString);
+                        tankSiteAssemblyString,
+                        "TankProperties");
             }
             catch (Exception ex)
             {

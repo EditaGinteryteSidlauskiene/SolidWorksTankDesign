@@ -21,7 +21,7 @@ namespace AddinWithTaskpane
         #region Private Members
 
         // The cookie to the current instance of SolidWorks we are running inside of
-        private int mSwCookie;
+        public int mSwCookie;
 
         // The taskpane view for our add-in
         private TaskpaneView mTaskpaneView;

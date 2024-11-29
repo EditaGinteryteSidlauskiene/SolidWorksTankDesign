@@ -1,4 +1,5 @@
 ﻿using SolidWorks.Interop.sldworks;
+using SolidWorksTankDesign.TankSiteConfigurations;
 
 namespace SolidWorksTankDesign
 {
@@ -10,6 +11,7 @@ namespace SolidWorksTankDesign
     {
         public static SldWorks _solidWorksApplication;
         public static TankSiteAssembly _tankSiteAssembly;
+        public static TankProperties _tankProperties;
 
         public static ModelDoc2 GetActiveDoc()
         {

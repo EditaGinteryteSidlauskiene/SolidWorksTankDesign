@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-using SolidWorks.Interop.sldworks;
+﻿using SolidWorks.Interop.sldworks;
 using SolidWorksTankDesign.Helpers;
 using System;
 using System.IO;
@@ -12,19 +11,9 @@ namespace SolidWorksTankDesign
 
         private const string INNER_DISHED_END_NAME = "Inner end";
         private const string POSITION_PLANE_NAME = "Position plane";
-        private const string DISHED_END_ECOMPONENT_PATH = "C:\\Users\\Edita\\Desktop\\Parts\\Inner dished end.SLDPRT";
         private const string RIGHT_PLANE_NAME = "Right plane";
         private const string FRONT_PLANE_NAME = "Front plane";
         private const string CENTER_AXIS_NAME = "Center axis";
-
-        /// <summary>
-        /// Gets or sets the alignment of the dished end. If the alignment changes, a method to modify the existing alignment is triggered.
-        /// </summary>
-        public void SetAlignment(DishedEndAlignment dishedEndAlignment)
-        {
-            if (dishedEndAlignment != GetAlignment())
-                ChangeAlignment();
-        }
 
         /// <summary>
         /// DO NOT DELETE IT!!! This constructor is needed for Json deserializer.
@@ -42,6 +31,8 @@ namespace SolidWorksTankDesign
         /// <param name="distance"></param>
         /// <param name="compartmentNumber"></param>
         public InnerDishedEnd(
+            string projectFolder,
+            string innerDishedEndDocPath,
             Feature assemblyOfDishedEndsCenterAxis,
             Feature assemblyOfDishedEndsFrontPlane,
             DishedEnd referenceDishedEnd,
@@ -71,12 +62,27 @@ namespace SolidWorksTankDesign
             Feature positionPlane = SWFeatureManager.CreateReferencePlaneWithDistance(
                 existingPlane: referenceDishedEnd.GetPositionPlane(),
                 distance: distance,
-                name: positionPlaneName);
+                name: positionPlaneName,
+                flip: false);
+
+            // Create a path where the dished end doc will be saved
+            string targetPath = Path.Combine(projectFolder,
+                $"{INNER_DISHED_END_NAME} {SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds.Count+1}.SLDPRT");
+
+            SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
+
+            // Open dished end doc and save it to a new destination
+            DocumentSpecification documentSpecification = solidWorksApp.GetOpenDocSpec(innerDishedEndDocPath);
+            ModelDoc2 emptyManholeDoc = solidWorksApp.OpenDoc7(documentSpecification);
+
+            emptyManholeDoc.SaveAs3(targetPath, 0, 0);
+
+            // Close dished end doc and newly saved docs
+            solidWorksApp.CloseDoc(emptyManholeDoc.GetTitle());
+            solidWorksApp.CloseDoc(targetPath);
 
             // 3. Add and Make Independent Dished End Component
-            Component2 dishedEnd = ComponentManager.AddComponentPart(DISHED_END_ECOMPONENT_PATH);
-
-            ComponentManager.MakeDishedEndIndependent(dishedEnd, DISHED_END_ECOMPONENT_PATH);
+            Component2 dishedEnd = ComponentManager.AddComponentPart(targetPath);
 
             // 4. Rename the Component
             SWFeatureManager.GetFeatureByName(SolidWorksDocumentProvider.GetActiveDoc(), dishedEnd.Name2).Name = componentName;
@@ -129,7 +135,11 @@ namespace SolidWorksTankDesign
             try
             {
                 //Set the required position to the DishedEndPosition property
-                SetAlignment(dishedEndAlignment);
+                ComponentManager.SetAlignment(
+                    dishedEnd,
+                    dishedEndAlignment,
+                    centerAxisMate,
+                    rightPlaneMate);
             }
             catch (Exception ex)
             {
@@ -155,60 +165,6 @@ namespace SolidWorksTankDesign
                     MessageBox.Show(ex.Message, "The attribute could not be created.");
                     return;
                 }
-            }
-        }
-
-        /// <summary>
-        /// Gets whether dished end is alligned left or right.
-        /// </summary>
-        /// <returns></returns>
-        private DishedEndAlignment GetAlignment()
-        {
-            //Get the transformation matrix from the dishedEnd object
-            MathTransform transform = GetComponent().Transform2;
-
-            //Transform the reference point (1, 0, 0) using the transformation matrix
-            double[] TransformedVector = MathUtility.TransformVector(SolidWorksDocumentProvider._solidWorksApplication, transform, new double[3] { 1, 0, 0 });
-
-            //Determine orientation based on the transformed point's X-coordinate
-            return (TransformedVector[0] > 0 ? DishedEndAlignment.Left : DishedEndAlignment.Right);
-        }
-
-        /// <summary>
-        /// Changes alignment of the dished end component
-        /// </summary>
-        public void ChangeAlignment()
-        {
-            try
-            {
-                SWFeatureManager.Suppress(GetCenterAxisMate());
-
-                //Change alignment of the component
-                //Warning message if ChangeAlignement() did not work
-                if (!MateManager.ChangeAlignment(GetRightPlaneMate()))
-                {
-                    MessageBox.Show("Failed to change the right plane mate alignment.");
-                    SWFeatureManager.Unsuppress(GetCenterAxisMate());
-                    return;
-                }
-
-                //Change alignment of axis
-                //Warning message if ChangeAlignement() did not work
-                if (!MateManager.ChangeAlignment(GetCenterAxisMate()))
-                {
-                    MessageBox.Show("Failed to change the center axis mate alignment.");
-                    MateManager.ChangeAlignment(GetRightPlaneMate());
-                    SWFeatureManager.Unsuppress(GetCenterAxisMate());
-                    return;
-                }
-
-                //Unsuppress axis mate
-                SWFeatureManager.Unsuppress(GetCenterAxisMate());
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Mate alignment could not be changed." + ex.Message);
-                return;
             }
         }
 

@@ -3,15 +3,10 @@ using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorksTankDesign.Helpers;
 using System;
-using System.ComponentModel;
-using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using WarningAndErrorService;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using static System.Net.WebRequestMethods;
 
 namespace SolidWorksTankDesign
 {
@@ -25,13 +20,10 @@ namespace SolidWorksTankDesign
         private const string FRONT_PLANE_NAME = "Front plane";
         private const string RIGHT_PLANE_NAME = "Right plane";
         private const string TOP_PLANE_NAME = "Top plane";
-        private const string NOZZLE_PATH = "C:\\Users\\Edita\\TankDesignStudio\\ClassA\\d2500\\Nozzles\\Empty M1 Manhole.SLDASM";
-        private const string NOZZLE_ASSEMBLY_PATH = "C:\\Users\\Edita\\Desktop\\Automation tank\\Manhole DN600 Neck with flange.SLDASM";
         private const string SHELL_DIAMETER_EXTERNAL = "ShellDiameterExternal";
         private const string SHELL_DIAMETER_INTERNAL = "ShellDiameterInternal";
         private const string CENTER_AXIS_ROTATION_ANGLE = "CenterAxisRotationAngle";
         private const string OFFSET = "Offset";
-        private const string PACK_AND_GO_FOLDER_PATH = "C:\\Users\\Edita\\Desktop\\Pack and go";
 
         public NozzleSettings _nozzleSettings;
 
@@ -41,7 +33,28 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// This constructor is responsible for creating and positioning a nozzle within a SolidWorks assembly.
+        /// Changes external and internal diameters, and nozzle's offset of nozzle position sketch
+        /// </summary>
+        /// <param name="nozzleDoc"></param>
+        /// <param name="externalDiameter"></param>
+        private void ChangeNozzleSketchDiametersAndNozzleOffset(ModelDoc2 nozzleDoc, double externalDiameter)
+        {
+            // Get the sketch
+            Feature scketch = SWFeatureManager.GetFeatureByName(nozzleDoc, "Sketch");
+
+            // Get external and internal diameters, and nozzle's offset dimensions
+            Dimension externalDiameterDimension = scketch.Parameter("ShellDiameterExternal");
+            Dimension internalDiameterDimension = scketch.Parameter("ShellDiameterInternal");
+            Dimension nozzleOffset = scketch.Parameter("Offset");
+
+            // Set new values
+            externalDiameterDimension.SetValue3(externalDiameter, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
+            internalDiameterDimension.SetValue3(externalDiameter - 50, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
+            nozzleOffset.SetValue3((externalDiameter - 50)/2, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
+        }
+
+        /// <summary>
+        /// This constructor is responsible for creating and positioning a manhole within a SolidWorks assembly.
         /// </summary>
         /// <param name="compartmentNumber"></param>
         /// <param name="referencePlane"></param>
@@ -49,36 +62,55 @@ namespace SolidWorksTankDesign
         /// <param name="compartmentFrontPlane"></param>
         /// <param name="distance"></param>
         public Nozzle(
+            string compartmentFolder,
+            string nozzlePositionSketchPath,
             int compartmentNumber,
             Feature referencePlane,
             Feature compartmentCenterAxis,
             Feature compartmentFrontPlane,
-            double distance)
+            double distance,
+            bool flip,
+            double externalDiameter)
         {
+            SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
+
+            // Create a path where the empty manhole doc will be saved
+            string ticks = DateTime.Now.Ticks.ToString();
+            string targetPath = Path.Combine(compartmentFolder, 
+                $"{MANHOLE_NAME}{SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber].Nozzles.Count + 1}_{ticks}.SLDASM");
+
+            // Open empty manhole doc and save it to a new destination
+            DocumentSpecification documentSpecification = solidWorksApp.GetOpenDocSpec(nozzlePositionSketchPath);
+            ModelDoc2 nozzlePositionSketchDoc = solidWorksApp.OpenDoc7(documentSpecification);
+
+            nozzlePositionSketchDoc.SaveAs3(targetPath, 0, 0);
+
+            // Close empty manhole and newly saved docs
+            solidWorksApp.CloseDoc(nozzlePositionSketchDoc.GetTitle());
+            solidWorksApp.CloseDoc(targetPath);
+
             // Get active compartment's document
             ModelDoc2 compartmentDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
-            string positionPlaneName = $"{MANHOLE_NAME}{SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber-1].Nozzles.Count+1} {POSITION_PLANE_NAME}";
-            // Create nozzle's position plane
+            string positionPlaneName = $"{MANHOLE_NAME}{SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber].Nozzles.Count + 1} {POSITION_PLANE_NAME}";
+            // Create manhole's position plane
             Feature positionPlane = SWFeatureManager.CreateReferencePlaneWithDistance(
                 existingPlane: referencePlane,
                 distance: distance,
-                name: positionPlaneName);
+                name: positionPlaneName,
+                flip: flip);
 
-            // Add a new nozzle and make it independent
-            Component2 nozzle = ComponentManager.AddComponentAssembly(compartmentDoc, NOZZLE_PATH);
-            ComponentManager.MakeComponentIndependent(nozzle, NOZZLE_PATH);
-
-            // Rename nozzle component
-            string componentName = $"{MANHOLE_NAME}{SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber-1].Nozzles.Count+1}";
-            SWFeatureManager.GetFeatureByName(compartmentDoc, nozzle.Name2).Name = componentName;
+            // Add a new manhole
+            Component2 nozzle = ComponentManager.AddComponentAssembly(compartmentDoc, targetPath);
 
             ModelDoc2 nozzleModelDoc = nozzle.GetModelDoc2();
+
+            ChangeNozzleSketchDiametersAndNozzleOffset(nozzleModelDoc, externalDiameter);
 
             Feature positionPlaneMate = null;
             MateNozzle();
 
-            // Get nozzle Entities and Initialize Settings
+            // Get manhole Entities and Initialize Settings
             _nozzleSettings = new NozzleSettings();
             try
             {
@@ -86,7 +118,7 @@ namespace SolidWorksTankDesign
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error getting nozzle entities: {ex.Message}");
+                MessageBox.Show($"Error getting manhole entities: {ex.Message}");
             }
 
             void MateNozzle()
@@ -113,7 +145,7 @@ namespace SolidWorksTankDesign
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "At least one of nozzle mates could not be created.");
+                    MessageBox.Show(ex.Message, "At least one of manhole mates could not be created.");
                     return;
                 }
             }
@@ -126,10 +158,10 @@ namespace SolidWorksTankDesign
                     _nozzleSettings.PIDComponent = compartmentDoc.Extension.GetPersistReference3(nozzle);
                     _nozzleSettings.PIDPositionPlaneMate = compartmentDoc.Extension.GetPersistReference3(positionPlaneMate);
 
-                    // Use a SolidWorksDocumentWrapper for managing the nozzle's model document.
+                    // Use a SolidWorksDocumentWrapper for managing the manhole's model document.
                     using (var nozzleDocument = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, nozzleModelDoc))
                     {
-                        // Get the selection manager to interact with selections within the nozzle's model
+                        // Get the selection manager to interact with selections within the manhole's model
                         SelectionMgr selectionMgrAtNozzle = (SelectionMgr)nozzleModelDoc.SelectionManager;
 
                         // Get features and components
@@ -208,7 +240,7 @@ namespace SolidWorksTankDesign
 
                         try
                         {
-                            // Populate the _nozzleSettings with the retrieved PIDs for those entities that has to be reachable from nozzle's document
+                            // Populate the _nozzleSettings with the retrieved PIDs for those entities that has to be reachable from manhole's document
                             _nozzleSettings.PIDCenterAxis = nozzleModelDoc.Extension.GetPersistReference3(nozzleCenterAxis);
                             _nozzleSettings.PIDNozzleAxis = nozzleModelDoc.Extension.GetPersistReference3(nozzleAxis);
                             _nozzleSettings.PIDExternalPoint = nozzleModelDoc.Extension.GetPersistReference3(externalPoint);
@@ -228,7 +260,7 @@ namespace SolidWorksTankDesign
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "Could not initialize nozzle settings.");
+                    MessageBox.Show(ex.Message, "Could not initialize manhole settings.");
                     return;
                 }
             }
@@ -237,15 +269,18 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Attempts to create a cutout(hole or removal of material) in the active SolidWorks document
         /// </summary>
-        private void AddCutOutExtrude()
+        public void AddCutOutExtrude(Compartment compartment, Nozzle nozzle)
         {
             try
             {
-                AddCutOutPlane();
+                // Create cut out plane
+                AddCutOutPlane(compartment, nozzle);
 
-                string sketchName = AddCutOutSketch();
+                // Get sketch name
+                string sketchName = AddCutOutSketch(compartment, nozzle);
 
-                CreateCutExtrude(sketchName);
+                // Create cut
+                CreateCutExtrude(sketchName, compartment, nozzle);
             }
            catch(Exception ex)
             {
@@ -255,34 +290,30 @@ namespace SolidWorksTankDesign
 
         /// <summary>
         /// Creates a reference plane(a flat construction surface) in the main shell document of a tank assembly.
-        /// The reference plane is positioned perpendicular to the axis of the most recently added nozzle and passes 
-        /// through the nozzle's midpoint. 
+        /// The reference plane is positioned perpendicular to the axis of the most recently added manhole and passes 
+        /// through the manhole's midpoint. 
         /// </summary>
         /// <param name="compartmentNumber"></param>
-        private void AddCutOutPlane()
+        private void AddCutOutPlane(Compartment compartment, Nozzle nozzle)
         {
             // Get a reference to the main tank assembly in SolidWorks.
             TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
-
-            // Get references to the specific compartment and the latest nozzle added to it.
-            Compartment compartment = tankSiteAssembly._compartmentsManager.Compartments.Last();
-            Nozzle nozzle = compartment.Nozzles.Last();
 
             // Activate the compartment document to make it the active document in SolidWorks.
             tankSiteAssembly._compartmentsManager.ActivateDocument();
             compartment.ActivateDocument();
 
-            // Get the nozzle component object.
+            // Get the manhole component object.
             Component2 nozzleComp = nozzle.GetComponent();
 
-            // Activate the nozzle document to access its features.
+            // Activate the manhole document to access its features.
             nozzle.ActivateDocument();
 
-            // Retrieve the axis and midpoint features of the nozzle.
+            // Retrieve the axis and midpoint features of the manhole.
             Feature nozzleAxis = nozzle.GetNozzleAxis();
             Feature midPoint = nozzle.GetMidPoint();
 
-            // Close the nozzle and compartment documents as we've extracted the needed information.
+            // Close the manhole and compartment documents as we've extracted the needed information.
             nozzle.CloseDocument();
             compartment.CloseDocument();
 
@@ -295,8 +326,8 @@ namespace SolidWorksTankDesign
             // Ensure nothing is pre-selected to avoid conflicts.
             shellDoc.ClearSelection2(true);
 
-            // Select the nozzle axis and midpoint in the context of the main shell document.
-            // This includes references to the compartment and nozzle assembly names for accurate selection.
+            // Select the manhole axis and midpoint in the context of the main shell document.
+            // This includes references to the compartment and manhole assembly names for accurate selection.
             shellDoc.Extension.SelectByID2(
                             $"{nozzleAxis.Name}@{compartmentComp.Name2}@{shellDoc.GetTitle()}/{nozzleComp.Name2}@{compartmentComp.Name2.Split('-')[0]}",
                             "AXIS",
@@ -314,7 +345,7 @@ namespace SolidWorksTankDesign
             // Get access to the feature manager of the shell document.
             FeatureManager featureManager = shellDoc.FeatureManager;
 
-            // Create a new reference plane that is perpendicular to the nozzle axis and passes through the midpoint.
+            // Create a new reference plane that is perpendicular to the manhole axis and passes through the midpoint.
             Feature cutOutPlane = (Feature)featureManager.InsertRefPlane(
                 (int)swRefPlaneReferenceConstraints_e.swRefPlaneReferenceConstraint_Perpendicular,
                 0,
@@ -324,59 +355,55 @@ namespace SolidWorksTankDesign
             // Set a descriptive name for the reference plane.
             cutOutPlane.Name = $"{compartmentComp.Name2.Split('-')[0]} {nozzleComp.Name2.Split('-')[0]} Cut out plane";
 
-            // Store the reference plane information in the nozzle settings for later use.
+            // Store the reference plane information in the manhole settings for later use.
             nozzle._nozzleSettings.PIDCutOutPlane = shellDoc.Extension.GetPersistReference3(cutOutPlane);
         }
 
         /// <summary>
         /// creates a circular sketch on the main shell document of a tank assembly. 
-        /// The circle is centered on the axis of the latest nozzle added to a specific compartment, 
-        /// and its radius is determined by the "D1" dimension(representing the diameter) of a "Cutout sketch" 
-        /// found within the "Neck" component of the nozzle assembly.This sketch is typically used to define the 
-        /// cutout shape for the nozzle on the tank shell.
+        /// The circle is centered on the axis of the latest manhole added to a specific compartment, 
+        /// and its radius is determined by the "D1" externalDiameterDimension(representing the diameter) of a "Cutout sketch" 
+        /// found within the "Neck" component of the manhole assembly.This sketch is typically used to define the 
+        /// cutout shape for the manhole on the tank shell.
         /// </summary>
         /// <param name="compartmentNumber"></param>
-        private string AddCutOutSketch()
+        private string AddCutOutSketch(Compartment compartment, Nozzle nozzle)
         {
             // 1. Get References to Objects:
             // Retrieve the main tank site assembly object that holds all the tank components.
             TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
 
-            // Get references to the specific compartment and the latest nozzle added to it.
-            Compartment compartment = tankSiteAssembly._compartmentsManager.Compartments.Last();
-            Nozzle nozzle = compartment.Nozzles.Last();
-
             // 2. Activate Documents:
             // Make the compartment document the currently active document in SolidWorks.
             compartment.ActivateDocument();
 
-            // Get the SolidWorks component object that represents the nozzle in the tank site assembly.
+            // Get the SolidWorks component object that represents the manhole in the tank site assembly.
             Component2 nozzleComp = nozzle.GetComponent();
 
-            // Activate the nozzle document to gain access to its features and geometry.
+            // Activate the manhole document to gain access to its features and geometry.
             nozzle.ActivateDocument();
 
-            // Get the nozzle axis
+            // Get the manhole axis
             Feature nozzleAxis = GetNozzleAxis();
 
-            // Get the nozzle assembly component, containing all parts of the nozzle assembly.
+            // Get the manhole assembly component, containing all parts of the manhole assembly.
             Component2 nozzleAssemblyComp = nozzle.GetNozzleAssemblyComp();
 
             // 3. Extract Cutout Radius:
 
-            // Get the "Cutout sketch" feature within the nozzle assembly component.
+            // Get the "Cutout sketch" feature within the manhole assembly component.
             Feature cutOutScketch = SWFeatureManager.GetFeatureByName(nozzleAssemblyComp, "Cut out sketch");
 
-            // Get the "D1" dimension from the cutout sketch, which is assumed to represent the diameter.
+            // Get the "D1" externalDiameterDimension from the cutout sketch, which is assumed to represent the diameter.
             Dimension dimension = cutOutScketch.Parameter("D1");
 
-            // Extract the dimension value as a double and convert it to a radius.
+            // Extract the externalDiameterDimension value as a double and convert it to a radius.
             double radius = dimension.GetValue3(
                 (int)swInConfigurationOpts_e.swAllConfiguration,
                 null)[0];
 
             // 4. Create Cutout Sketch on Shell:
-            // Close the nozzle and compartment documents, as they are no longer needed.
+            // Close the manhole and compartment documents, as they are no longer needed.
             nozzle.CloseDocument();
             compartment.CloseDocument();
 
@@ -401,7 +428,7 @@ namespace SolidWorksTankDesign
             // Create a circle on the sketch with the extracted radius, centered at a default position (0, 0, 0).
             sketchManager.CreateCircleByRadius(0, 0, 0, radius/2000);
 
-            // Select the nozzle axis and the center point of the circle for constraint application.
+            // Select the manhole axis and the center point of the circle for constraint application.
             shellDoc.Extension.SelectByID2(
                             $"{nozzleAxis.Name}@{compartmentComp.Name2}@{shellDoc.GetTitle()}/{nozzleComp.Name2}@{compartmentComp.Name2.Split('-')[0]}",
                             "AXIS",
@@ -416,7 +443,7 @@ namespace SolidWorksTankDesign
                            true,
                            0, null, 0);
 
-            // Add a coincident constraint to align the circle's center with the nozzle axis.
+            // Add a coincident constraint to align the circle's center with the manhole axis.
             shellDoc.SketchAddConstraints("sgCOINCIDENT");
 
             // Get active sketch
@@ -427,39 +454,19 @@ namespace SolidWorksTankDesign
 
         /// <summary>
         /// Creates a cut-out in the cylindrical shells of a tank assembly in SolidWorks. 
-        /// The cut-out is specifically designed to accommodate a nozzle that has been recently added to the tank.
+        /// The cut-out is specifically designed to accommodate a manhole that has been recently added to the tank.
         /// </summary>
-        private void CreateCutExtrude(string sketchName)
+        private void CreateCutExtrude(string sketchName, Compartment compartment, Nozzle nozzle)
         {
             // 1. Get References and Setup:
             // Retrieve the main tank site assembly object.
             TankSiteAssembly tankSiteAssembly = SolidWorksDocumentProvider._tankSiteAssembly;
 
-            
-
-            // Get references to the specific compartment and the latest nozzle added to it.
-            Compartment compartment = tankSiteAssembly._compartmentsManager.Compartments.Last();
-            Nozzle nozzle = compartment.Nozzles.Last();
-
             // Get the main shell document where the cut-extrude will be applied.
             ModelDoc2 shellDoc = SolidWorksDocumentProvider.GetActiveDoc();
             FeatureManager featureManager = shellDoc.FeatureManager;
 
-            // 2.Temporarily Suppress Nozzle Assembly:
-            // Activate the compartment document to work with it
-            compartment.ActivateDocument();
-
-            // Activate the nozzle document to access its components.
-             nozzle.ActivateDocument();
-
-           // Get the SolidWorks component object representing the nozzle assembly.
-           Component2 nozzleAssemblyComp = nozzle.GetNozzleAssemblyComp();
-
-            // Close the nozzle and compartment documents after obtaining the nozzle assembly component.
-             nozzle.CloseDocument();
-            compartment.CloseDocument();
-
-            //3.Create Cut - Extrude Feature:
+            //2.Create Cut - Extrude Feature:
             //Perform the cut - extrude operation on the selected cylindrical shells.
             Feature cutExtrude = (Feature)featureManager.FeatureCut4(
                 true,
@@ -501,9 +508,7 @@ namespace SolidWorksTankDesign
 
             foreach (CylindricalShell cylindricalShell in tankSiteAssembly._assemblyOfCylindricalShells.CylindricalShells)
             {
-                tankSiteAssembly._assemblyOfCylindricalShells.ActivateDocument();
-
-                ModelDoc2 assemblyOfCylindricalShellsDoc = SolidWorksDocumentProvider.GetActiveDoc();
+                ModelDoc2 assemblyOfCylindricalShellsDoc = tankSiteAssembly._assemblyOfCylindricalShells.ActivateDocument();
                 string cylindricalShellName = cylindricalShell.GetComponent().Name2;
 
                 tankSiteAssembly._assemblyOfCylindricalShells.CloseDocument();
@@ -517,7 +522,7 @@ namespace SolidWorksTankDesign
 
             cutExtrude.ModifyDefinition(cutExtrudeFeatData, shellDoc, null);
 
-            // Store a reference to the newly created cut-extrude feature in the nozzle settings for later use.
+            // Store a reference to the newly created cut-extrude feature in the manhole settings for later use.
             nozzle._nozzleSettings.PIDCutExtrude = shellDoc.Extension.GetPersistReference3(cutExtrude);
 
             // Update the SolidWorks documents to reflect the changes and save them.
@@ -525,44 +530,7 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Packages a SolidWorks assembly document (along with its associated drawings) into  a single, 
-        /// timestamped folder. It ensures file uniqueness by incorporating the current 
-        /// timestamp into both the folder name and the packed file names. The method returns the full path 
-        /// to the packed assembly file (.SLDASM) for further processing or reference.
-        /// </summary>
-        /// <param name="assemblyModelDoc"></param>
-        /// <returns></returns>
-        private string PackAndGo(ModelDoc2 assemblyModelDoc)
-        {
-            // Get the Pack and Go interface for the assembly document
-            PackAndGo packAndGo = assemblyModelDoc.Extension.GetPackAndGo();
-
-            // Configure Pack and Go options
-            packAndGo.IncludeDrawings = true;           // Include associated drawings in the Pack and Go
-            packAndGo.FlattenToSingleFolder = true;     // Save all files to a single folder (no subfolders)
-
-            // Define the base folder where Pack and Go files will be saved
-            string packAndGoFolderPath = PACK_AND_GO_FOLDER_PATH;
-
-            // Generate a unique folder name using the current timestamp (ticks)
-            double ticks = DateTime.Now.Ticks;
-            string timestampedPackAndGoFolder = $"{packAndGoFolderPath}\\{ticks}";
-
-            // Add a prefix to all Pack and Go file names using the timestamp
-            packAndGo.AddPrefix = ticks.ToString();
-
-            // Set the save location for the Pack and Go files
-            packAndGo.SetSaveToName(true, timestampedPackAndGoFolder);
-
-            // Execute the Pack and Go operation
-            assemblyModelDoc.Extension.SavePackAndGo(packAndGo);
-
-            // Construct and return the full path to the packed assembly file
-            return $"{packAndGoFolderPath}\\{ticks}\\{ticks}{assemblyModelDoc.GetTitle()}.SLDASM";
-        }
-
-        /// <summary>
-        /// Changes reference plane of the nozzle's position plane
+        /// Changes reference plane of the manhole's position plane
         /// Compartment doc must be open.
         /// </summary>
         /// <param name="newRefPlane"></param>
@@ -575,13 +543,13 @@ namespace SolidWorksTankDesign
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error while changing nozzle's reference plane", ex.Message);
+                MessageBox.Show("Error while changing manhole's reference plane", ex.Message);
                 return;
             }
         }
 
         /// <summary>
-        /// Flips dimension of the nozzle.
+        /// Flips externalDiameterDimension of the manhole.
         /// Compartment's document must be open
         /// </summary>
         public void FlipDimension()
@@ -589,7 +557,7 @@ namespace SolidWorksTankDesign
             Feature positionPlane = GetPositionPlane();
             RefPlaneFeatureData refPlaneFeatureData = positionPlane.GetDefinition();
 
-            // Toggle the dimension
+            // Toggle the externalDiameterDimension
             refPlaneFeatureData.ReversedReferenceDirection[0] = !refPlaneFeatureData.ReversedReferenceDirection[0];
 
             // Modify the feature within the model
@@ -597,7 +565,7 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Changes distance of the nozzle's position plane from the starting plane.
+        /// Changes distance of the manhole's position plane from the starting plane.
         /// Compartment document must be open
         /// </summary>
         /// <param name="distance"></param>
@@ -609,22 +577,34 @@ namespace SolidWorksTankDesign
             }
             catch(Exception ex)
             {
-                MessageBox.Show("Error when changing nozzle position plane's distance.", ex.Message);
+                MessageBox.Show("Error when changing manhole position plane's distance.", ex.Message);
             }
         }
 
+        /// <summary>
+        /// Deletes cut by deleting its cut out plane
+        /// </summary>
+        /// <returns></returns>
         public bool DeleteCutExtrude()
         {
             ModelDoc2 shellDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
+            // Get cut out plane
+            Feature cutOutPlane = GetCutOutPlane();
+
+            if (cutOutPlane == null) return true;
+
+            // Select cut out plane
             GetCutOutPlane().Select2(false, 1);
+
+            // Delete cut out plane
             shellDoc.Extension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Children);
-            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.CloseDocument();
 
             return true;
         }
 
         /// <summary>
-        /// Deletes a nozzle component from a SolidWorks compartment assembly, including the associated file.
+        /// Deletes a manhole component from a SolidWorks compartment assembly, including the associated file.
         /// </summary>
         public void DeleteNozzle()
         {
@@ -634,26 +614,26 @@ namespace SolidWorksTankDesign
             SelectionMgr selectionManager = (SelectionMgr)compartmentDoc.SelectionManager;
             SelectData selectData = selectionManager.CreateSelectData();
 
-            //Select the nozzle and its position plane to be deleted
+            //Select the manhole and its position plane to be deleted
             nozzleComponent.Select4(false, selectData, false);
             GetPositionPlane().Select2(true, 1);
 
-            //Get nozzle document's path to delete the file
+            //Get manhole document's path to delete the file
             ModelDoc2 componentDocument = nozzleComponent.GetModelDoc2();
             string path = componentDocument.GetPathName();
 
-            //Delete selected nozzle
+            //Delete selected manhole
             ((AssemblyDoc)compartmentDoc).DeleteSelections(0);
 
             //Rebuild assembly to release the file to be deleted
             compartmentDoc.EditRebuild3();
 
             //Delete the file
-            File.Delete(path);
+            System.IO.File.Delete(path);
         }
 
         /// <summary>
-        /// Sets a new offset value in meters. Positive value to move nozzle to the right from the middle point, negative - to the left.
+        /// Sets a new offset value in meters. Positive value to move manhole to the right from the middle point, negative - to the left.
         /// </summary>
         /// <param name="distanceInMeters"></param>
         public void SetOffset(double distanceInMeters)
@@ -689,7 +669,7 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Rotates the nozzle according to its central vertical axis.
+        /// Rotates the manhole according to its central vertical axis.
         /// </summary>
         /// <param name="angleInDegrees"></param>
         public void RotateNozzle(double angleInDegrees)
@@ -697,7 +677,7 @@ namespace SolidWorksTankDesign
             // Activate Nozzle doc
             ActivateDocument();
 
-            // Get nozzle right reference plane
+            // Get manhole right reference plane
             Feature rightRefPlane = GetNozzleRightRefPlane();
 
             //Get feature definition
@@ -713,7 +693,7 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Rotates nozzle according sketch circle.
+        /// Rotates manhole according sketch circle.
         /// </summary>
         /// <param name="angleInDegrees"></param>
         public void SetRotationAngle(double angleInDegrees)
@@ -743,7 +723,7 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Changes distance between nozzle's top plane and sketch external point. This allows the nozzle to be moved up and down.
+        /// Changes distance between manhole's top plane and sketch external point. This allows the manhole to be moved up and down.
         /// </summary>
         /// <param name="distanceInMeters"></param>
         public void ChangeNozzleDistance(double distanceInMeters)
@@ -761,7 +741,7 @@ namespace SolidWorksTankDesign
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error changing nozzle distance: {ex.Message}");
+                MessageBox.Show($"Error changing manhole distance: {ex.Message}");
             }
 
             // Update attribute with the new PID
@@ -771,54 +751,74 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Inserts a pre-designed nozzle assembly into the currently active SolidWorks document. 
-        /// It first prepares the nozzle assembly by packaging it using the PackAndGo functionality. 
+        /// Inserts a pre-designed manhole assembly into the currently active SolidWorks document. 
+        /// It first prepares the manhole assembly by packaging it using the PackAndGo functionality. 
         /// Then, it adds the packaged assembly to the active document and precisely positions it using mates (geometric constraints)
         /// that align key features of the assembly with corresponding features in the active document.
-        /// Finally, it creates a cutout to accommodate the newly added nozzle assembly and saves the modified document.
+        /// Finally, it creates a cutout to accommodate the newly added manhole assembly and saves the modified document.
         /// </summary>
-        public void AddNozzleAssembly()
+        public void AddNozzleAssembly(string compartmentFolder, string nozzleDocPath, Compartment compartment, Nozzle nozzle)
         {
-            // Activate current nozzle document
+            // Activate current manhole document
             ActivateDocument();
 
-            // Open the nozzle assembly document in SolidWorks silently (without displaying it to the user)
-            ModelDoc2 nozzleAssemblyDoc = SolidWorksDocumentProvider._solidWorksApplication.OpenDoc6(
-                NOZZLE_ASSEMBLY_PATH, 
-                (int)swDocumentTypes_e.swDocASSEMBLY, 
-                (int)swOpenDocOptions_e.swOpenDocOptions_Silent, 
-                "", 1, 1);
+            int error = 0;
+            int warning = 0;
 
-            // Package the nozzle assembly and its associated files using Pack and Go, and get the path to the packed assembly
-            string path = PackAndGo(nozzleAssemblyDoc);
+            SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
+            DocumentSpecification documentSpecification = (DocumentSpecification)solidWorksApp.GetOpenDocSpec(nozzleDocPath);
+            documentSpecification.Silent = true;
+            ModelDoc2 nozzleAssemblyDoc = solidWorksApp.OpenDoc7(documentSpecification);
 
-            // Close the nozzle assembly document after it has been packed
-            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(nozzleAssemblyDoc.GetTitle());
+            if(nozzleAssemblyDoc is null)
+            {
+                string nozzleDocTitle = nozzleDocPath.Split('\\').Last().Split('.')[0];
+                object[] activeDocs = solidWorksApp.GetDocuments();
+                foreach (object activeDoc in activeDocs)
+                {
+                    string nameDoc = ((ModelDoc2)activeDoc).GetTitle();
+                    if (nameDoc == nozzleDocTitle)
+                    {
+                        nozzleAssemblyDoc = (ModelDoc2)activeDoc;
+                        break;
+                    }
+                }
+            }
 
-            // Add the packed nozzle assembly to the currently active nozzle document as a component
+            //string nameOfCurrentDoc = SolidWorksDocumentProvider.GetActiveDoc().GetTitle();
+            string name = nozzleAssemblyDoc.GetTitle();
+
+            // Package the manhole assembly and its associated files using Pack and Go, and get the path to the packed assembly
+            string path = DocumentManager.PackAndGo(compartmentFolder, nozzleAssemblyDoc, null, null);
+
+            // Close the manhole assembly document after it has been packed
+            solidWorksApp.CloseDoc(nozzleAssemblyDoc.GetTitle());
+            string docpath = _currentlyActiveNozzleDoc.GetPathName();
+
+            // Add the packed manhole assembly to the currently active manhole document as a component
             Component2 nozzleAssembly = ComponentManager.AddComponentAssembly(_currentlyActiveNozzleDoc, path);
 
-            // Get a reference to the "Center axis" feature of the added nozzle assembly, which will be used for mating
+            // Get a reference to the "Center axis" feature of the added manhole assembly, which will be used for mating
             Feature nozzleAssemblyCenterAxis = SWFeatureManager.GetFeatureByName(nozzleAssembly, "Center axis");
 
             try
             {
-                // Create mates to position and align the nozzle assembly within the active document
-                // 1. Align the "Nozzle axis" of the active document with the "Center axis" of the nozzle assembly
+                // Create mates to position and align the manhole assembly within the active document
+                // 1. Align the "Nozzle axis" of the active document with the "Center axis" of the manhole assembly
                 MateManager.CreateMate(
                     componentFeature1: SWFeatureManager.GetFeatureByName(_currentlyActiveNozzleDoc, "Nozzle axis"),
                     componentFeature2: nozzleAssemblyCenterAxis,
                     alignmentType: MateAlignment.Aligned,
                     name: $"{nozzleAssembly.Name2} - {CENTER_AXIS_NAME}");
 
-                // 2. Align the right plane of the active nozzle with the right plane of the nozzle assembly
+                // 2. Align the right plane of the active manhole with the right plane of the manhole assembly
                 MateManager.CreateMate(
                     componentFeature1: GetNozzleRightRefPlane(),
                     componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{nozzleAssembly.Name2} - {RIGHT_PLANE_NAME}");
 
-                // 3. Anti-align the top plane of the nozzle assembly with a "Cut plane" in the active document
+                // 3. Anti-align the top plane of the manhole assembly with a "Cut plane" in the active document
                 Feature topPlaneMate = MateManager.CreateMate(
                     componentFeature1: GetCutPlane(),
                     componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Top),
@@ -826,27 +826,27 @@ namespace SolidWorksTankDesign
                     distance: 0,
                     name: $"{nozzleAssembly.Name2} - {TOP_PLANE_NAME}");
 
-                // Store persistent references (PIDs) to the nozzle assembly component and the top plane mate for future use
+                // Store persistent references (PIDs) to the manhole assembly component and the top plane mate for future use
                 _nozzleSettings.PIDNozzleAssemblyComp = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(nozzleAssembly);
                 _nozzleSettings.PIDTopPlaneMate = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(topPlaneMate);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "At least one of nozzle assembly mates could not be created.");
+                MessageBox.Show(ex.Message, "At least one of manhole assembly mates could not be created.");
             }
 
             // Update and save the active document and any associated attribute documents
             DocumentManager.UpdateAndSaveDocuments();
 
-            // Add a cutout extrude feature (presumably to create space for the nozzle assembly)
-            AddCutOutExtrude();
+            // Add a cutout extrude feature (presumably to create space for the manhole assembly)
+            AddCutOutExtrude(compartment, nozzle);
 
             // Update and save the active document and any associated attribute documents
             DocumentManager.UpdateAndSaveDocuments();
         }
 
         /// <summary>
-        /// Deletes nozzle assembly in the nozzle 
+        /// Deletes manhole assembly in the manhole 
         /// </summary>
         public void DeleteNozzleAssembly()
         {
@@ -857,7 +857,7 @@ namespace SolidWorksTankDesign
                 SelectionMgr selectionManager = (SelectionMgr)_currentlyActiveNozzleDoc.SelectionManager;
                 SelectData selectData = selectionManager.CreateSelectData();
 
-                //Select the nozzle assembly to be deleted
+                //Select the manhole assembly to be deleted
                 GetNozzleAssemblyComp().Select4(false, selectData, false);
 
                 //Delete selected dished end
@@ -865,7 +865,7 @@ namespace SolidWorksTankDesign
             }
             catch(Exception ex)
             {
-                MessageBox.Show("Error while trying to delete nozzle assembly.", ex.Message);
+                MessageBox.Show("Error while trying to delete manhole assembly.", ex.Message);
                 CloseDocument();
             }
 
@@ -873,7 +873,7 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Activates document of nozzle assembly
+        /// Activates document of manhole assembly
         /// </summary>
         public void ActivateDocument()
         {
@@ -881,11 +881,15 @@ namespace SolidWorksTankDesign
             ModelDoc2 nozzleModelDoc = GetComponent().GetModelDoc2();
 
             // Activate compartment doc
-            _currentlyActiveNozzleDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(nozzleModelDoc.GetTitle() + ".sldasm", true, 0, 0);
+            _currentlyActiveNozzleDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
+                nozzleModelDoc.GetTitle() + ".sldasm", 
+                true, 
+                0, 
+                0);
         }
 
         /// <summary>
-        /// Closes active document of nozzle assembly
+        /// Closes active document of manhole assembly
         /// </summary>
         public void CloseDocument()
         {

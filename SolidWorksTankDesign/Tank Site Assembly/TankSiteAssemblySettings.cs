@@ -49,6 +49,8 @@ namespace SolidWorksTankDesign
         /// <exception cref="InvalidOperationException"></exception>
         public void AddTankSiteAssemblyPersistentReferenceIds(ModelDoc2 tankSiteModelDoc)
         {
+            string name = tankSiteModelDoc.GetTitle();
+            string prefix = name.Split('_')[0] + "_";
             ModelDocExtension tankSiteModelDocExt = tankSiteModelDoc.Extension;
             SelectionMgr selectionMgr = (SelectionMgr)tankSiteModelDoc.SelectionManager;
 
@@ -62,7 +64,7 @@ namespace SolidWorksTankDesign
             Feature centerAxis = selectionMgr.GetSelectedObject6(1, -1);
 
             tankSiteModelDoc.Extension.SelectByID2(
-                    "Tank Workshop Assembly - Center axis",
+                    $"{prefix}Tank Workshop Assembly - Center axis",
                     "MATE",
                     0, 0, 0,
                     false,
@@ -70,7 +72,7 @@ namespace SolidWorksTankDesign
             Feature centerAxisMate = selectionMgr.GetSelectedObject6(1, -1);
 
             tankSiteModelDoc.Extension.SelectByID2(
-                    "Tank Workshop Assembly-1@Tank Site Assembly",
+                    $"{prefix}Tank Workshop Assembly-1@{prefix}Tank Site Assembly",
                     "COMPONENT",
                     0, 0, 0,
                     false,
@@ -78,7 +80,7 @@ namespace SolidWorksTankDesign
             Component2 tankWorkshopAssemblyAsComponent = selectionMgr.GetSelectedObject6(1, -1);
 
             tankSiteModelDoc.Extension.SelectByID2(
-                    "Tank Workshop Assembly-1@Tank Site Assembly/Tank-1@Tank Workshop Assembly",
+                    $"{prefix}Tank Workshop Assembly-1@{prefix}Tank Site Assembly/{prefix}Tank-1@{prefix}Tank Workshop Assembly",
                     "COMPONENT",
                     0, 0, 0,
                     false,
@@ -86,7 +88,7 @@ namespace SolidWorksTankDesign
             Component2 tankAssemblyAsComponent = selectionMgr.GetSelectedObject6(1, -1);
 
             tankSiteModelDoc.Extension.SelectByID2(
-                    "Tank Workshop Assembly-1@Tank Site Assembly/Tank-1@Tank Workshop Assembly/Shell-1@Tank",
+                    $"{prefix}Tank Workshop Assembly-1@{prefix}Tank Site Assembly/{prefix}Tank-1@{prefix}Tank Workshop Assembly/{prefix}Shell-1@{prefix}Tank",
                     "COMPONENT",
                     0, 0, 0,
                     false,
@@ -94,7 +96,7 @@ namespace SolidWorksTankDesign
             Component2 shellAssemblyAsComponent = selectionMgr.GetSelectedObject6(1, -1);
 
             tankSiteModelDoc.Extension.SelectByID2(
-                    "Tank Workshop Assembly-1@Tank Site Assembly/Tank-1@Tank Workshop Assembly/Shell-1@Tank/Assembly of Dished ends-1@Shell",
+                    $"{prefix}Tank Workshop Assembly-1@{prefix}Tank Site Assembly/{prefix}Tank-1@{prefix}Tank Workshop Assembly/{prefix}Shell-1@{prefix}Tank/{prefix}Assembly of Dished ends-1@{prefix}Shell",
                     "COMPONENT",
                     0, 0, 0,
                     false,
@@ -102,21 +104,12 @@ namespace SolidWorksTankDesign
             Component2 assemblyOfDishedEndsAsComponent = selectionMgr.GetSelectedObject6(1, -1);
 
             tankSiteModelDoc.Extension.SelectByID2(
-                    "Tank Workshop Assembly-1@Tank Site Assembly/Tank-1@Tank Workshop Assembly/Shell-1@Tank/Assembly of Cylindrical Shells-1@Shell",
+                    $"{prefix}Tank Workshop Assembly-1@{prefix}Tank Site Assembly/{prefix}Tank-1@{prefix}Tank Workshop Assembly/{prefix}Shell-1@{prefix}Tank/{prefix}Assembly of Cylindrical Shells-1@{prefix}Shell",
                     "COMPONENT",
                     0, 0, 0,
                     false,
                     0, null, 0);
             Component2 assemblyOfCylindricalShellsAsComponent = selectionMgr.GetSelectedObject6(1, -1);
-
-            tankSiteModelDoc.Extension.SelectByID2(
-                    "Tank Workshop Assembly-1@Tank Site Assembly/Tank-1@Tank Workshop Assembly/Shell-1@Tank/Compartments-1@Shell",
-                    "COMPONENT",
-                    0, 0, 0,
-                    false,
-                    0, null, 0);
-            Component2 assemblyOfCompartmentsAsComponent = selectionMgr.GetSelectedObject6(1, -1);
-            
 
             // Safety check: Ensure that components were found
             if (tankWorkshopAssemblyAsComponent == null)
@@ -144,12 +137,6 @@ namespace SolidWorksTankDesign
                 PIDShellAssembly = tankSiteModelDocExt.GetPersistReference3(shellAssemblyAsComponent);
                 PIDDishedEndsAssembly = tankSiteModelDocExt.GetPersistReference3(assemblyOfDishedEndsAsComponent);
                 PIDCylindricalShellsAssembly = tankSiteModelDocExt.GetPersistReference3(assemblyOfCylindricalShellsAsComponent);
-                PIDCompartmentsAssembly = tankSiteModelDocExt.GetPersistReference3(assemblyOfCompartmentsAsComponent);
-
-
-                //----------------------- Disehd Ends PIDs ---------------------------------------------------
-
-
             }
             catch (Exception ex) 
             {
@@ -206,9 +193,32 @@ namespace SolidWorksTankDesign
                 // Create an AssemblyOfDishedEnds object to represent the assembly and store its settings.
                 AssemblyOfDishedEnds assemblyOfDishedEnds = new AssemblyOfDishedEnds(dishedEndsModelDoc);
 
-                GetLeftDishedEndEntitiesPIDs();
+                dishedEndsModelDoc.Extension.SelectByID2(
+                       "Left end plane",
+                       "PLANE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                Feature leftDishedEndPositionPlane = selectionMgr.GetSelectedObject6(1, -1);
 
-                GetRightDishedEndEntitiesPIDs();
+                dishedEndsModelDoc.Extension.SelectByID2(
+                       "Right end plane",
+                       "PLANE",
+                       0, 0, 0,
+                       false,
+                       0, null, 0);
+                Feature rightDishedEndPositionPlane = selectionMgr.GetSelectedObject6(1, -1);
+
+                try
+                {
+                    assemblyOfDishedEnds.LeftDishedEnd._dishedEndSettings.PIDPositionPlane = dishedEndsModelDoc.Extension.GetPersistReference3(leftDishedEndPositionPlane);
+                    assemblyOfDishedEnds.RightDishedEnd._dishedEndSettings.PIDPositionPlane = dishedEndsModelDoc.Extension.GetPersistReference3(rightDishedEndPositionPlane);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "The attribute could not be created.");
+                    return null;
+                }
 
                 // Return the AssemblyOfDishedEnds object with populated PIDs for the left dished end.
                 return assemblyOfDishedEnds;
@@ -216,13 +226,6 @@ namespace SolidWorksTankDesign
                 void GetLeftDishedEndEntitiesPIDs()
                 {
                     // Get features and components
-                    dishedEndsModelDoc.Extension.SelectByID2(
-                       "Left end plane",
-                       "PLANE",
-                       0, 0, 0,
-                       false,
-                       0, null, 0);
-                    Feature positionPlane = selectionMgr.GetSelectedObject6(1, -1);
 
                     dishedEndsModelDoc.Extension.SelectByID2(
                         "Left dished end-1@Assembly of Dished ends",
@@ -268,7 +271,7 @@ namespace SolidWorksTankDesign
                     try
                     {
                         // Populate the _dishedEndSettings with the retrieved PIDs
-                        assemblyOfDishedEnds.LeftDishedEnd._dishedEndSettings.PIDPositionPlane = dishedEndsModelDoc.Extension.GetPersistReference3(positionPlane);
+                        
                         assemblyOfDishedEnds.LeftDishedEnd._dishedEndSettings.PIDComponent = dishedEndsModelDoc.Extension.GetPersistReference3(leftDishedEndComponent);
                         assemblyOfDishedEnds.LeftDishedEnd._dishedEndSettings.PIDCenterAxis = dishedEndsModelDoc.Extension.GetPersistReference3(centerAxis);
                         assemblyOfDishedEnds.LeftDishedEnd._dishedEndSettings.PIDCenterAxisMate = dishedEndsModelDoc.Extension.GetPersistReference3(centerAxisMate);
@@ -285,13 +288,6 @@ namespace SolidWorksTankDesign
                 void GetRightDishedEndEntitiesPIDs()
                 {
                     // Get features and components
-                    dishedEndsModelDoc.Extension.SelectByID2(
-                       "Right end plane",
-                       "PLANE",
-                       0, 0, 0,
-                       false,
-                       0, null, 0);
-                    Feature positionPlane = selectionMgr.GetSelectedObject6(1, -1);
 
                     dishedEndsModelDoc.Extension.SelectByID2(
                         "Right dished end-2@Assembly of Dished ends",
@@ -337,7 +333,6 @@ namespace SolidWorksTankDesign
                     try
                     {
                         // Populate the _dishedEndSettings with the retrieved PIDs
-                        assemblyOfDishedEnds.RightDishedEnd._dishedEndSettings.PIDPositionPlane = dishedEndsModelDoc.Extension.GetPersistReference3(positionPlane);
                         assemblyOfDishedEnds.RightDishedEnd._dishedEndSettings.PIDComponent = dishedEndsModelDoc.Extension.GetPersistReference3(rightDishedEndComponent);
                         assemblyOfDishedEnds.RightDishedEnd._dishedEndSettings.PIDCenterAxis = dishedEndsModelDoc.Extension.GetPersistReference3(centerAxis);
                         assemblyOfDishedEnds.RightDishedEnd._dishedEndSettings.PIDCenterAxisMate = dishedEndsModelDoc.Extension.GetPersistReference3(centerAxisMate);
@@ -398,9 +393,9 @@ namespace SolidWorksTankDesign
 
                 // Create the object of the first cylindrical shell and add it to the cylindrical shells list
                 CylindricalShell cylindricalShell = new CylindricalShell();
-                assemblyOfCylindricalShells.CylindricalShells.Add(cylindricalShell);
+                //assemblyOfCylindricalShells.CylindricalShells.Add(cylindricalShell);
 
-                GetCylindricalShellEntitiesPIDs();
+                //GetCylindricalShellEntitiesPIDs();
 
                 return assemblyOfCylindricalShells;
 
@@ -561,11 +556,11 @@ namespace SolidWorksTankDesign
                 GetCompartmentEntitiesPIDs();
 
                 // Create a nozzle object representing the first nozzle associated with the compartment.
-                Nozzle nozzle = new Nozzle();
-                compartmentManager.Compartments[0].Nozzles.Add(nozzle); // Add the nozzle to the compartment's list.
+                //Nozzle nozzle = new Nozzle();
+                //compartmentManager.Compartments[0].Nozzles.Add(nozzle); // Add the nozzle to the compartment's list.
 
                 // Call the helper method to retrieve and store PIDs for nozzle entities.
-                GetNozzleEntitiesPIDs();
+                //GetNozzleEntitiesPIDs();
 
                 return compartmentManager;
 

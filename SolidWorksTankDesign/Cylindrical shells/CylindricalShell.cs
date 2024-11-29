@@ -12,7 +12,6 @@ namespace SolidWorksTankDesign
 {
     internal class CylindricalShell
     {
-        private const string CYLINDRICAL_SHELL_PATH = "C:\\Users\\Edita\\Desktop\\Parts\\Shell Cylyndrical ø1600×6 L1000_2_638584524028007781.SLDPRT";
         private const string CYLINDRICAL_SHELL_COMPONENT_NAME = "Cylindrical shell";
         private const string LEFT_END_PLANE_NAME = "Left plane";
         private const string CENTER_AXIS_NAME = "Center axis";
@@ -41,11 +40,11 @@ namespace SolidWorksTankDesign
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="InvalidOperationException"></exception>
         public CylindricalShell(
+            string projectFolder,
             CylindricalShell referenceCylindricalShell,
             Feature assemblyOfCylindricalShellsCenterAxis,
             Feature assemblyOfCylindricalShellsFrontPlane,
             double length,
-            double diameter,
             int countNumber)
         {
             // 1. Input Validation
@@ -58,37 +57,78 @@ namespace SolidWorksTankDesign
             if (referenceCylindricalShell == null)
                 throw new ArgumentNullException(nameof(referenceCylindricalShell));
 
-            ModelDoc2 assemblyOfCylindricalShellsDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            ModelDoc2 assemblyOfCylindricalShellsDoc = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.ActivateDocument();
             if (assemblyOfCylindricalShellsDoc == null)
                 throw new InvalidOperationException("Active SolidWorks document not found.");
 
+            AddCylindricalShell(
+                projectFolder,
+                assemblyOfCylindricalShellsDoc,
+                referenceCylindricalShell.GetRightEndPlane(),
+                assemblyOfCylindricalShellsCenterAxis,
+                assemblyOfCylindricalShellsFrontPlane,
+                length,
+                countNumber);
+        }
+        
+        /// <summary>
+        /// Adds cylindrical shell
+        /// </summary>
+        /// <param name="assemblyOfCylindricalShellsDoc"></param>
+        /// <param name="referencePlane"></param>
+        /// <param name="assemblyOfCylindricalShellsCenterAxis"></param>
+        /// <param name="assemblyOfCylindricalShellsFrontPlane"></param>
+        /// <param name="length"></param>
+        /// <param name="countNumber"></param>
+        private void AddCylindricalShell(
+            string projectFolder,
+            ModelDoc2 assemblyOfCylindricalShellsDoc,
+            Feature referencePlane,
+            Feature assemblyOfCylindricalShellsCenterAxis,
+            Feature assemblyOfCylindricalShellsFrontPlane,
+            double length,
+            int countNumber)
+        {
+            SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
+            AssemblyOfCylindricalShells assemblyOfCylindricalShells = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells;
+
+            string cylindricalShellPath = assemblyOfCylindricalShells._cylindricalShellDocPath;
+
+            // Create a path where the cylindrical shell doc will be saved
+            string targetPath = Path.Combine(projectFolder,
+                $"Cylindrical shell " +
+                $"{assemblyOfCylindricalShells.CylindricalShells.Count}.SLDPRT");
+
+            // Open cylindrical shell doc and save it to a new destination
+            DocumentSpecification documentSpecification = solidWorksApp.GetOpenDocSpec(cylindricalShellPath);
+            ModelDoc2 primaryCylindricalShellDoc = solidWorksApp.OpenDoc7(documentSpecification);
+
+            primaryCylindricalShellDoc.SaveAs3(targetPath, 0, 0);
+
+            // Close cylindrical shell doc and newly saved docs
+            solidWorksApp.CloseDoc(primaryCylindricalShellDoc.GetTitle());
+            solidWorksApp.CloseDoc(targetPath);
+
             // 2. Add and Make Independent Cylindrical Shell Component
-            Component2 cylindricalShell = ComponentManager.AddComponentPart(CYLINDRICAL_SHELL_PATH);
-            
-            ComponentManager.MakeComponentIndependent(cylindricalShell, CYLINDRICAL_SHELL_PATH);
+            Component2 cylindricalShell = ComponentManager.AddComponentPart(targetPath);
 
-            // 3. Rename the Component
-            string componentName = $"{CYLINDRICAL_SHELL_COMPONENT_NAME} {countNumber}";
-            SWFeatureManager.GetFeatureByName(assemblyOfCylindricalShellsDoc, cylindricalShell.Name2).Name = componentName;
-
-            // 4. Get Features for Mating
+            // 3. Get Features for Mating
             Feature leftEndPlane = SWFeatureManager.GetFeatureByName(cylindricalShell, "Left End Plane");
             Feature rightEndPlane = SWFeatureManager.GetFeatureByName(cylindricalShell, "Right End Plane");
             Feature cylindricalShellCenterAxis = SWFeatureManager.GetFeatureByName(cylindricalShell, "Center Axis");
 
-            
-            // 5. Flip every second cylindrical shell
+            // 4. Flip every second cylindrical shell
             bool flipDimension = false;
             if (countNumber % 2 == 0) flipDimension = true;
 
             Feature leftEndMate = null;
             Feature centerAxisMate = null;
             Feature frontPlaneMate = null;
-            // 6. Create Mates
+            // 5. Create Mates
             try
             {
                 leftEndMate = MateManager.CreateMate(
-                componentFeature1: referenceCylindricalShell.GetRightEndPlane(),
+                componentFeature1: referencePlane,
                 componentFeature2: leftEndPlane,
                 alignmentType: MateAlignment.Aligned,
                 name: $"{cylindricalShell.Name2} - {LEFT_END_PLANE_NAME}");
@@ -109,22 +149,19 @@ namespace SolidWorksTankDesign
                     flipDimension: flipDimension,
                     name: $"{cylindricalShell.Name2} - {FRONT_PLANE_NAME}");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                MessageBox.Show(ex.Message );
+                MessageBox.Show(ex.Message);
             }
 
-            // 7. Get cylindrical shell Entities and Initialize Settings
+            // 6. Get cylindrical shell Entities and Initialize Settings
             _cylindricalShellSettings = new CylindricalShellSettings();
             try
             {
                 GetCylindricalShellPIDs();
 
-                // 8. Change diameter
-                ChangeDiameter(diameter);
-
-                // 9. Change length
-                ChangeLength(cylindricalShell, length);
+                // 7. Change length
+                ChangeLength(length);
             }
             catch (Exception ex)
             {
@@ -163,19 +200,22 @@ namespace SolidWorksTankDesign
             Component2 component = GetComponent();
             if (component == null)
             {
-                throw new InvalidOperationException("Component not found.");
+                MessageBox.Show("Unable to change diameter.");
+                return;
             }
 
             Feature revolveFeature = SWFeatureManager.GetFeatureByName(component, "Revolve");
             if (revolveFeature == null)
             {
-                throw new InvalidOperationException("Revolve feature not found.");
+                MessageBox.Show("Unable to change diameter.");
+                return;
             }
 
             Feature revolveSubFeature = revolveFeature.GetFirstSubFeature();
             if (revolveSubFeature == null)
             {
-                throw new InvalidOperationException("Revolve sub-feature not found.");
+                MessageBox.Show("Unable to change diameter.");
+                return;
             }
 
             revolveSubFeature.Parameter("Diameter").Value = diameter;
@@ -209,13 +249,45 @@ namespace SolidWorksTankDesign
                         _cylindricalShellSettings.PIDFrontPlaneMate,
                         out int error);
 
+        public void CompleteFirstCylindricalShel(string projectFolder, double length)
+        {
+            AssemblyOfCylindricalShells assemblyOfCylindricalShells = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells;
+            
+            ModelDoc2 assemblyOfCylindricalShellsDoc = assemblyOfCylindricalShells.ActivateDocument();
+            if (assemblyOfCylindricalShellsDoc == null)
+                throw new InvalidOperationException("Active SolidWorks document not found.");
+            
+
+            Feature assemblyOfCylindricalShellsCenterAxis = assemblyOfCylindricalShells.GetCenterAxis();
+            Feature assemblyOfCylindricalShellsFrontPlane = SWFeatureManager.GetMajorPlane(assemblyOfCylindricalShellsDoc, MajorPlane.Front);
+            Feature assemblyOfCylindricalShellsRightPlane = SWFeatureManager.GetMajorPlane(assemblyOfCylindricalShellsDoc, MajorPlane.Right);
+            // 1. Input Validation
+            if (assemblyOfCylindricalShellsCenterAxis == null)
+                throw new ArgumentNullException(nameof(assemblyOfCylindricalShellsCenterAxis));
+
+            if (assemblyOfCylindricalShellsFrontPlane == null)
+                throw new ArgumentNullException(nameof(assemblyOfCylindricalShellsFrontPlane));
+
+            if (assemblyOfCylindricalShellsRightPlane == null)
+                throw new ArgumentNullException(nameof(assemblyOfCylindricalShellsRightPlane));
+
+            AddCylindricalShell(
+                projectFolder,
+                assemblyOfCylindricalShellsDoc,
+                assemblyOfCylindricalShellsRightPlane,
+                assemblyOfCylindricalShellsCenterAxis,
+                assemblyOfCylindricalShellsFrontPlane,
+                length,
+                1);
+        }
+
         /// <summary>
         /// Modifies the length of a cylindrical shell within a larger SolidWorks assembly.
         /// It achieves this by adjusting the distance of the reference plane associated with the right end of the shell.
         /// </summary>
         /// <param name="length"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        public void ChangeLength(Component2 cylindricalShellComp, double length)
+        public void ChangeLength(double length)
         {
             // Get the model document
             ModelDoc2 assemblyOfCylindricalShellDoc = SolidWorksDocumentProvider._tankSiteAssembly.GetCylindricalShellsAssemblyComponent().GetModelDoc2();
@@ -234,7 +306,8 @@ namespace SolidWorksTankDesign
                 Feature rightEndPlane = GetRightEndPlane();
 
                 // Activate cylindrical shell's document
-                ModelDoc2 cylindricalShellModelDoc = cylindricalShellComp.GetModelDoc2();
+                //ModelDoc2 cylindricalShellModelDoc = cylindricalShellComp.GetModelDoc2();
+                ModelDoc2 cylindricalShellModelDoc = GetComponent().GetModelDoc2();
                 SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(cylindricalShellModelDoc.GetTitle(), true, 0, 0);
 
                 SWFeatureManager.ChangeDistanceOfReferencePlane(SWFeatureManager.GetFeatureByName(SolidWorksDocumentProvider.GetActiveDoc(), rightEndPlane.Name), length);
@@ -314,6 +387,49 @@ namespace SolidWorksTankDesign
 
             //Delete the file
             File.Delete(path);
+        }
+
+        /// <summary>
+        /// Retrieves the diameter of the cylindrical shell from the SolidWorks model.
+        /// </summary>
+        /// <returns>The diameter of the cylindrical shell in millimeters. Returns 0 if an error occurs.</returns>
+        public double GetCylindricalShellDiameter()
+        {
+            // Activate the assembly cylindrical shells document.
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.ActivateDocument();
+
+            // Get the cylindrical shell component.
+            Component2 cylindricalShellComp = GetComponent();
+            if (cylindricalShellComp == null)
+            {
+                // Handle the case where the component is not found.
+                return 0;
+            }
+
+            // Get the "Revolve" feature from the cylindrical shell component.
+            Feature revolveFeature = SWFeatureManager.GetFeatureByName(cylindricalShellComp, "Revolve");
+            if (revolveFeature == null)
+            {
+                // Handle the case where the "Revolve" feature is not found.
+                return 0;
+            }
+
+            // Get the first sub-feature of the "Revolve" feature. This is assumed to contain the diameter parameter.
+            Feature revolveSubFeature = revolveFeature.GetFirstSubFeature();
+            if (revolveSubFeature == null)
+            {
+                // Handle the case where the sub-feature is not found.
+                return 0;
+            }
+
+            // Get the value of the "Diameter" parameter from the sub-feature.
+            double diameter = revolveSubFeature.Parameter("Diameter").Value;
+
+            // Close the cylindrical shell assembly document.
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CloseDocument();
+
+            // Return the extracted diameter.
+            return diameter;
         }
     }
 }

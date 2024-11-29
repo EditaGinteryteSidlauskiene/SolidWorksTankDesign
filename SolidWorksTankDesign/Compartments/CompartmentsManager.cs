@@ -4,6 +4,7 @@ using SolidWorks.Interop.sldworks;
 using SolidWorksTankDesign.Helpers;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -27,6 +28,7 @@ namespace SolidWorksTankDesign
         /// <returns></returns>
         private Feature GetDishedEndPositionPlane(DishedEnd dishedEnd)
         {
+            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
             _currentlyActiveShellDoc = SolidWorksDocumentProvider.GetActiveDoc();
             //Left end plane@Assembly of Dished ends-1@Shell
             // Get position plane's name from assembly of dished ends perspective
@@ -74,23 +76,78 @@ namespace SolidWorksTankDesign
         /// Adds a new compartment to a SolidWorks shell assembly.
         /// </summary>
         /// <param name="dishedEnd"></param>
-        private void AddCompartment(DishedEnd dishedEnd, double distanceBetweenNozzleAndRefPlane)
+        private void AddCompartment(
+            string projectFolder,
+            string compartmentPath,
+            DishedEnd dishedEnd,
+            double length,
+            double externalDiameter)
         {
             try
             {
                 // Create and add the new compartment
                 Compartments.Add(
                     new Compartment(
+                        projectFolder,
+                        compartmentPath,
                         SWFeatureManager.GetMajorPlane(_currentlyActiveShellDoc, MajorPlane.Front),
                         GetCenterAxis(),
                         GetDishedEndPositionPlane(dishedEnd),
-                        Compartments.Count));
+                        Compartments.Count + 1,
+                        length));
 
-                Compartments.Last().ActivateDocument();
-                Compartments.Last().AddNozzle(
-                    Compartments.Count(),
-                    Compartments.Last().GetLeftEndPlane(),
-                    distanceBetweenNozzleAndRefPlane);
+                //foreach ((string, string, double) manholeSettings in manholesSettings)
+                //{
+                //    ModelDoc2 compartmentModelDoc = Compartments.Last().ActivateDocument();
+                //    string compartmentFolder = Path.GetDirectoryName(compartmentModelDoc.GetPathName());
+
+                //    Compartment compartment = Compartments.Last();
+
+                //    if (manholeSettings.Item2 == "Left end")
+                //    {
+                //        Feature referencePlane;
+                //        if (compartment.Nozzles.Count == 0)
+                //        {
+                //            referencePlane = compartment.GetLeftEndPlane();
+                //        }
+                //        else
+                //        {
+                //            referencePlane = compartment.Nozzles.Last().GetPositionPlane();
+                //        }
+
+                //        compartment.AddNozzle(
+                //        compartmentFolder,
+                //        emptyManholeDocPath,
+                //        manholeSettings.Item1,
+                //        Compartments.Count(),
+                //        referencePlane,
+                //        manholeSettings.Item3,
+                //        false,
+                //        externalDiameter);
+                //    }
+                //    else
+                //    {
+                //        Feature referencePlane;
+                //        if (compartment.Nozzles.Count == 0)
+                //        {
+                //            referencePlane = compartment.GetRightEndPlane();
+                //        }
+                //        else
+                //        {
+                //            referencePlane = compartment.Nozzles.Last().GetPositionPlane();
+                //        }
+
+                //        compartment.AddNozzle(
+                //        compartmentFolder,
+                //        emptyManholeDocPath,
+                //        manholeSettings.Item1,
+                //        Compartments.Count(),
+                //        referencePlane,
+                //        manholeSettings.Item3,
+                //        true,
+                //        externalDiameter);
+                //    }
+                //} 
             }
             catch (Exception ex)
             {
@@ -144,7 +201,12 @@ namespace SolidWorksTankDesign
         /// </summary>
         /// <param name="requiredNumberOfCompartments"></param>
         /// <param name="dishedEnd"></param>
-        public void SetNumberOfCompartments(int requiredNumberOfCompartments, DishedEnd dishedEnd, double distanceBetweenNozzleAndRefPlane)
+        public void SetNumberOfCompartments(
+            string projectFolder,
+            string compartmentPath, 
+            int requiredNumberOfCompartments, 
+            List <double> compartmentLengths,
+            double externalDiameter)
         {
             // Ensure the correct SolidWorks document is active for modification
             ActivateDocument();
@@ -157,10 +219,10 @@ namespace SolidWorksTankDesign
                 CloseDocument();
             }
 
-            else if (requiredNumberOfCompartments < Compartments.Count)
+            else if (requiredNumberOfCompartments < Compartments.Count())
             {
                 // Remove excess compartments until the count matches the required number.
-                while (requiredNumberOfCompartments != Compartments.Count)
+                while (requiredNumberOfCompartments != Compartments.Count())
                 {
                     try
                     {
@@ -176,15 +238,26 @@ namespace SolidWorksTankDesign
 
             // --- 2. Handle cases where more compartments are needed ---
 
-            else if (requiredNumberOfCompartments > Compartments.Count)
+            else if (requiredNumberOfCompartments > Compartments.Count())
             {
+                // How many compartments need to be added
+                int numberOfCompartmentsToAdd = requiredNumberOfCompartments - Compartments.Count();
+
                 // Add new compartments until the count matches the required number.
-                while (requiredNumberOfCompartments != Compartments.Count)
+                for (int i = 0; i < requiredNumberOfCompartments - 1; i++)
                 {
-                    try
+                    if (requiredNumberOfCompartments != Compartments.Count())
+                        try
                     {
-                        // Add a new compartment
-                        AddCompartment(dishedEnd, distanceBetweenNozzleAndRefPlane);
+                            // Add a new compartment. 
+                            AddCompartment(
+                                projectFolder,
+                                compartmentPath,
+                                SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds[requiredNumberOfCompartments - numberOfCompartmentsToAdd - 1], 
+                                compartmentLengths[i+1],
+                                externalDiameter);
+
+                            numberOfCompartmentsToAdd--;
                     }
                     catch (Exception ex)
                     {
@@ -414,10 +487,13 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Activates document of assembly of cylindrical shells
         /// </summary>
-        public void ActivateDocument()
+        public ModelDoc2 ActivateDocument()
         {
             ModelDoc2 shellModelDoc = SolidWorksDocumentProvider._tankSiteAssembly.GetShellAssemblyComponent().GetModelDoc2();
-            _currentlyActiveShellDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(shellModelDoc.GetTitle() + ".sldasm", true, 0, 0);
+            _currentlyActiveShellDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
+                shellModelDoc.GetTitle() + ".sldasm", true, 0, 0);
+
+            return shellModelDoc;
         }
 
         /// <summary>

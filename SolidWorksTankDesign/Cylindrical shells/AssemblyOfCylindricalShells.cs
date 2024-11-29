@@ -11,6 +11,9 @@ namespace SolidWorksTankDesign
     {
         private ModelDoc2 currentlyActiveCylindricalShellsDoc;
 
+        [JsonIgnore]
+        public string _cylindricalShellDocPath;
+
         [JsonProperty("CylindricalShells")]
         public List<CylindricalShell> CylindricalShells = new List<CylindricalShell>();
 
@@ -63,18 +66,18 @@ namespace SolidWorksTankDesign
         /// </summary>
         /// <param name="length"></param>
         /// <param name="diameter"></param>
-        private void AddCylindricalShell(double length, double diameter)
+        private void AddCylindricalShell(string projectFolder, double length)
         {
             try
             {
                 // Create and add the new cylindrical shell
                 CylindricalShells.Add(
                     new CylindricalShell(
+                        projectFolder,
                         CylindricalShells.Last(),
                         GetCenterAxis(),
                         SWFeatureManager.GetMajorPlane(SolidWorksDocumentProvider.GetActiveDoc(), MajorPlane.Front),
                         length,
-                        diameter,
                         CylindricalShells.Count + 1));
             }
             catch (Exception ex)
@@ -89,8 +92,7 @@ namespace SolidWorksTankDesign
         /// </summary>
         /// <param name="requiredNumberOfCylindricalShells"></param>
         /// <param name="defaultLength"></param>
-        /// <param name="diameter"></param>
-        public void SetNumberOfCylindricalShells(int requiredNumberOfCylindricalShells, double defaultLength, double diameter)
+        public void SetNumberOfCylindricalShells(string projectFolder, int requiredNumberOfCylindricalShells, double defaultLength)
         {
             // Ensure the correct SolidWorks document is active for modification
             ActivateDocument();
@@ -130,7 +132,7 @@ namespace SolidWorksTankDesign
                     try
                     {
                         // Add a new cylindrical shell, using the previous one as a reference.
-                        AddCylindricalShell(defaultLength, diameter);  
+                        AddCylindricalShell(projectFolder, defaultLength);  
                     }
                     catch (Exception ex)
                     {
@@ -155,10 +157,12 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Activates document of assembly of cylindrical shells
         /// </summary>
-        public void ActivateDocument()
+        public ModelDoc2 ActivateDocument()
         {
             ModelDoc2 AssemblyOfDCylindricalShellsModelDoc = SolidWorksDocumentProvider._tankSiteAssembly.GetCylindricalShellsAssemblyComponent().GetModelDoc2();
             currentlyActiveCylindricalShellsDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(AssemblyOfDCylindricalShellsModelDoc.GetTitle() + ".sldasm", true, 0, 0);
+
+            return currentlyActiveCylindricalShellsDoc;
         }
 
         /// <summary>

@@ -173,13 +173,29 @@ namespace SolidWorksTankDesign
         public static Feature CreateReferencePlaneWithDistance(
             Feature existingPlane,
             double distance,
-            string name)
+            string name,
+            bool flip)
         {
             //Selects the existing plane 
             existingPlane.Select2(false, 0);
-            
+
             //Creates a new reference plane
             Feature referencePlane = (Feature)SolidWorksDocumentProvider.GetActiveDoc().FeatureManager.InsertRefPlane(8, distance, 0, 0, 0, 0);
+
+            if(flip)
+            {
+                //Get access to reference plane properties
+                RefPlaneFeatureData referencePlaneFeatureData = (RefPlaneFeatureData)referencePlane.GetDefinition();
+
+                //Set new reference plane
+                referencePlaneFeatureData.ReversedReferenceDirection[0] = true;
+
+                //Modify changes
+                referencePlane.ModifyDefinition(
+                    referencePlaneFeatureData, 
+                    SolidWorksDocumentProvider.GetActiveDoc(), 
+                    null);
+            }
 
             //Rename just created reference plane
             RenameFeature(referencePlane, name);
@@ -249,6 +265,23 @@ namespace SolidWorksTankDesign
             return referencedPlane.ModifyDefinition(referencePlaneFeatureData, activeDoc, null);
         }
 
+        public static double GetDistanceOfReferencePlane(Feature referencePlane)
+        {
+            try
+            {
+                //Get access to reference plane properties
+                RefPlaneFeatureData referencePlaneFeatureData = referencePlane.GetDefinition();
+
+                //Set new distance
+                return referencePlaneFeatureData.Distance;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                return 0;
+            }
+        }
+
         /// <summary>
         /// Changes the distance of reference plane from the starting plane
         /// </summary>
@@ -303,6 +336,33 @@ namespace SolidWorksTankDesign
             return (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                        PIDFeature,
                        out error);
+        }
+
+        public static double GetCustomPropertyValue(string documentPath, string customPropertyName)
+        {
+            // Get cylindrical shell's volume per 1 meter
+            int error = 0;
+            int warning = 0;
+
+            ModelDoc2 document = SolidWorksDocumentProvider._solidWorksApplication.OpenDoc6(
+                documentPath,
+                (int)swDocumentTypes_e.swDocPART,
+                (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                "",
+                ref error,
+                ref warning);
+
+            CustomPropertyManager customPropertyManager = document.Extension.get_CustomPropertyManager("");
+
+            customPropertyManager.Get6(
+                customPropertyName,
+                false,
+                out string volumePerMeter,
+                out _, out _, out _);
+
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(document.GetTitle());
+
+            return double.Parse(volumePerMeter.Replace(',', '.'));
         }
     }
 }

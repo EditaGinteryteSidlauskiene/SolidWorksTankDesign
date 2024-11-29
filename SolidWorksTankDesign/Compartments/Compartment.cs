@@ -1,4 +1,5 @@
 ﻿using AddinWithTaskpane;
+using Microsoft.VisualBasic.FileIO;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorksTankDesign.Helpers;
@@ -14,7 +15,6 @@ namespace SolidWorksTankDesign
     {
         private ModelDoc2 _currentlyActiveCompartmentDoc;
 
-        private const string COMPARTMENT_ASSEMBLY_PATH = "C:\\Users\\Edita\\TankDesignStudio\\ClassA\\d2500\\Shell\\Empty Compartment.SLDASM";
         private const string COMPARTMENT_COMPONENT_NAME = "Compartment";
         private const string LEFT_END_PLANE_NAME = "Dished end position plane";
         private const string CENTER_AXIS_NAME = "Center axis";
@@ -38,12 +38,15 @@ namespace SolidWorksTankDesign
         /// <param name="countNumber"></param>
         /// <exception cref="InvalidOperationException"></exception>
         public Compartment(
+            string projectFolder,
+            string compartmentPath,
             Feature shellFrontPlane,
             Feature shellCenterAxis,
             Feature dishedEndPositionPlane,
-            int countNumber)
+            int countNumber,
+            double length)
         {
-            // 1. Input Validation
+            // Input Validation
             if (shellCenterAxis == null)
                 throw new ArgumentNullException(nameof(shellCenterAxis));
 
@@ -53,18 +56,35 @@ namespace SolidWorksTankDesign
             if (dishedEndPositionPlane == null)
                 throw new ArgumentNullException(nameof(dishedEndPositionPlane));
 
-            ModelDoc2 shellModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            // Activate shell doc
+            ModelDoc2 shellModelDoc = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
             if (shellModelDoc == null)
                 throw new InvalidOperationException("Active SolidWorks document not found.");
 
-            // 2. Add and Make Independent Compartment Component
-            Component2 compartment = ComponentManager.AddComponentAssembly(shellModelDoc, COMPARTMENT_ASSEMBLY_PATH);
-            ComponentManager.MakeComponentIndependent(compartment, COMPARTMENT_ASSEMBLY_PATH);
-
-            // 3. Rename the Component
-            char letter = (char)(65 + countNumber);
+            // Rename the Component
+            char letter = (char)(64 + countNumber);
             string componentName = $"{COMPARTMENT_COMPONENT_NAME} {letter}";
-            SWFeatureManager.GetFeatureByName(shellModelDoc, compartment.Name2).Name = componentName;
+
+            // Open compartmen doc
+            ModelDoc2 compartmentModelDoc2 = SolidWorksDocumentProvider._solidWorksApplication.OpenDoc6(
+               compartmentPath,
+               (int)swDocumentTypes_e.swDocASSEMBLY,
+               (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+               "", 1, 1);
+
+            // Package the nozzle assembly and its associated files using Pack and Go, and get the path to the packed assembly
+            string path = DocumentManager.PackAndGo(projectFolder, compartmentModelDoc2, componentName, null);
+
+            // Rename the doc
+            FileSystem.RenameFile(path, $"{componentName}.SLDASM");
+            // Construct the new file path
+            string newPath = Path.Combine(Path.GetDirectoryName(path), $"{componentName}.SLDASM");
+
+            // Close the nozzle assembly document after it has been packed
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(compartmentModelDoc2.GetTitle());
+
+            // 2. Add and Make Independent Compartment Component
+            Component2 compartment = ComponentManager.AddComponentAssembly(shellModelDoc, newPath);
 
             ModelDoc2 compartmentModelDoc = compartment.GetModelDoc2();
 
@@ -103,7 +123,7 @@ namespace SolidWorksTankDesign
             _compartmentSettings = new CompartmentSettings();
             try
             {
-                GetCompartmentPIDs();
+                GetCompartmentPIDsAndChnageLength();
             }
             catch (Exception ex)
             {
@@ -111,7 +131,7 @@ namespace SolidWorksTankDesign
                 MessageBox.Show($"Error getting compartment entities: {ex.Message}");
             }
 
-            void GetCompartmentPIDs()
+            void GetCompartmentPIDsAndChnageLength()
             {
                 try
                 {
@@ -131,6 +151,9 @@ namespace SolidWorksTankDesign
                         _compartmentSettings.PIDCenterAxis = compartmentModelDoc.Extension.GetPersistReference3(compartmentCenterAxis);
                         _compartmentSettings.PIDLeftEndPlane = compartmentModelDoc.Extension.GetPersistReference3(leftEndPlane);
                         _compartmentSettings.PIDRightEndPlane = compartmentModelDoc.Extension.GetPersistReference3(rightEndPlane);
+
+                        // Change compartment's length
+                        ChangeLength(length);
                     }
                 }
                 catch (Exception ex)
@@ -141,12 +164,19 @@ namespace SolidWorksTankDesign
             }
         }
 
+        public void ChangeLength(double length)
+        {
+            Feature rightEndPlane = GetRightEndPlane();
+
+            SWFeatureManager.ChangeDistanceOfReferencePlane(rightEndPlane, length);
+        }
+
         /// <summary>
         /// Deletes a compartment component from a SolidWorks shell assembly, including the associated file.
         /// </summary>
-        private void Delete()
+        public void Delete()
         {
-            ModelDoc2 shellModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            ModelDoc2 shellModelDoc = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
 
             shellModelDoc.ClearSelection2(true);
 
@@ -177,8 +207,21 @@ namespace SolidWorksTankDesign
             //Rebuild assembly to release the file to be deleted
             shellModelDoc.EditRebuild3();
 
+            DocumentManager.UpdateAndSaveDocuments();
+
             //Delete the file
             File.Delete(path);
+        }
+
+        public double GetLength()
+        {
+            ActivateDocument();
+
+            double length = SWFeatureManager.GetDistanceOfReferencePlane(GetRightEndPlane());
+
+            CloseDocument();
+
+            return length;
         }
 
         /// <summary>
@@ -187,22 +230,35 @@ namespace SolidWorksTankDesign
         /// <param name="compartmentNumber"></param>
         /// <param name="referencePlane"></param>
         /// <param name="distance"></param>
-        public void AddNozzle(
+        public Nozzle AddNozzle(
+            string projectFolder,
+            string nozzlePositionSketchPath,
+            string nozzleDocPath,
             int compartmentNumber,
             Feature referencePlane,
-            double distance)
+            double distance,
+            bool flip,
+            double externalDiameter)
         {
+            Nozzle nozzle = null;
             try
             {
-                Nozzles.Add(
-                    new Nozzle(
+                nozzle = new Nozzle(
+                       projectFolder,
+                        nozzlePositionSketchPath,
                         compartmentNumber,
                         referencePlane,
                         GetCenterAxis(),
                         SWFeatureManager.GetMajorPlane(_currentlyActiveCompartmentDoc, MajorPlane.Front),
-                        distance));
+                        distance,
+                        flip,
+                        externalDiameter);
 
-                SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber - 1].Nozzles.Last().AddNozzleAssembly();
+                Nozzles.Add(nozzle);
+
+                Compartment compartment = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber];
+
+                nozzle.AddNozzleAssembly(projectFolder, nozzleDocPath, compartment, nozzle);
             }
             catch (Exception ex)
             {
@@ -210,6 +266,8 @@ namespace SolidWorksTankDesign
             }
 
             DocumentManager.UpdateAndSaveDocuments();
+
+            return nozzle;
         }
 
         /// <summary>
@@ -217,8 +275,6 @@ namespace SolidWorksTankDesign
         /// </summary>
         public bool DeleteNozzle()
         {
-            
-
             // Get the count of nozzles in the current compartment once for efficiency
             int nozzlesCount = Nozzles.Count;
 
@@ -260,7 +316,7 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Activates document of compartment assembly
         /// </summary>
-        public void ActivateDocument()
+        public ModelDoc2 ActivateDocument()
         {
             // Activate shell doc
             SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
@@ -270,6 +326,8 @@ namespace SolidWorksTankDesign
 
             // Activate compartment doc
             _currentlyActiveCompartmentDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(compartmentModelDoc.GetTitle() + ".sldasm", true, 0, 0);
+        
+            return compartmentModelDoc;
         }
 
         /// <summary>

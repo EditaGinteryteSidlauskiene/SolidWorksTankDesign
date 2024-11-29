@@ -1,15 +1,10 @@
 ﻿using Newtonsoft.Json;
-using SolidWorks.Interop.sldworks;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
-    internal class TankSiteAssemblyDataManager
+    internal class TankSiteDataManager
     {
         /// <summary>
         /// Serializes the current TankSiteAssembly object (including private properties) into a JSON string 

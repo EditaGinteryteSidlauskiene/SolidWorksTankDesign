@@ -16,7 +16,7 @@ namespace SolidWorksTankDesign
         /// <param name="attributeDefinitionName">Name of the attribute definition to use or create.</param>
         /// <param name="attributeName">The name of the new attribute.</param>
         /// <param name="parameterName">The name of the parameter within the attribute.</param>
-        /// <param name="parameterValue">The value to set for the parameter.</param>
+        /// <param name="parameterValue1">The value to set for the parameter.</param>
         /// <returns>True if the attribute was created successfully, false otherwise.</returns>
         /// <exception cref="ArgumentNullException">Thrown if any required argument is null.</exception>
         /// <exception cref="ArgumentException">Thrown if any argument is invalid (e.g., empty string).</exception>
@@ -25,15 +25,16 @@ namespace SolidWorksTankDesign
             ModelDoc2 ownerDoc,
             string attributeDefinitionName,
             string attributeName,
-            string parameterName,
-            string parameterValue)
+            string parameterName1,
+            string parameterValue1,
+            string parameterName2)
         {
             // 1. Robust Input Validation
             if (solidWorksApplication == null) throw new ArgumentNullException(nameof(solidWorksApplication));
             if (ownerDoc == null) throw new ArgumentNullException(nameof(ownerDoc));
             if (string.IsNullOrWhiteSpace(attributeDefinitionName)) throw new ArgumentException("Attribute definition name cannot be null or empty.", nameof(attributeDefinitionName));
             if (string.IsNullOrWhiteSpace(attributeName)) throw new ArgumentException("Attribute name cannot be null or empty.", nameof(attributeName));
-            if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("Parameter name cannot be null or empty.", nameof(parameterName));
+            if (string.IsNullOrWhiteSpace(parameterName1)) throw new ArgumentException("Parameter name cannot be null or empty.", nameof(parameterName1));
 
             try
             {
@@ -41,7 +42,8 @@ namespace SolidWorksTankDesign
                 AttributeDef attributeDefinition = CreateAttributeDefinitionString(
                     solidWorksApplication,
                     attributeDefinitionName,
-                    parameterName);
+                    parameterName1,
+                    parameterName2);
 
                 // 3.Verify definition creation and create the attribute
                 if (attributeDefinition == null ||
@@ -58,11 +60,11 @@ namespace SolidWorksTankDesign
                 if (!EditAttributeParameterValue(
                     ownerDoc,
                     attributeName,
-                    parameterName,
-                    parameterValue))
+                    parameterName1,
+                    parameterValue1))
                 {
                     // Notify the user if parameter value update failed
-                    MessageBox.Show($"The {parameterName} parameter value in attribute {attributeName} was not changed.");
+                    MessageBox.Show($"The {parameterName1} parameter value in attribute {attributeName} was not changed.");
                 }
                 
             }
@@ -77,7 +79,8 @@ namespace SolidWorksTankDesign
         private static AttributeDef CreateAttributeDefinitionString(
             SldWorks solidWorksApplication,
             string attributeDefinitionName,
-            string parameterName)
+            string parameterName1,
+            string parameterName2)
         {
             // Validate input parameters
             if (solidWorksApplication == null)
@@ -89,7 +92,13 @@ namespace SolidWorksTankDesign
             AttributeDef attributeDefinition = solidWorksApplication.DefineAttribute(attributeDefinitionName);
 
             attributeDefinition.AddParameter(
-                NameIn: parameterName,
+                NameIn: parameterName1,
+                Type: (int)swParamType_e.swParamTypeString,
+                DefaultValue: 0.0,
+                Options: 0);
+
+            attributeDefinition.AddParameter(
+                NameIn: parameterName2,
                 Type: (int)swParamType_e.swParamTypeString,
                 DefaultValue: 0.0,
                 Options: 0);
@@ -235,6 +244,11 @@ namespace SolidWorksTankDesign
                         StringValue: newValue,
                         ConfigurationOption: (int)swInConfigurationOpts_e.swAllConfiguration,
                         ConfigurationName: "");
+
+            // Save the document
+            int error = 0;
+            int warning = 0;
+            attributeOwnerDoc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref error, ref warning);
 
             return true;
         }

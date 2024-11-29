@@ -20,7 +20,7 @@ namespace SolidWorksTankDesign
 
         public TaskpaneHostUI()
         {
-            InitializeComponent();
+            InitializeComponent();//
         }
 
         private void button1_Click(object sender, EventArgs e)

@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
-using SolidWorks.Interop.swconst;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
@@ -10,13 +9,16 @@ namespace SolidWorksTankDesign
     //This is the highest class of dished ends. It contains all dished ends in the project
     internal class AssemblyOfDishedEnds
     {
+        private const string ASSEMBLY_OF_DISHED_ENDS_LEFT_END_PLANE_NAME = "Left end plane";
+        private const string ASSEMBLY_OF_DISHED_ENDS_RIGHT_END_PLANE_NAME = "Right end plane";
+
         private ModelDoc2 currentlyActiveDishedEndsDoc;
 
         [JsonProperty("LeftDishedEnd")]
-        public DishedEnd LeftDishedEnd { get; private set; }
+        public DishedEnd LeftDishedEnd { get; set; }
 
         [JsonProperty("RightDishedEnd")]
-        public DishedEnd RightDishedEnd { get; private set; }
+        public DishedEnd RightDishedEnd { get; set; }
 
         [JsonProperty("InnerDishedEnd")]
         public List<InnerDishedEnd> InnerDishedEnds = new List<InnerDishedEnd>();
@@ -88,6 +90,60 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
+        /// Adds main (left and right) dished ends
+        /// </summary>
+        /// <param name="dishedEndDocPath"></param>
+        /// <returns></returns>
+        public double CompleteMainDishedEnds(string projectFolder, string dishedEndDocPath)
+        {
+            ActivateDocument();
+
+            // Get distance between left and right end planes
+            Feature assemblyOfDishedEndsRightEndPlane = SWFeatureManager.GetFeatureByName(currentlyActiveDishedEndsDoc, ASSEMBLY_OF_DISHED_ENDS_RIGHT_END_PLANE_NAME);
+
+            double distanceBetweenLeftAndRightDishedEnds = SWFeatureManager.GetDistanceOfReferencePlane(assemblyOfDishedEndsRightEndPlane);
+
+            // Add both dished ends
+            for(int i = 1; i <= 2; i++)
+            {
+                ActivateDocument();
+
+                DishedEndAlignment dishedEndAlignment;
+                Feature assemblyOfDishedEndsEndPlane;
+                // First, add left dished end
+                if (i == 1)
+                {
+                    dishedEndAlignment = DishedEndAlignment.Left;
+                    assemblyOfDishedEndsEndPlane = SWFeatureManager.GetFeatureByName(currentlyActiveDishedEndsDoc, ASSEMBLY_OF_DISHED_ENDS_LEFT_END_PLANE_NAME); ;
+
+                    SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.LeftDishedEnd.CompleteDishedEnd(
+                        projectFolder,
+                        dishedEndDocPath,
+                        assemblyOfDishedEndsEndPlane,
+                        SWFeatureManager.GetFeatureByName(currentlyActiveDishedEndsDoc, "Center axis"),
+                        SWFeatureManager.GetMajorPlane(currentlyActiveDishedEndsDoc, MajorPlane.Front),
+                        dishedEndAlignment);
+                }
+                // Add right dished end
+                else
+                {
+                    dishedEndAlignment = DishedEndAlignment.Right;
+                    assemblyOfDishedEndsEndPlane = assemblyOfDishedEndsRightEndPlane;
+
+                    SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.RightDishedEnd.CompleteDishedEnd(
+                        projectFolder,
+                        dishedEndDocPath,
+                        assemblyOfDishedEndsEndPlane,
+                        SWFeatureManager.GetFeatureByName(currentlyActiveDishedEndsDoc, "Center axis"),
+                        SWFeatureManager.GetMajorPlane(currentlyActiveDishedEndsDoc, MajorPlane.Front),
+                        dishedEndAlignment);
+                }
+            }
+
+            return distanceBetweenLeftAndRightDishedEnds;
+        }
+
+        /// <summary>
         /// Creates a new InnerDishedEnd object, and adds it to the list
         /// After this method, call TankSiteAssembly.SerializeAndStoreTankAssemblyData()!!!
         /// </summary>
@@ -95,12 +151,20 @@ namespace SolidWorksTankDesign
         /// <param name="dishedEndAlignment"></param>
         /// <param name="distance"></param>
         /// <param name="compartmentNumber"></param>
-        public void AddInnerDishedEnd(DishedEnd referenceDishedEnd, DishedEndAlignment dishedEndAlignment, double distance, int compartmentNumber)
+        public void AddInnerDishedEnd(
+            string projectFolder,
+            string innerDishedEndDocPath, 
+            DishedEnd referenceDishedEnd, 
+            DishedEndAlignment dishedEndAlignment, 
+            double distance, 
+            int compartmentNumber)
         {
             try
             {
                 InnerDishedEnds.Add(
                     new InnerDishedEnd(
+                        projectFolder,
+                        innerDishedEndDocPath,
                         GetCenterAxis(),
                         SWFeatureManager.GetMajorPlane(SolidWorksDocumentProvider.GetActiveDoc(), MajorPlane.Front),
                         referenceDishedEnd,
@@ -123,7 +187,12 @@ namespace SolidWorksTankDesign
         /// <param name="requiredNumberOfDishedEnds">The desired number of inner dished ends.</param>
         /// <param name="defaultDishedEndAlignment">The default alignment for newly added dished ends.</param>
         /// <param name="defaultDistance">The default distance between dished ends.</param>
-        public void SetNumberOfInnerDishedEnds(int requiredNumberOfDishedEnds, DishedEndAlignment defaultDishedEndAlignment, double defaultDistance)
+        public void SetNumberOfInnerDishedEnds(
+            string projectFolder,
+            string innerDishedEndDocPath, 
+            int requiredNumberOfDishedEnds, 
+            DishedEndAlignment defaultDishedEndAlignment, 
+            double defaultDistance)
         {
             ActivateDocument();
 
@@ -154,6 +223,8 @@ namespace SolidWorksTankDesign
                         // Add a new inner dished end, using the previous one as a reference.
                         // If this is the first inner dished end, use the left dished end as the reference.
                         AddInnerDishedEnd(
+                            projectFolder,
+                            innerDishedEndDocPath,
                             (InnerDishedEnds.Count == 0 ? LeftDishedEnd : InnerDishedEnds[InnerDishedEnds.Count - 1]),
                             defaultDishedEndAlignment,
                             defaultDistance,
