@@ -53,15 +53,13 @@ namespace SolidWorksTankDesign.Helpers
             //Creates a mate feature data object for the specified mate type. This is required to access CreateMate method
             CoincidentMateFeatureData coincidentMateFeatureData = (CoincidentMateFeatureData)((AssemblyDoc)currentModelDoc).CreateMateData((int)swMateType_e.swMateCOINCIDENT);
 
-            // VEIKIA ---------------------------------------------------------------------------------------
             //Select entities
             componentFeature1.Select4(false, selectData);
             componentFeature2.Select4(true, selectData);
-            // VEIKIA ---------------------------------------------------------------------------------------
 
             //Alignment - Aligned
             coincidentMateFeatureData.MateAlignment = (int)alignmentType;
-            
+
             //Create Mate
             Feature mate = ((AssemblyDoc)currentModelDoc).CreateMate(coincidentMateFeatureData);
 
@@ -292,6 +290,8 @@ namespace SolidWorksTankDesign.Helpers
 
         /// <summary>
         /// Edits an existing coincident mate within the active SolidWorks assembly document.
+        /// !!! The dished end position plane should be taken through SWFeatureManager.GetDishedEndPositionPlane() method.
+        /// !!! The compartment's right major plane should be take from shell doc, giving compartment's component.
         /// </summary>
         /// <param name="mate">The existing coincident mate feature to be modified.</param>
         /// <param name="entity1">The first feature/entity involved in the mate.</param>
@@ -333,9 +333,76 @@ namespace SolidWorksTankDesign.Helpers
                 RepairMatesWithSameMissingEntity: false,
                 ErrorStatus: out int _);
 
+            SolidWorksDocumentProvider.GetActiveDoc().Save3(
+                           (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                           (int)swFileSaveError_e.swGenericSaveError,
+                           (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+
             // 4. CLEANUP:
             // Clear any remaining selections to avoid unintended interactions in the document
             activeModelDoc.ClearSelection2(true);
+        }
+
+        /// <summary>
+        /// Gets whether dished end is alligned left or right.
+        /// </summary>
+        /// <returns></returns>
+        public static DishedEndAlignment GetAlignment(DishedEnd dishedEnd)
+        {
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.ActivateDocument();
+
+            Component2 dishedEndComponent = dishedEnd.GetComponent();
+
+            //Get the transformation matrix from the dishedEnd object
+            MathTransform transform = dishedEndComponent.Transform2;
+
+            //Transform the reference point (1, 0, 0) using the transformation matrix
+            double[] TransformedVector = MathUtility.TransformVector(SolidWorksDocumentProvider._solidWorksApplication, transform, new double[3] { 1, 0, 0 });
+
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.CloseDocument();
+
+            //Determine orientation based on the transformed point's X-coordinate
+            return (TransformedVector[0] > 0 ? DishedEndAlignment.Left : DishedEndAlignment.Right);
+        }
+
+        public static Feature GetMateByName(ModelDoc2 ModelDocument, string MateName)
+        {
+            Feature loopFeature = ModelDocument.IFirstFeature();
+
+            //Loop features until the requested feature is found
+            while (loopFeature != null)
+            {
+                if (loopFeature.GetTypeName2() == "MateGroup")
+                {
+                    Feature subFeature = (Feature)loopFeature.GetFirstSubFeature();
+
+                    while (subFeature != null)
+                    {
+                        if (subFeature.Name == MateName)
+                        {
+                            Feature mate = subFeature;
+                            return mate;
+                        }
+
+                        subFeature = (Feature)subFeature.GetNextSubFeature();
+                    }
+                    return null;
+                }
+
+                //Get next feature
+                loopFeature = (Feature)loopFeature.GetNextFeature();
+            }
+            return null;
+        }
+
+        public static void DeleteMate(Feature mate)
+        {
+            mate.Select2(false, 0);
+
+            ModelDoc2 shellDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            ModelDocExtension shelDocExtension = shellDoc.Extension;
+
+            shelDocExtension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Children);
         }
     }
 }

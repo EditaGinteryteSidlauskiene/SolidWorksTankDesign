@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
 using SolidWorksTankDesign.Helpers;
+using SolidWorksTankDesign.TankSiteConfigurations;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,7 +11,7 @@ using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
-    internal class CompartmentsManager
+    public class CompartmentsManager
     {
         private ModelDoc2 _currentlyActiveShellDoc;
 
@@ -22,66 +23,14 @@ namespace SolidWorksTankDesign
         public CompartmentsManager() { }
 
         /// <summary>
-        /// CURRENTLY ACTIVE SHELL DOC MUST BE ACTIVATED!!!
-        /// </summary>
-        /// <param name="dishedEnd"></param>
-        /// <returns></returns>
-        private Feature GetDishedEndPositionPlane(DishedEnd dishedEnd)
-        {
-            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
-            _currentlyActiveShellDoc = SolidWorksDocumentProvider.GetActiveDoc();
-            //Left end plane@Assembly of Dished ends-1@Shell
-            // Get position plane's name from assembly of dished ends perspective
-            string positionPlaneName = GetPositionPlaneName(dishedEnd);
-
-            SelectionMgr selectionMgr = _currentlyActiveShellDoc.SelectionManager;
-
-            // Select position plane using this name
-            _currentlyActiveShellDoc.Extension.SelectByID2(positionPlaneName, "PLANE", 0, 0, 0, false, 0, null, 0);
-
-            // Get selected object
-            return selectionMgr.GetSelectedObject6(1, -1);
-
-            string GetPositionPlaneName(DishedEnd dishedEndObject)
-            {
-                // 1. Get assembly of dished ends document
-                Component2 assemblyOfDishedEndsComp = SolidWorksDocumentProvider._tankSiteAssembly.GetDishedEndsAssemblyComponent();
-                ModelDoc2 assemblyOfDishedEndsDoc = assemblyOfDishedEndsComp.GetModelDoc2();
-
-                // 2. Activate assembly of dished ends doc to be able to get position plane
-                SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(assemblyOfDishedEndsDoc.GetTitle(), true, 0, 0);
-
-                // Get shell component name
-                string shellCompFullName = SolidWorksDocumentProvider._tankSiteAssembly.GetShellAssemblyComponent().Name2;
-                string[] shellNameParts = shellCompFullName.Split('/');
-                string shellName = shellNameParts[shellNameParts.Length-1].Split('-')[0];
-
-                // Get dished end's component name
-                string dishedEndsCompFullName = assemblyOfDishedEndsComp.Name2;
-                string[] dishedEndNameParts = dishedEndsCompFullName.Split('/');
-                string dishedEndsCompName = dishedEndNameParts[dishedEndNameParts.Length-1];
-
-                // 3. Get position plane
-                Feature positionPlaneOfDishedEnd = dishedEndObject.GetPositionPlane();
-
-                // Close assembly of dished ends doc
-                SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(assemblyOfDishedEndsDoc.GetTitle());
-
-                // 4. Get position plane's name from assembly of dished ends doc perspective
-                return $"{positionPlaneOfDishedEnd.Name}@{dishedEndsCompName}@{shellName}";
-            }
-        }
-
-        /// <summary>
         /// Adds a new compartment to a SolidWorks shell assembly.
         /// </summary>
         /// <param name="dishedEnd"></param>
-        private void AddCompartment(
+        public void AddCompartment(
             string projectFolder,
             string compartmentPath,
             DishedEnd dishedEnd,
-            double length,
-            double externalDiameter)
+            double length)
         {
             try
             {
@@ -92,8 +41,7 @@ namespace SolidWorksTankDesign
                         compartmentPath,
                         SWFeatureManager.GetMajorPlane(_currentlyActiveShellDoc, MajorPlane.Front),
                         GetCenterAxis(),
-                        GetDishedEndPositionPlane(dishedEnd),
-                        Compartments.Count + 1,
+                        SWFeatureManager.GetDishedEndPositionPlane(dishedEnd),
                         length));
 
                 //foreach ((string, string, double) manholeSettings in manholesSettings)
@@ -195,6 +143,7 @@ namespace SolidWorksTankDesign
             return true;
         }
 
+
         /// <summary>
         /// Sets the number of compartments in the assembly, adding or removing them 
         /// as needed to match the required count.
@@ -204,9 +153,7 @@ namespace SolidWorksTankDesign
         public void SetNumberOfCompartments(
             string projectFolder,
             string compartmentPath, 
-            int requiredNumberOfCompartments, 
-            List <double> compartmentLengths,
-            double externalDiameter)
+            int requiredNumberOfCompartments)
         {
             // Ensure the correct SolidWorks document is active for modification
             ActivateDocument();
@@ -244,7 +191,7 @@ namespace SolidWorksTankDesign
                 int numberOfCompartmentsToAdd = requiredNumberOfCompartments - Compartments.Count();
 
                 // Add new compartments until the count matches the required number.
-                for (int i = 0; i < requiredNumberOfCompartments - 1; i++)
+                for (int i = 1; i < requiredNumberOfCompartments; i++)
                 {
                     if (requiredNumberOfCompartments != Compartments.Count())
                         try
@@ -253,9 +200,19 @@ namespace SolidWorksTankDesign
                             AddCompartment(
                                 projectFolder,
                                 compartmentPath,
-                                SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds[requiredNumberOfCompartments - numberOfCompartmentsToAdd - 1], 
-                                compartmentLengths[i+1],
-                                externalDiameter);
+                                SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds[requiredNumberOfCompartments - numberOfCompartmentsToAdd - 1],
+                                SolidWorksDocumentProvider._tankProperties.CompartmentsConfigurations[i].Length / 1000);
+
+                            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[i]._compartmentSettings.ID =
+                                SolidWorksDocumentProvider._tankProperties.CompartmentsConfigurations[i].ID;
+
+                            CompartmentsMappingHelper.AddOrUpdateMapping(
+                                SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[i],
+                                SolidWorksDocumentProvider._tankProperties.CompartmentsConfigurations[i]);
+
+                            CompartmentsMappingHelper._originalConfigurations.Add(
+                                SolidWorksDocumentProvider._tankProperties.CompartmentsConfigurations[i].ID,
+                                SolidWorksDocumentProvider._tankProperties.CompartmentsConfigurations[i]);
 
                             numberOfCompartmentsToAdd--;
                     }
@@ -283,14 +240,14 @@ namespace SolidWorksTankDesign
         /// Swaps the positions of two compartments within a SolidWorks assembly, 
         /// adjusting their associated mates and names to maintain model consistency.
         /// </summary>
-        /// <param name="compartment1Number"></param>
-        /// <param name="compartment2Number"></param>
+        /// <param name="compartment1Index"></param>
+        /// <param name="compartment2Index"></param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public void SwapCompartments(int compartment1Number, int compartment2Number)
+        public void SwapCompartments(int compartment1Index, int compartment2Index)
         {
             // Validate compartment numbers
-            if (compartment1Number < 1 || compartment1Number > Compartments.Count ||
-                compartment2Number < 1 || compartment2Number > Compartments.Count)
+            if (compartment1Index < 0 || compartment1Index >= Compartments.Count ||
+                compartment2Index < 0 || compartment2Index >= Compartments.Count)
             {
                 throw new ArgumentOutOfRangeException("Invalid compartment numbers.");
             }
@@ -299,13 +256,14 @@ namespace SolidWorksTankDesign
             ActivateDocument();
 
             // Get compartments (adjusting for zero-based indexing)
-            Compartment compartment1 = Compartments[compartment1Number - 1];
-            Compartment compartment2 = Compartments[compartment2Number - 1];
+            Compartment compartment1 = Compartments[compartment1Index];
+            Compartment compartment2 = Compartments[compartment2Index];
 
             // Get the specific mate features and associated names for compartment 1:
             // - Left-end mate (used for the primary connection between compartments)
             // - Front plane mate (used for renaming)
             // - Center axis mate (used for renaming)
+            DishedEnd compartment1DishedEnd;
             Feature compartment1Mate = compartment1.GetLeftEndMate();
             Feature comp1FrontPlaneMate = compartment1.GetFrontPlaneMate();
             Feature comp1CenterAxisMate = compartment1.GetCenterAxisMate();
@@ -313,18 +271,23 @@ namespace SolidWorksTankDesign
             string frontPlaneMateName1 = comp1FrontPlaneMate.Name;
             string centerAxisMateName1 = comp1CenterAxisMate.Name;
 
-            // Store the index of the compartment in the collection (needed for later swapping).
-            int index1 = compartment1Number - 1;
+            if(compartment1Index == 0)
+                compartment1DishedEnd = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.LeftDishedEnd;
+            else compartment1DishedEnd = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds[compartment1Index - 1];
 
             // Get the specific mate features and associated names for compartment 2
             // (mirroring the process done for compartment 1)
+            DishedEnd compartment2DishedEnd;
             Feature compartment2Mate = compartment2.GetLeftEndMate();
             Feature comp2FrontPlaneMate = compartment2.GetFrontPlaneMate();
             Feature comp2CenterAxisMate = compartment2.GetCenterAxisMate();
             string mate2Name = compartment2Mate.Name;
             string frontPlaneMateName2 = comp2FrontPlaneMate.Name;
             string centerAxisMateName2 = comp2CenterAxisMate.Name;
-            int index2 = compartment2Number - 1;
+
+            if (compartment2Index == 0)
+                compartment2DishedEnd = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.LeftDishedEnd;
+            else compartment2DishedEnd = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds[compartment2Index - 1];
 
             try
             {
@@ -333,12 +296,12 @@ namespace SolidWorksTankDesign
                 // Each compartment's left-end mate is adjusted to reference the dished end position plane of the other compartment and the right plane of its own compartment.
                 MateManager.EditCoincidentMate(
                     compartment1.GetLeftEndMate(),
-                    compartment2.GetDishedEndPositionPlane(),
-                    SWFeatureManager.GetMajorPlane((Component2)compartment1.GetComponent(), MajorPlane.Right));
+                    SWFeatureManager.GetDishedEndPositionPlane(compartment2DishedEnd),
+                    SWFeatureManager.GetMajorPlane(compartment1.GetComponent(), MajorPlane.Right));
                 MateManager.EditCoincidentMate(
                     compartment2.GetLeftEndMate(),
-                    compartment1.GetDishedEndPositionPlane(),
-                    SWFeatureManager.GetMajorPlane((Component2)compartment2.GetComponent(), MajorPlane.Right));
+                    SWFeatureManager.GetDishedEndPositionPlane(compartment1DishedEnd),
+                    SWFeatureManager.GetMajorPlane(compartment2.GetComponent(), MajorPlane.Right));
             }
             catch(Exception ex)
             {
@@ -383,20 +346,32 @@ namespace SolidWorksTankDesign
                 // 2. Swap Compartment Positions:
                 // Remove both compartment objects from the 'Compartments' collection at their original indices.
                 // This prepares for inserting them back into the collection in the reversed order.
-                Compartments.RemoveAt(index2);  // Remove compartment 2 first (to avoid index issues)
-                Compartments.RemoveAt(index1);
 
                 // 3. Re-insert Compartments in Swapped Order:
                 // Insert the compartments back into the collection at the swapped indices. 
                 // Now, compartment2 will be at index1 and compartment1 will be at index2.
-                Compartments.Insert(index1, compartment2);
-                Compartments.Insert(index2, compartment1);
+                if (compartment1Index < compartment2Index)
+                {
+                    Compartments.RemoveAt(compartment2Index);
+                    Compartments.RemoveAt(compartment1Index);
+
+                    Compartments.Insert(compartment1Index, compartment2);
+                    Compartments.Insert(compartment2Index, compartment1);
+                }
+                else
+                {
+                    Compartments.RemoveAt(compartment1Index);
+                    Compartments.RemoveAt(compartment2Index);  // Remove compartment 2 first (to avoid index issues)
+
+                    Compartments.Insert(compartment2Index, compartment1);
+                    Compartments.Insert(compartment1Index, compartment2);
+                }
 
                 // 4. Re-assign Dished End Position Plane PIDs:
                 // Assign the stored PIDs of the dished end position planes back to the correct compartments after the swap.
                 // This ensures that the plane references are correctly associated with the compartments in their new positions.
-                Compartments[index1]._compartmentSettings.PIDDishedEndPositionPlane = comp1DishedEndPositionPlanePID;
-                Compartments[index2]._compartmentSettings.PIDDishedEndPositionPlane = comp2DishedEndPositionPlanePID;
+                Compartments[compartment1Index]._compartmentSettings.PIDDishedEndPositionPlane = comp1DishedEndPositionPlanePID;
+                Compartments[compartment2Index]._compartmentSettings.PIDDishedEndPositionPlane = comp2DishedEndPositionPlanePID;
             }
 
             /// Updates the persistent IDs (PIDs) of two edited mates within a SolidWorks document. 
@@ -424,7 +399,7 @@ namespace SolidWorksTankDesign
 
                 // Update the Persistent ID (PID) of the left-end mate in the compartment's settings to reference the newly edited mate.
                 // PIDs are unique identifiers for features within the document, ensuring accurate references even after modifications.
-                Compartments[index2]._compartmentSettings.PIDLeftEndMate = _currentlyActiveShellDoc.Extension.GetPersistReference3(editedMate1);
+                Compartments[compartment2Index]._compartmentSettings.PIDLeftEndMate = _currentlyActiveShellDoc.Extension.GetPersistReference3(editedMate1);
 
                 // 3. Get the Second Edited Mate:
                 // Repeat the process to select and retrieve the second edited mate (identified by 'mate2Name').
@@ -437,7 +412,7 @@ namespace SolidWorksTankDesign
                 editedMate2 = selectionMgr.GetSelectedObject6(1, -1);
 
                 // Update the PID of the left-end mate for the other compartment.
-                Compartments[index1]._compartmentSettings.PIDLeftEndMate = _currentlyActiveShellDoc.Extension.GetPersistReference3(editedMate2);
+                Compartments[compartment1Index]._compartmentSettings.PIDLeftEndMate = _currentlyActiveShellDoc.Extension.GetPersistReference3(editedMate2);
             }
 
             /// Ensures correct naming after swapping two compartments in a SolidWorks assembly. 
@@ -448,14 +423,14 @@ namespace SolidWorksTankDesign
                 // 1. Temporarily Rename Components:
                 // Assign temporary names to the components involved in the swap.
                 // This is done to avoid potential naming conflicts when swapping the actual names later.
-                Compartments[index1].GetComponent().Name2 = "TemporaryCompartment1Name";
-                Compartments[index2].GetComponent().Name2 = "TemporaryCompartment2Name";
+                Compartments[compartment1Index].GetComponent().Name2 = "TemporaryCompartment1Name";
+                Compartments[compartment2Index].GetComponent().Name2 = "TemporaryCompartment2Name";
 
                 // 2. Swap Component Names:
                 // Assign the original names of the components back to them, but in swapped order.
                 // Since the components are now at different indices in the 'Compartments' collection, their original names will be correctly associated with the swapped positions.
-                Compartments[index1].GetComponent().Name2 = compartment1.GetComponent().Name2;
-                Compartments[index2].GetComponent().Name2 = compartment2.GetComponent().Name2;
+                Compartments[compartment1Index].GetComponent().Name2 = compartment1.GetComponent().Name2;
+                Compartments[compartment2Index].GetComponent().Name2 = compartment2.GetComponent().Name2;
 
                 // 3. Temporarily Rename Mates:
                 // Assign temporary names to the mates associated with the compartments.

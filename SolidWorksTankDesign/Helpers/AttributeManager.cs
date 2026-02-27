@@ -6,7 +6,7 @@ using Attribute = SolidWorks.Interop.sldworks.Attribute;
 
 namespace SolidWorksTankDesign
 {
-    internal static class AttributeManager
+    public static class AttributeManager
     {
         /// <summary>
         /// Creates an attribute in a SolidWorks document with the document as the owner. This method will be executed only once unless there is a need to change something. In that case, the attribute will have to be deleted before creating a new one.
@@ -27,7 +27,8 @@ namespace SolidWorksTankDesign
             string attributeName,
             string parameterName1,
             string parameterValue1,
-            string parameterName2)
+            string parameterName2,
+            string parameterName3)
         {
             // 1. Robust Input Validation
             if (solidWorksApplication == null) throw new ArgumentNullException(nameof(solidWorksApplication));
@@ -35,6 +36,8 @@ namespace SolidWorksTankDesign
             if (string.IsNullOrWhiteSpace(attributeDefinitionName)) throw new ArgumentException("Attribute definition name cannot be null or empty.", nameof(attributeDefinitionName));
             if (string.IsNullOrWhiteSpace(attributeName)) throw new ArgumentException("Attribute name cannot be null or empty.", nameof(attributeName));
             if (string.IsNullOrWhiteSpace(parameterName1)) throw new ArgumentException("Parameter name cannot be null or empty.", nameof(parameterName1));
+            if (string.IsNullOrWhiteSpace(parameterName2)) throw new ArgumentException("Parameter name cannot be null or empty.", nameof(parameterName2));
+            if (string.IsNullOrWhiteSpace(parameterName3)) throw new ArgumentException("Parameter name cannot be null or empty.", nameof(parameterName3));
 
             try
             {
@@ -43,7 +46,8 @@ namespace SolidWorksTankDesign
                     solidWorksApplication,
                     attributeDefinitionName,
                     parameterName1,
-                    parameterName2);
+                    parameterName2,
+                    parameterName3);
 
                 // 3.Verify definition creation and create the attribute
                 if (attributeDefinition == null ||
@@ -80,7 +84,8 @@ namespace SolidWorksTankDesign
             SldWorks solidWorksApplication,
             string attributeDefinitionName,
             string parameterName1,
-            string parameterName2)
+            string parameterName2,
+            string parameterName3)
         {
             // Validate input parameters
             if (solidWorksApplication == null)
@@ -99,6 +104,12 @@ namespace SolidWorksTankDesign
 
             attributeDefinition.AddParameter(
                 NameIn: parameterName2,
+                Type: (int)swParamType_e.swParamTypeString,
+                DefaultValue: 0.0,
+                Options: 0);
+
+            attributeDefinition.AddParameter(
+                NameIn: parameterName3,
                 Type: (int)swParamType_e.swParamTypeString,
                 DefaultValue: 0.0,
                 Options: 0);
@@ -245,7 +256,7 @@ namespace SolidWorksTankDesign
                         ConfigurationOption: (int)swInConfigurationOpts_e.swAllConfiguration,
                         ConfigurationName: "");
 
-            // Save the document
+            // SaveInitialConfiguration the document
             int error = 0;
             int warning = 0;
             attributeOwnerDoc.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref error, ref warning);

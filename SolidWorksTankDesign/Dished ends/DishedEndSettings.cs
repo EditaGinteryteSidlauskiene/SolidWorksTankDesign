@@ -2,7 +2,7 @@
 
 namespace SolidWorksTankDesign
 {
-    internal class DishedEndSettings
+    public class DishedEndSettings
     {
         [JsonProperty("PIDPositionPlane")]
         public  byte[] PIDPositionPlane { get; set; }

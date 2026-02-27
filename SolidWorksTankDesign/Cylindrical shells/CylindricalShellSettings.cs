@@ -2,7 +2,7 @@
 
 namespace SolidWorksTankDesign
 {
-    internal class CylindricalShellSettings
+    public class CylindricalShellSettings
     {
         [JsonProperty("PIDLeftEndPlane")]
         public byte[] PIDLeftEndPlane { get; set; }

@@ -10,7 +10,7 @@ using static System.Net.WebRequestMethods;
 
 namespace SolidWorksTankDesign
 {
-    internal class Nozzle
+    public class Nozzle
     {
         private ModelDoc2 _currentlyActiveNozzleDoc;
 
@@ -897,6 +897,20 @@ namespace SolidWorksTankDesign
 
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(_currentlyActiveNozzleDoc.GetTitle());
             _currentlyActiveNozzleDoc = null;
+        }
+
+        public Nozzle DeepClone()
+        {
+            // Create a new instance of Nozzle
+            var clonedNozzle = new Nozzle();
+
+            // Clone the NozzleSettings if it's not null
+            if (this._nozzleSettings != null)
+            {
+                clonedNozzle._nozzleSettings = this._nozzleSettings.DeepClone();
+            }
+
+            return clonedNozzle;
         }
 
         public Feature GetCenterAxis() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(

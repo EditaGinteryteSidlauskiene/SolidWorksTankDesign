@@ -1,19 +1,14 @@
 ﻿using Newtonsoft.Json;
+using SolidWorksTankDesign.MVP.Enums;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
 namespace SolidWorksTankDesign.Treatments
 {
-    public class Treatment : INotifyPropertyChanged
+    public class Treatment : INotifyPropertyChanged, ICloneable
     {
-        public enum TreatmentType
-        {
-            Internal,
-            ExternalUnderGround,
-            ExternalAboveGround,
-            None
-        }
-
         [JsonIgnore]
         private string _description;
         [JsonIgnore]
@@ -63,6 +58,25 @@ namespace SolidWorksTankDesign.Treatments
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
+
+        public object Clone()
+        {
+            Treatment clonedTreatment = new Treatment
+            {
+                Comments = this.Comments,
+                Cleaning = this.Cleaning,
+                Description = this.Description,
+                Type = this.Type,
+                CoatingLayers = new ObservableCollection<CoatingLayer>()
+            };
+
+            foreach (CoatingLayer layer in this.CoatingLayers)
+            {
+                clonedTreatment.CoatingLayers.Add((CoatingLayer)layer.Clone());
+            }
+
+            return clonedTreatment;
+        }
 
         protected virtual void OnPropertyChanged(string propertyName)
 

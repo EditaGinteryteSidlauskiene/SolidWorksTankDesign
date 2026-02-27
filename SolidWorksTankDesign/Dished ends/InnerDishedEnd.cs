@@ -1,12 +1,16 @@
 ﻿using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 using SolidWorksTankDesign.Helpers;
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
-    internal class InnerDishedEnd : DishedEnd
+    public class InnerDishedEnd : DishedEnd
     {
 
         private const string INNER_DISHED_END_NAME = "Inner end";
@@ -73,12 +77,12 @@ namespace SolidWorksTankDesign
 
             // Open dished end doc and save it to a new destination
             DocumentSpecification documentSpecification = solidWorksApp.GetOpenDocSpec(innerDishedEndDocPath);
-            ModelDoc2 emptyManholeDoc = solidWorksApp.OpenDoc7(documentSpecification);
+            ModelDoc2 innerDishedEndDoc = solidWorksApp.OpenDoc7(documentSpecification);
 
-            emptyManholeDoc.SaveAs3(targetPath, 0, 0);
+            innerDishedEndDoc.SaveAs3(targetPath, 0, 0);
 
             // Close dished end doc and newly saved docs
-            solidWorksApp.CloseDoc(emptyManholeDoc.GetTitle());
+            solidWorksApp.CloseDoc(innerDishedEndDoc.GetTitle());
             solidWorksApp.CloseDoc(targetPath);
 
             // 3. Add and Make Independent Dished End Component
@@ -93,6 +97,7 @@ namespace SolidWorksTankDesign
             Feature rightPlaneMate = null;
             Feature frontPlaneMate = null;
             Feature centerAxisMate = null;
+
             try
             {
                 // 6. Create Mates
@@ -139,7 +144,8 @@ namespace SolidWorksTankDesign
                     dishedEnd,
                     dishedEndAlignment,
                     centerAxisMate,
-                    rightPlaneMate);
+                    rightPlaneMate,
+                    _dishedEndSettings);
             }
             catch (Exception ex)
             {
@@ -166,12 +172,15 @@ namespace SolidWorksTankDesign
                     return;
                 }
             }
+
+            assemblyOfDishedEndsDoc.EditRebuild3();
         }
+
 
         /// <summary>
         /// Deletes the dished end component
         /// </summary>
-        public void Delete()
+        public async void Delete()
         {
             ModelDoc2 assemblyOfDishedEndsDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
@@ -179,21 +188,40 @@ namespace SolidWorksTankDesign
             SelectData selectData = selectionManager.CreateSelectData();
 
             //Select the dished end to be deleted
-            GetComponent().Select4(false, selectData, false);
-            GetPositionPlane().Select2(true, 1);
+            Feature rightPlaneMate = GetRightPlaneMate();
+            Feature frontPlaneMate = GetFrontPlaneMate();
+            Feature centerAxisMate = GetCenterAxisMate();
+            Component2 dishedEndComponent = GetComponent();
+            Feature dishedEndPostionPlane = GetPositionPlane();
+
+            rightPlaneMate.Select2(false, 1);
+            ((AssemblyDoc)assemblyOfDishedEndsDoc).DeleteSelections(1);
+
+            frontPlaneMate.Select2(false, 1);
+            ((AssemblyDoc)assemblyOfDishedEndsDoc).DeleteSelections(1);
+
+            centerAxisMate.Select2(false, 1);
+            ((AssemblyDoc)assemblyOfDishedEndsDoc).DeleteSelections(1);
+
+            dishedEndComponent.Select4(false, selectData, false);
+            dishedEndPostionPlane.Select2(true, 1);
 
             //Get dished end document's path to delete the file
             ModelDoc2 componentDocument = GetComponent().GetModelDoc2();
             string path = componentDocument.GetPathName();
+            string docTitle = componentDocument.GetTitle();
 
             //Delete selected dished end
-            ((AssemblyDoc)assemblyOfDishedEndsDoc).DeleteSelections(0);
+            ((AssemblyDoc)assemblyOfDishedEndsDoc).DeleteSelections(1);
 
-            //Rebuild assembly to release the file to be deleted
-            assemblyOfDishedEndsDoc.EditRebuild3();
+            assemblyOfDishedEndsDoc.ClearSelection2(true);
 
-            //Delete the file
-            File.Delete(path);
+            // 5) Close the document
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(docTitle);
+
+            assemblyOfDishedEndsDoc.ForceRebuild3(true);
+
+            SolidWorksDocumentProvider._filesToDelete.Add(path);
         }
     }
 }

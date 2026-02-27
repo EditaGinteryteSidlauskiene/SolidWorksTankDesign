@@ -7,7 +7,7 @@ namespace SolidWorksTankDesign
 {
     /* This is the highest class in the hierarchy. At least, it must have the center axis and 
      Tank component.*/
-    internal class TankSiteAssembly
+    public class TankSiteAssembly
     {
         [JsonIgnore]
         public ModelDoc2 _tankSiteModelDoc;
@@ -71,7 +71,8 @@ namespace SolidWorksTankDesign
                         "MainEntities",
                         "MainEntities",
                         tankSiteAssemblyString,
-                        "TankProperties");
+                        "TankProperties",
+                        "FilesToDelete");
             }
             catch (Exception ex)
             {

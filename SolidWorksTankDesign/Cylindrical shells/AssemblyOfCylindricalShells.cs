@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
-    internal class AssemblyOfCylindricalShells
+    public class AssemblyOfCylindricalShells
     {
         private ModelDoc2 currentlyActiveCylindricalShellsDoc;
 

@@ -228,10 +228,13 @@ namespace SolidWorksTankDesign
             Component2 dishedEndComponent, 
             DishedEndAlignment dishedEndAlignment,
             Feature centerAxisMate,
-            Feature rightPlaneMate)
+            Feature rightPlaneMate,
+            DishedEndSettings dishedEndSettings)
         {
             if (dishedEndAlignment != GetAlignment(dishedEndComponent))
-                ChangeAlignment(centerAxisMate, rightPlaneMate);
+            {
+                ChangeAlignment(centerAxisMate, rightPlaneMate, dishedEndSettings);
+            }
         }
 
         /// <summary>
@@ -250,10 +253,17 @@ namespace SolidWorksTankDesign
             return (TransformedVector[0] > 0 ? DishedEndAlignment.Left : DishedEndAlignment.Right);
         }
 
+        private static void UpdateAxisAndRightPlaneMatesPIDs(Feature centerAxisMate, Feature rightPlaneMate, DishedEndSettings dishedEndSettings)
+        {
+            ModelDoc2 assemblyOfDishedEndsDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            dishedEndSettings.PIDCenterAxisMate = assemblyOfDishedEndsDoc.Extension.GetPersistReference3(centerAxisMate);
+            dishedEndSettings.PIDRightPlaneMate = assemblyOfDishedEndsDoc.Extension.GetPersistReference3(rightPlaneMate);
+        }
+
         /// <summary>
         /// Changes alignment of the dished end component
         /// </summary>
-        private static void ChangeAlignment(Feature centerAxisMate, Feature rightPlaneMate)
+        public static void ChangeAlignment(Feature centerAxisMate, Feature rightPlaneMate, DishedEndSettings dishedEndSettings)
         {
             try
             {
@@ -280,12 +290,32 @@ namespace SolidWorksTankDesign
 
                 //Unsuppress axis mate
                 SWFeatureManager.Unsuppress(centerAxisMate);
+
+                UpdateAxisAndRightPlaneMatesPIDs(centerAxisMate, rightPlaneMate, dishedEndSettings);
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Mate alignment could not be changed." + ex.Message);
                 return;
             }
+        }
+
+        public static void RefreshDishedEnds()
+        {
+            ModelDoc2 activeDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
+            foreach (DishedEnd dishedEnd in SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.InnerDishedEnds)
+            {
+                Feature positionPlane = dishedEnd.GetPositionPlane();
+
+                RefPlaneFeatureData positionPlaneFeatureData = positionPlane.GetDefinition();
+                positionPlane.ModifyDefinition(positionPlaneFeatureData, activeDoc, null);
+            }
+
+            Feature rightDishedEndPositionPlane = SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.RightDishedEnd.GetPositionPlane();
+
+            RefPlaneFeatureData rightDishedEndPositionPlaneFeatureData = rightDishedEndPositionPlane.GetDefinition();
+            rightDishedEndPositionPlane.ModifyDefinition(rightDishedEndPositionPlaneFeatureData, activeDoc, null);
         }
     }
 }

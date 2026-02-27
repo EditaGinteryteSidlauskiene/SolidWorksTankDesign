@@ -63,6 +63,26 @@ namespace SolidWorksTankDesign.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap ArrowToConnectionProperties {
+            get {
+                object obj = ResourceManager.GetObject("ArrowToConnectionProperties", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap ArrowToNeckProperties {
+            get {
+                object obj = ResourceManager.GetObject("ArrowToNeckProperties", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Back {
             get {
                 object obj = ResourceManager.GetObject("Back", resourceCulture);
@@ -77,6 +97,46 @@ namespace SolidWorksTankDesign.Properties {
             get {
                 object obj = ResourceManager.GetObject("BackIcon", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap DistanceFromAxis {
+            get {
+                object obj = ResourceManager.GetObject("DistanceFromAxis", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap DistanceVisualizationLeftDirection {
+            get {
+                object obj = ResourceManager.GetObject("DistanceVisualizationLeftDirection", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap DistanceVisualizationRightDirection {
+            get {
+                object obj = ResourceManager.GetObject("DistanceVisualizationRightDirection", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap DistanceVisualizationRightDirection2 {
+            get {
+                object obj = ResourceManager.GetObject("DistanceVisualizationRightDirection2", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
             }
         }
         
@@ -116,6 +176,36 @@ namespace SolidWorksTankDesign.Properties {
         internal static System.Drawing.Bitmap left {
             get {
                 object obj = ResourceManager.GetObject("left", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap LongNozzlePosition {
+            get {
+                object obj = ResourceManager.GetObject("LongNozzlePosition", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap NozzlePosition {
+            get {
+                object obj = ResourceManager.GetObject("NozzlePosition", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap NozzleSketch {
+            get {
+                object obj = ResourceManager.GetObject("NozzleSketch", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

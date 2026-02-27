@@ -1,8 +1,9 @@
 ﻿using Newtonsoft.Json;
+using System.Linq;
 
 namespace SolidWorksTankDesign
 {
-    internal class NozzleSettings
+    public class NozzleSettings
     {
         [JsonProperty("PIDCenterAxis")]
         public byte[] PIDCenterAxis { get; set; }
@@ -54,5 +55,28 @@ namespace SolidWorksTankDesign
         public byte[] PIDCutExtrude { get; set; }
 
         public NozzleSettings() { }
+
+        public NozzleSettings DeepClone()
+        {
+            return new NozzleSettings
+            {
+                PIDCenterAxis = this.PIDCenterAxis?.ToArray(),
+                PIDNozzleAxis = this.PIDNozzleAxis?.ToArray(),
+                PIDPositionPlane = this.PIDPositionPlane?.ToArray(),
+                PIDExternalPoint = this.PIDExternalPoint?.ToArray(),
+                PIDInternalPoint = this.PIDInternalPoint?.ToArray(),
+                PIDInsidePoint = this.PIDInsidePoint?.ToArray(),
+                PIDMidPoint = this.PIDMidPoint?.ToArray(),
+                PIDNozzleRightRefPlane = this.PIDNozzleRightRefPlane?.ToArray(),
+                PIDCutPlane = this.PIDCutPlane?.ToArray(),
+                PIDSketch = this.PIDSketch?.ToArray(),
+                PIDComponent = this.PIDComponent?.ToArray(),
+                PIDPositionPlaneMate = this.PIDPositionPlaneMate?.ToArray(),
+                PIDTopPlaneMate = this.PIDTopPlaneMate?.ToArray(),
+                PIDNozzleAssemblyComp = this.PIDNozzleAssemblyComp?.ToArray(),
+                PIDCutOutPlane = this.PIDCutOutPlane?.ToArray(),
+                PIDCutExtrude = this.PIDCutExtrude?.ToArray()
+            };
+        }
     }
 }

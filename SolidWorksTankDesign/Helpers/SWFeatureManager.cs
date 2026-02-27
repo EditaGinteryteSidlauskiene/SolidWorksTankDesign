@@ -1,5 +1,6 @@
 ﻿using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using SolidWorksTankDesign.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -262,7 +263,18 @@ namespace SolidWorksTankDesign
             referencePlaneFeatureData.Reference[0] = newReferencePlane;
 
             //Modify changes
-            return referencedPlane.ModifyDefinition(referencePlaneFeatureData, activeDoc, null);
+            bool success =  referencedPlane.ModifyDefinition(referencePlaneFeatureData, activeDoc, null);
+
+            ComponentManager.RefreshDishedEnds();
+
+            int errors = 0;
+            int warnings = 0;
+            SolidWorksDocumentProvider.GetActiveDoc().Save3(
+                            (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                            ref errors,
+                            ref warnings);
+
+            return success;
         }
 
         public static double GetDistanceOfReferencePlane(Feature referencePlane)
@@ -363,6 +375,63 @@ namespace SolidWorksTankDesign
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(document.GetTitle());
 
             return double.Parse(volumePerMeter.Replace(',', '.'));
+        }
+
+        /// <summary>
+        /// CURRENTLY ACTIVE SHELL DOC MUST BE ACTIVATED!!!
+        /// </summary>
+        /// <param name="dishedEnd"></param>
+        /// <returns></returns>
+        public static Feature GetDishedEndPositionPlane(DishedEnd dishedEnd)
+        {
+            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
+            ModelDoc2 currentlyActiveShellDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            //Left end plane@Assembly of Dished ends-1@Shell
+            // Get position plane's name from assembly of dished ends perspective
+            string positionPlaneName = GetPositionPlaneName(dishedEnd);
+
+            SelectionMgr selectionMgr = currentlyActiveShellDoc.SelectionManager;
+
+            // Select position plane using this name
+            currentlyActiveShellDoc.Extension.SelectByID2(positionPlaneName, "PLANE", 0, 0, 0, false, 0, null, 0);
+
+            // Get selected object
+            return selectionMgr.GetSelectedObject6(1, -1);
+
+            string GetPositionPlaneName(DishedEnd dishedEndObject)
+            {
+                // 1. Get assembly of dished ends document
+                Component2 assemblyOfDishedEndsComp = SolidWorksDocumentProvider._tankSiteAssembly.GetDishedEndsAssemblyComponent();
+                ModelDoc2 assemblyOfDishedEndsDoc = assemblyOfDishedEndsComp.GetModelDoc2();
+
+                // 2. Activate assembly of dished ends doc to be able to get position plane
+                SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(assemblyOfDishedEndsDoc.GetTitle(), true, 0, 0);
+
+                // Get shell component name
+                string shellCompFullName = SolidWorksDocumentProvider._tankSiteAssembly.GetShellAssemblyComponent().Name2;
+                string[] shellNameParts = shellCompFullName.Split('/');
+                string shellName = shellNameParts[shellNameParts.Length - 1].Split('-')[0];
+
+                // Get dished end's component name
+                string dishedEndsCompFullName = assemblyOfDishedEndsComp.Name2;
+                string[] dishedEndNameParts = dishedEndsCompFullName.Split('/');
+                string dishedEndsCompName = dishedEndNameParts[dishedEndNameParts.Length - 1];
+
+                // 3. Get position plane
+                Feature positionPlaneOfDishedEnd = dishedEndObject.GetPositionPlane();
+
+                // Close assembly of dished ends doc
+                SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(assemblyOfDishedEndsDoc.GetTitle());
+
+                // 4. Get position plane's name from assembly of dished ends doc perspective
+                return $"{positionPlaneOfDishedEnd.Name}@{dishedEndsCompName}@{shellName}";
+            }
+        }
+
+        public static void UpdateMatePID(ModelDoc2 document, Compartment compartment, string mateName)
+        {
+            Feature mate = MateManager.GetMateByName(document, mateName);
+            compartment._compartmentSettings.PIDLeftEndMate = document.Extension.GetPersistReference3(mate);
         }
     }
 }

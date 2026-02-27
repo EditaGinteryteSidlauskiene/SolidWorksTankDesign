@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
-    internal class TankSiteAssemblySettings
+    public class TankSiteAssemblySettings
     {
         //--------------------------- Tank Site Assembly PIDs ---------------------------
 

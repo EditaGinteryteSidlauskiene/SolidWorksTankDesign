@@ -1,18 +1,20 @@
-﻿using System.Collections.Generic;
+﻿using SolidWorksTankDesign.MVP.Enums;
+using SolidWorksTankDesign.Treatments;
+using System.Collections.Generic;
 
 namespace SolidWorksTankDesign.TankSiteConfigurations
 {
-    internal class TankProperties
+    public class TankProperties
     {
         public string SerialNumber { get; set; }
 
-        public string ConstructionStandard { get; set; }
+        public ConstructionStandard ConstructionStandard { get; set; }
 
         public double NominalDiameter { get; set; }
 
-        public string Class {  get; set; }
+        public Class Class {  get; set; }
 
-        public string Type { get; set; }
+        public TankType Type { get; set; }
 
         public double MinOperatingTemperature { get; set; }
 
@@ -27,6 +29,8 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
         public string InterstitialSpace {  get; set; }
 
         public string LeakDetectionSystem { get; set; }
+
+        public Treatment ExternalSurfaceTreatment { get; set; }
 
         public List<CompartmentConfiguration> CompartmentsConfigurations { get; set; } = new List<CompartmentConfiguration>();
     }

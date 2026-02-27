@@ -1,4 +1,5 @@
 ﻿using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 using SolidWorksTankDesign.Helpers;
 using System;
 using System.IO;
@@ -6,7 +7,7 @@ using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
-    internal class DishedEnd
+    public class DishedEnd
     {
         private const string RIGHT_PLANE_NAME = "Right plane";
         private const string FRONT_PLANE_NAME = "Front plane";
@@ -106,6 +107,7 @@ namespace SolidWorksTankDesign
                     _dishedEndSettings.PIDCenterAxisMate = assemblyOfDishedEndsDoc.Extension.GetPersistReference3(centerAxisMate);
                     _dishedEndSettings.PIDRightPlaneMate = assemblyOfDishedEndsDoc.Extension.GetPersistReference3(rightPlaneMate);
                     _dishedEndSettings.PIDFrontPlaneMate = assemblyOfDishedEndsDoc.Extension.GetPersistReference3(frontPlaneMate);
+
                 }
                 catch (Exception ex)
                 {
@@ -121,7 +123,8 @@ namespace SolidWorksTankDesign
                     dishedEnd,
                     dishedEndAlignment,
                     centerAxisMate,
-                    rightPlaneMate);
+                    rightPlaneMate,
+                    _dishedEndSettings);
             }
             catch (Exception ex)
             {
@@ -149,7 +152,7 @@ namespace SolidWorksTankDesign
                         _dishedEndSettings.PIDCenterAxisMate,
                         out int error);
 
-        public Feature GetRightPlaneMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+        public Feature GetRightPlaneMate() => (Feature) SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                         _dishedEndSettings.PIDRightPlaneMate,
                         out int error);
 
@@ -186,6 +189,12 @@ namespace SolidWorksTankDesign
                     MessageBox.Show($"Could change reference plane of {GetComponent().Name2}.");
                     return;
                 }
+
+                ModelDoc2 activeDoc = SolidWorksDocumentProvider.GetActiveDoc();
+                activeDoc.Save3(
+                            (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                            (int)swFileSaveError_e.swGenericSaveError,
+                            (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
             }
             catch(Exception ex)
             {
@@ -201,6 +210,13 @@ namespace SolidWorksTankDesign
         public void ChangeDistance(double distance)
         {
             SWFeatureManager.ChangeDistanceOfReferencePlane(GetPositionPlane(), distance);
+
+            ComponentManager.RefreshDishedEnds();
+
+            SolidWorksDocumentProvider.GetActiveDoc().Save3(
+                            (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                            (int)swFileSaveError_e.swGenericSaveError,
+                            (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
         }
     }
 }

@@ -1,9 +1,13 @@
 ﻿using Newtonsoft.Json;
+using System;
 
 namespace SolidWorksTankDesign
 {
-    internal class CompartmentSettings
+    public class CompartmentSettings
     {
+        [JsonProperty("ID")]
+        public Guid ID { get; set; }
+
         [JsonProperty("PIDCenterAxis")]
         public byte[] PIDCenterAxis { get; set; }
 

@@ -10,7 +10,7 @@ using System.ComponentModel;
 
 namespace SolidWorksTankDesign
 {
-    internal class CylindricalShell
+    public class CylindricalShell
     {
         private const string CYLINDRICAL_SHELL_COMPONENT_NAME = "Cylindrical shell";
         private const string LEFT_END_PLANE_NAME = "Left plane";
@@ -348,14 +348,14 @@ namespace SolidWorksTankDesign
 
             GetFrontPlaneMate().ModifyDefinition(angleMateFeatureData, assemblyOfCylindricalShellDoc, null);
 
-            // Save and close assembly of cylindrical shells doc
+            // SaveInitialConfiguration and close assembly of cylindrical shells doc
             assemblyOfCylindricalShellDoc.Save3(
                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
                (int)swFileSaveError_e.swGenericSaveError,
                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(assemblyOfCylindricalShellDoc.GetTitle());
 
-            // Save tank site assembly
+            // SaveInitialConfiguration tank site assembly
             SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc.Save3(
                 (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
                 (int)swFileSaveError_e.swGenericSaveError,

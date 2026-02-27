@@ -1,4 +1,6 @@
-﻿namespace SolidWorksTankDesign
+﻿using System.ComponentModel;
+
+namespace SolidWorksTankDesign
 {
     /// <summary>
     /// Position of dished end

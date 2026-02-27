@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
@@ -7,7 +8,7 @@ using System.Windows.Forms;
 namespace SolidWorksTankDesign
 {
     //This is the highest class of dished ends. It contains all dished ends in the project
-    internal class AssemblyOfDishedEnds
+    public class AssemblyOfDishedEnds
     {
         private const string ASSEMBLY_OF_DISHED_ENDS_LEFT_END_PLANE_NAME = "Left end plane";
         private const string ASSEMBLY_OF_DISHED_ENDS_RIGHT_END_PLANE_NAME = "Right end plane";
@@ -72,10 +73,12 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Activates document of assembly of dished ends
         /// </summary>
-        public void ActivateDocument()
+        public ModelDoc2 ActivateDocument()
         {
             ModelDoc2 AssemblyOfDishedEndsModelDoc = SolidWorksDocumentProvider._tankSiteAssembly.GetDishedEndsAssemblyComponent().GetModelDoc2();
             currentlyActiveDishedEndsDoc = SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(AssemblyOfDishedEndsModelDoc.GetTitle()+ ".sldasm", true, 0, 0);
+
+            return currentlyActiveDishedEndsDoc;
         }
 
         /// <summary>
@@ -172,6 +175,13 @@ namespace SolidWorksTankDesign
                         distance,
                         compartmentNumber)
                         );
+
+                ModelDoc2 assemblyOfDishedEnds = SolidWorksDocumentProvider.GetActiveDoc();
+                assemblyOfDishedEnds.Save3(
+                            (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                            (int)swFileSaveError_e.swGenericSaveError,
+                            (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+
             }
             catch (Exception ex)
             {

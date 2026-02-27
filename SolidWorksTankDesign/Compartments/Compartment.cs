@@ -11,7 +11,7 @@ using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
-    internal class Compartment
+    public class Compartment
     {
         private ModelDoc2 _currentlyActiveCompartmentDoc;
 
@@ -43,7 +43,6 @@ namespace SolidWorksTankDesign
             Feature shellFrontPlane,
             Feature shellCenterAxis,
             Feature dishedEndPositionPlane,
-            int countNumber,
             double length)
         {
             // Input Validation
@@ -62,8 +61,7 @@ namespace SolidWorksTankDesign
                 throw new InvalidOperationException("Active SolidWorks document not found.");
 
             // Rename the Component
-            char letter = (char)(64 + countNumber);
-            string componentName = $"{COMPARTMENT_COMPONENT_NAME} {letter}";
+            string componentName = COMPARTMENT_COMPONENT_NAME;
 
             // Open compartmen doc
             ModelDoc2 compartmentModelDoc2 = SolidWorksDocumentProvider._solidWorksApplication.OpenDoc6(
@@ -75,16 +73,18 @@ namespace SolidWorksTankDesign
             // Package the nozzle assembly and its associated files using Pack and Go, and get the path to the packed assembly
             string path = DocumentManager.PackAndGo(projectFolder, compartmentModelDoc2, componentName, null);
 
+            string docName = path.Split('\\').Last();
             // Rename the doc
-            FileSystem.RenameFile(path, $"{componentName}.SLDASM");
+            string filePath = Path.GetDirectoryName(path) + "\\Compartment.SLDASM";
+            FileSystem.RenameFile(filePath, docName);
             // Construct the new file path
-            string newPath = Path.Combine(Path.GetDirectoryName(path), $"{componentName}.SLDASM");
+            //string newPath = Path.Combine(Path.GetDirectoryName(path), $"{componentName}.SLDASM");
 
             // Close the nozzle assembly document after it has been packed
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(compartmentModelDoc2.GetTitle());
 
             // 2. Add and Make Independent Compartment Component
-            Component2 compartment = ComponentManager.AddComponentAssembly(shellModelDoc, newPath);
+            Component2 compartment = ComponentManager.AddComponentAssembly(shellModelDoc, path);
 
             ModelDoc2 compartmentModelDoc = compartment.GetModelDoc2();
 
@@ -123,7 +123,7 @@ namespace SolidWorksTankDesign
             _compartmentSettings = new CompartmentSettings();
             try
             {
-                GetCompartmentPIDsAndChnageLength();
+                GetCompartmentPIDsAndChangeLength();
             }
             catch (Exception ex)
             {
@@ -131,7 +131,7 @@ namespace SolidWorksTankDesign
                 MessageBox.Show($"Error getting compartment entities: {ex.Message}");
             }
 
-            void GetCompartmentPIDsAndChnageLength()
+            void GetCompartmentPIDsAndChangeLength()
             {
                 try
                 {
@@ -162,6 +162,8 @@ namespace SolidWorksTankDesign
                     return;
                 }
             }
+
+            DocumentManager.UpdateAndSaveDocuments();
         }
 
         public void ChangeLength(double length)
@@ -169,10 +171,17 @@ namespace SolidWorksTankDesign
             Feature rightEndPlane = GetRightEndPlane();
 
             SWFeatureManager.ChangeDistanceOfReferencePlane(rightEndPlane, length);
+
+            ModelDoc2 compartmentDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
+            compartmentDoc.Save3(
+                            (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                            (int)swFileSaveError_e.swGenericSaveError,
+                            (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
         }
 
         /// <summary>
-        /// Deletes a compartment component from a SolidWorks shell assembly, including the associated file.
+        /// Deletes a compartment component from a SolidWorks shell assembly, including the associated file and folder that contains it.
         /// </summary>
         public void Delete()
         {
@@ -211,6 +220,10 @@ namespace SolidWorksTankDesign
 
             //Delete the file
             File.Delete(path);
+
+            // Get the parent folder and delete it
+            string folderPath = Path.GetDirectoryName(path);
+            Directory.Delete(folderPath);
         }
 
         public double GetLength()

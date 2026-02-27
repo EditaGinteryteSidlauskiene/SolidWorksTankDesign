@@ -14,6 +14,7 @@
     <Deterministic>true</Deterministic>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -41,6 +42,7 @@
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <Reference Include="PresentationFramework" />
     <Reference Include="SolidWorks.Interop.sldworks">
       <HintPath>..\..\References\SolidWorks.Interop.sldworks.dll</HintPath>
       <EmbedInteropTypes>True</EmbedInteropTypes>
@@ -65,6 +67,7 @@
     <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
     </Reference>
+    <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
     <Reference Include="System.DirectoryServices" />
     <Reference Include="System.Drawing" />
@@ -94,6 +97,7 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Compartments\Compartment.cs" />
@@ -102,6 +106,7 @@
     <Compile Include="Cylindrical shells\CylindricalShellSettings.cs" />
     <Compile Include="Enums\MajorPlane.cs" />
     <Compile Include="Enums\MateAlignment.cs" />
+    <Compile Include="Helpers\CompartmentsMappingHelper.cs" />
     <Compile Include="Helpers\DocumentManager.cs" />
     <Compile Include="Helpers\MateManager.cs" />
     <Compile Include="Helpers\MathUtility.cs" />
@@ -120,14 +125,59 @@
     <Compile Include="Helpers\PrivatePropertyContractResolver.cs" />
     <Compile Include="Compartments\CompartmentsManager.cs" />
     <Compile Include="Compartments\CompartmentSettings.cs" />
-    <Compile Include="TankSiteConfigurations\CompartmentConfiguration.cs" />
-    <Compile Include="TankSiteConfigurations\TankProperties.cs" />
-    <Compile Include="TaskpaneHostUI.cs">
+    <Compile Include="MVP\Enums\Class.cs" />
+    <Compile Include="MVP\Enums\ConstructionStandard.cs" />
+    <Compile Include="MVP\Enums\EnumManager.cs" />
+    <Compile Include="MVP\Enums\LeftEndConnection.cs" />
+    <Compile Include="MVP\Enums\NozzleBottomReferencePoint.cs" />
+    <Compile Include="MVP\Enums\NozzlePropertiesType.cs" />
+    <Compile Include="MVP\Enums\NozzleReferenceType.cs" />
+    <Compile Include="MVP\Enums\NozzleVerticalReferenceType.cs" />
+    <Compile Include="MVP\Enums\PaintingAmountUnit.cs" />
+    <Compile Include="MVP\Enums\TankType.cs" />
+    <Compile Include="MVP\Enums\TreatmentTypes.cs" />
+    <Compile Include="MVP\Helpers\ViewsHelper.cs" />
+    <Compile Include="MVP\Models\CompartmentConfigurationModel.cs" />
+    <Compile Include="MVP\Models\ICompartmentConfigurationModel.cs" />
+    <Compile Include="MVP\Models\INozzleModel.cs" />
+    <Compile Include="MVP\Models\IPaintingSystemsModel.cs" />
+    <Compile Include="MVP\Models\PaintingSystemsModel.cs" />
+    <Compile Include="MVP\Presenters\CompartmentWindowPresenter.cs" />
+    <Compile Include="MVP\Presenters\InitialConfiguarationPresenter.cs" />
+    <Compile Include="MVP\Models\NozzleModel.cs" />
+    <Compile Include="MVP\Presenters\NozzleWindowPresenter.cs" />
+    <Compile Include="MVP\Presenters\PaintingSystemsManagerPresenter.cs" />
+    <Compile Include="MVP\Presenters\TaskpaneHostUIPresenter.cs" />
+    <Compile Include="MVP\Services\INozzleSolidWorksService .cs" />
+    <Compile Include="MVP\Services\NozzleSolidWorksService .cs" />
+    <Compile Include="MVP\UIManager.cs" />
+    <Compile Include="MVP\Views\Controls\ClickableImageHotspotsControl .cs" />
+    <Compile Include="MVP\Views\Controls\Hotspot.cs" />
+    <Compile Include="MVP\Views\INozzleWindowView.cs" />
+    <Compile Include="MVP\Views\ICompartmentWindowView.cs" />
+    <Compile Include="MVP\Views\IInitialConfigurationView.cs" />
+    <Compile Include="MVP\Views\IPaintingSystemsManagerView.cs" />
+    <Compile Include="MVP\Views\ITaskpaneHostUI.cs" />
+    <Compile Include="MVP\Views\NozzleWindowView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="TaskpaneHostUI.Designer.cs">
+    <Compile Include="MVP\Views\NozzleWindowView.Designer.cs">
+      <DependentUpon>NozzleWindowView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MVP\Views\PaintingSystemsManagerView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="MVP\Views\PaintingSystemsManagerView.Designer.cs">
+      <DependentUpon>PaintingSystemsManagerView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MVP\Views\TaskpaneHostUI.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="MVP\Views\TaskpaneHostUI.Designer.cs">
       <DependentUpon>TaskpaneHostUI.cs</DependentUpon>
     </Compile>
+    <Compile Include="TankSiteConfigurations\CompartmentConfiguration.cs" />
+    <Compile Include="TankSiteConfigurations\TankProperties.cs" />
     <Compile Include="TaskpaneIntegration.cs" />
     <Compile Include="Treatments\CoatingLayer.cs" />
     <Compile Include="Nozzles\Nozzle.cs" />
@@ -143,50 +193,56 @@
     <Compile Include="Tank Site Assembly\TankSiteAssemblySettings.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Helpers\ComponentManager.cs" />
-    <Compile Include="Windows\CompartmentWindow.cs">
+    <Compile Include="MVP\Views\CompartmentWindowView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Windows\CompartmentWindow.Designer.cs">
-      <DependentUpon>CompartmentWindow.cs</DependentUpon>
+    <Compile Include="MVP\Views\CompartmentWindowView.Designer.cs">
+      <DependentUpon>CompartmentWindowView.cs</DependentUpon>
     </Compile>
-    <Compile Include="Windows\InitialConfiguration.cs">
+    <Compile Include="MVP\Views\InitialConfigurationView.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Windows\InitialConfiguration.Designer.cs">
-      <DependentUpon>InitialConfiguration.cs</DependentUpon>
+    <Compile Include="MVP\Views\InitialConfigurationView.Designer.cs">
+      <DependentUpon>InitialConfigurationView.cs</DependentUpon>
     </Compile>
-    <Compile Include="Windows\ManagePaintingSystemsWindow.cs">
+    <Compile Include="MVP\Views\ManagePaintingSystemsWindow.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Windows\ManagePaintingSystemsWindow.Designer.cs">
+    <Compile Include="MVP\Views\ManagePaintingSystemsWindow.Designer.cs">
       <DependentUpon>ManagePaintingSystemsWindow.cs</DependentUpon>
     </Compile>
-    <Compile Include="Windows\SettingsWindow.cs">
+    <Compile Include="MVP\Views\SettingsWindow.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Windows\SettingsWindow.Designer.cs">
+    <Compile Include="MVP\Views\SettingsWindow.Designer.cs">
       <DependentUpon>SettingsWindow.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="MVP\Views\NozzleWindowView.resx">
+      <DependentUpon>NozzleWindowView.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MVP\Views\PaintingSystemsManagerView.resx">
+      <DependentUpon>PaintingSystemsManagerView.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MVP\Views\TaskpaneHostUI.resx">
+      <DependentUpon>TaskpaneHostUI.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <SubType>Designer</SubType>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <EmbeddedResource Include="TaskpaneHostUI.resx">
-      <DependentUpon>TaskpaneHostUI.cs</DependentUpon>
+    <EmbeddedResource Include="MVP\Views\CompartmentWindowView.resx">
+      <DependentUpon>CompartmentWindowView.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Windows\CompartmentWindow.resx">
-      <DependentUpon>CompartmentWindow.cs</DependentUpon>
+    <EmbeddedResource Include="MVP\Views\InitialConfigurationView.resx">
+      <DependentUpon>InitialConfigurationView.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Windows\InitialConfiguration.resx">
-      <DependentUpon>InitialConfiguration.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Windows\ManagePaintingSystemsWindow.resx">
+    <EmbeddedResource Include="MVP\Views\ManagePaintingSystemsWindow.resx">
       <DependentUpon>ManagePaintingSystemsWindow.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Windows\SettingsWindow.resx">
+    <EmbeddedResource Include="MVP\Views\SettingsWindow.resx">
       <DependentUpon>SettingsWindow.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
@@ -194,6 +250,16 @@
     <Content Include="logo-small.bmp">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="Resources\DistanceVisualizationRightDirection2.png" />
+    <None Include="Resources\Nozzle position12.png" />
+    <None Include="Resources\Nozzle position11.png" />
+    <None Include="Resources\Nozzle position1.png" />
+    <None Include="Resources\DistanceVisualizationRightDirection1.png" />
+    <None Include="Resources\DistanceVisualizationRightDirection.png" />
+    <None Include="Resources\DistanceFromAxis.png" />
+    <None Include="Resources\Nozzle position.png" />
+    <None Include="Resources\0206.png" />
+    <None Include="Resources\NozzleSketch.png" />
     <None Include="Resources\left.png" />
     <None Include="Resources\right.png" />
     <None Include="Resources\left-arrow.png" />
