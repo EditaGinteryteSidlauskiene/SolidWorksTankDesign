@@ -498,6 +498,9 @@ namespace SolidWorksTankDesign.Windows
 
                 _projectFolder = CopyDocuments(solidWorksApp, emptyTankSiteAssemblyDoc, serialNumber);
 
+                // Set global project folder for the running session so other parts can access it
+                SolidWorksDocumentProvider.ProjectFolderPath = _projectFolder;
+
                 // Initialize and store tank site configurations
                 SolidWorksDocumentProvider._tankSiteAssembly = new TankSiteAssembly();
                 SolidWorksDocumentProvider._tankSiteAssembly.InitializeAndStoreTankSiteConfiguration();

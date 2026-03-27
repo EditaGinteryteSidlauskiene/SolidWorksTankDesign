@@ -97,7 +97,7 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
             }
         }
 
-        public ObservableCollection<Nozzle> Nozzles { get; set; } = new ObservableCollection<Nozzle>();
+        public ObservableCollection<NozzleConfiguration> NozzleConfigurations { get; set; } = new ObservableCollection<NozzleConfiguration>();
 
         public LeftEndConnection LeftEndConnection
         {
@@ -131,10 +131,10 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
                 LeftEndConnection = this.LeftEndConnection, // Assuming LeftEndConnection is a value type or immutable
 
                 // Deep clone the Nozzles collection
-                Nozzles = new ObservableCollection<Nozzle>(
-            this.Nozzles != null
-            ? this.Nozzles.Select(nozzle => nozzle.DeepClone())
-            : new List<Nozzle>())
+                NozzleConfigurations = new ObservableCollection<NozzleConfiguration>(
+            this.NozzleConfigurations != null
+            ? this.NozzleConfigurations.Select(nozzleConfiguration => nozzleConfiguration.DeepClone())
+            : new List<NozzleConfiguration>())
             };
         }
     }

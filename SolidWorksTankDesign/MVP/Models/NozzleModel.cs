@@ -1,137 +1,46 @@
-﻿using SolidWorks.Interop.sldworks;
+﻿using Newtonsoft.Json;
 using SolidWorksTankDesign.MVP.Enums;
-using SolidWorksTankDesign.MVP.Models;
+using SolidWorksTankDesign.MVP.Services;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 
-namespace SolidWorksTankDesign.MVP.Presenters
+namespace SolidWorksTankDesign.MVP.Models
 {
     public class NozzleModel : INozzleModel
     {
-        private string _nozzlePositionSketchPath = "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Nozzle position sketch.SLDASM";
-        private string nozzleDocPath = "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Manhole DN600 Neck with flange.SLDASM";
+        private readonly INozzleSolidWorksService _nozzleSWService;
 
-        public NozzleModel() { }
-
-        public void AddNozzle(string projectFolderPath, NozzleReferenceType referenceType, double distance)
+        // Service injection - if present, model delegates SolidWorks work to the service.
+        public NozzleModel(INozzleSolidWorksService swService)
         {
-            List<Compartment> compartments = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments;
-
-            Feature referencePlane = null;
-
-            switch (referenceType)
-            {
-                case NozzleReferenceType.LeftDishedEnd:
-                    compartments[0].ActivateDocument();
-                    referencePlane = compartments[0].GetLeftEndPlane();
-
-                    if (referencePlane == null) return;
-
-                    compartments[0].AddNozzle(
-                        projectFolderPath,
-                        _nozzlePositionSketchPath,
-                        nozzleDocPath,
-                        0,
-                        referencePlane,
-                        distance,
-                        false,
-                        2500);
-                    break;
-
-                case NozzleReferenceType.RightDishedEnd:
-                    compartments[0].ActivateDocument();
-                    referencePlane = compartments[0].GetRightEndPlane();
-
-                    compartments[0].AddNozzle(
-                        projectFolderPath,
-                        _nozzlePositionSketchPath,
-                        nozzleDocPath,
-                        0,
-                        referencePlane,
-                        distance,
-                        true,
-                        2500);
-                    break;
-                case NozzleReferenceType.OtherNozzle:
-                    compartments[0].ActivateDocument();
-                    referencePlane = compartments[0].Nozzles.Last().GetPositionPlane();
-
-                    compartments[0].AddNozzle(
-                        projectFolderPath,
-                        _nozzlePositionSketchPath,
-                        nozzleDocPath,
-                        0,
-                        referencePlane,
-                        distance,
-                        false,
-                        2500);
-                    break;
-            }
-
-            try
-            {
-                // Save changes after all modifications are complete.
-                DocumentManager.UpdateAndSaveDocuments();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error saving documents: {ex.Message}");
-            }
+            _nozzleSWService = swService ?? throw new ArgumentNullException(nameof(swService));
         }
 
-        public void RepositionNozzle(
-            bool isOffsetPositive, 
-            double distance, 
-            bool isRotationDirectionPositive, 
-            double angle)
+        // INozzleModel implementation - delegate to service when available.
+        public void AddNozzle(Guid compartmentConfigId, NozzleReferenceType referenceType, double distance)
         {
-            List<Compartment> compartments = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments;
-            
-            if(distance != 0)
-            {
-                if (isOffsetPositive == true)
-                {
-                    compartments[0].ActivateDocument();
+            // Basic argument validation
+            if (!Enum.IsDefined(typeof(NozzleReferenceType), referenceType))
+                throw new ArgumentException("Invalid nozzle reference type.", nameof(referenceType));
 
-                    compartments[0].Nozzles.Last().SetOffset(distance);
-                }
+            if (double.IsNaN(distance) || double.IsInfinity(distance) || distance < 0)
+                throw new ArgumentOutOfRangeException(nameof(distance), "Distance must be a non-negative finite value (meters).");
 
-                else
-                {
-                    compartments[0].ActivateDocument();
+            if (_nozzleSWService == null) throw new InvalidOperationException("NozzleSolidWorksService not provided.");
 
-                    compartments[0].Nozzles.Last().SetOffset(-distance);
-                }
-            }
+            _nozzleSWService.AddNozzle(compartmentConfigId, referenceType, distance);
+        }
 
+        public void RepositionNozzle(bool isOffsetPositive, double distance, bool isRotationDirectionPositive, double angle)
+        {
+            if (double.IsNaN(distance) || double.IsInfinity(distance))
+                throw new ArgumentOutOfRangeException(nameof(distance), "Distance must be a finite value (meters).");
 
-            if (isRotationDirectionPositive == true)
-            {
-                compartments[0].ActivateDocument();
+            if (double.IsNaN(angle) || double.IsInfinity(angle) || angle < 0)
+                throw new ArgumentOutOfRangeException(nameof(angle), "Angle must be a non-negative finite value.");
 
-                compartments[0].Nozzles.Last().SetRotationAngle(angle);
-            }
+            if (_nozzleSWService == null) throw new InvalidOperationException("NozzleSolidWorksService not provided.");
 
-            else
-            {
-                compartments[0].ActivateDocument();
-
-                compartments[0].Nozzles.Last().SetRotationAngle(360 - angle);
-            }
-
-            try
-            {
-                // Save changes after all modifications are complete.
-                DocumentManager.UpdateAndSaveDocuments();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error saving documents: {ex.Message}");
-            }
+            _nozzleSWService.RepositionNozzle(isOffsetPositive, distance, isRotationDirectionPositive, angle);
         }
     }
 }

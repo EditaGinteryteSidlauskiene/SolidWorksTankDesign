@@ -14,6 +14,8 @@ namespace SolidWorksTankDesign
         public static TankSiteAssembly _tankSiteAssembly;
         public static TankProperties _tankProperties;
         public static List<string> _filesToDelete;
+        // Central project folder path for the current project. Set once at startup/creation.
+        public static string ProjectFolderPath { get; set; }
 
         public static ModelDoc2 GetActiveDoc()
         {

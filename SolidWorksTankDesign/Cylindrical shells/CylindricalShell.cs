@@ -192,7 +192,7 @@ namespace SolidWorksTankDesign
 
         /// <summary>
         /// DOCUMENT MUST BE ALREADY OPEN!!!
-        /// Changes the diameter of a revolved feature (assuming a single relevant sub-feature).
+        /// Changes the thickness of a revolved feature (assuming a single relevant sub-feature).
         /// </summary>
         /// <param name="diameter"></param>
         private void ChangeDiameter(double diameter)
@@ -200,21 +200,21 @@ namespace SolidWorksTankDesign
             Component2 component = GetComponent();
             if (component == null)
             {
-                MessageBox.Show("Unable to change diameter.");
+                MessageBox.Show("Unable to change thickness.");
                 return;
             }
 
             Feature revolveFeature = SWFeatureManager.GetFeatureByName(component, "Revolve");
             if (revolveFeature == null)
             {
-                MessageBox.Show("Unable to change diameter.");
+                MessageBox.Show("Unable to change thickness.");
                 return;
             }
 
             Feature revolveSubFeature = revolveFeature.GetFirstSubFeature();
             if (revolveSubFeature == null)
             {
-                MessageBox.Show("Unable to change diameter.");
+                MessageBox.Show("Unable to change thickness.");
                 return;
             }
 
@@ -392,8 +392,8 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Retrieves the diameter of the cylindrical shell from the SolidWorks model.
         /// </summary>
-        /// <returns>The diameter of the cylindrical shell in millimeters. Returns 0 if an error occurs.</returns>
-        public double GetCylindricalShellDiameter()
+        /// <returns>The thickness of the cylindrical shell in millimeters. Returns 0 if an error occurs.</returns>
+        public double GetCylindricalShellDiameterMeters()
         {
             // Activate the assembly cylindrical shells document.
             SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.ActivateDocument();
@@ -414,7 +414,7 @@ namespace SolidWorksTankDesign
                 return 0;
             }
 
-            // Get the first sub-feature of the "Revolve" feature. This is assumed to contain the diameter parameter.
+            // Get the first sub-feature of the "Revolve" feature. This is assumed to contain the thickness parameter.
             Feature revolveSubFeature = revolveFeature.GetFirstSubFeature();
             if (revolveSubFeature == null)
             {
@@ -423,7 +423,7 @@ namespace SolidWorksTankDesign
             }
 
             // Get the value of the "Diameter" parameter from the sub-feature.
-            double diameter = revolveSubFeature.Parameter("Diameter").Value;
+            double diameter = revolveSubFeature.Parameter("Diameter").Value / 1000;
 
             // Close the cylindrical shell assembly document.
             SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfCylindricalShells.CloseDocument();
@@ -431,5 +431,6 @@ namespace SolidWorksTankDesign
             // Return the extracted diameter.
             return diameter;
         }
+
     }
 }

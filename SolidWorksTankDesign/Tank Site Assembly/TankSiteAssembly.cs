@@ -37,6 +37,12 @@ namespace SolidWorksTankDesign
             // Store references to the model doc object
             _tankSiteModelDoc = SolidWorksDocumentProvider.GetActiveDoc();
 
+            // Ensure ProjectFolderPath is always set — covers both new project and existing project (Recognize) flows
+            if (string.IsNullOrEmpty(SolidWorksDocumentProvider.ProjectFolderPath))
+            {
+                SolidWorksDocumentProvider.ProjectFolderPath = System.IO.Path.GetDirectoryName(_tankSiteModelDoc.GetPathName());
+            }
+
             // Create a default instance of the TankSiteAssemblySettings class
             // to hold settings for the TankSiteAssembly object.
             _tankSiteAssemblySettings = new TankSiteAssemblySettings();

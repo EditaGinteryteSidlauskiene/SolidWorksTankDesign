@@ -5,7 +5,9 @@ using SolidWorksTankDesign.Helpers;
 using System;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Windows.Forms;
+using System.Xml.Linq;
 using static System.Net.WebRequestMethods;
 
 namespace SolidWorksTankDesign
@@ -24,6 +26,7 @@ namespace SolidWorksTankDesign
         private const string SHELL_DIAMETER_INTERNAL = "ShellDiameterInternal";
         private const string CENTER_AXIS_ROTATION_ANGLE = "CenterAxisRotationAngle";
         private const string OFFSET = "Offset";
+        private const double cylinderWallThickness = 50;
 
         public NozzleSettings _nozzleSettings;
 
@@ -49,8 +52,8 @@ namespace SolidWorksTankDesign
 
             // Set new values
             externalDiameterDimension.SetValue3(externalDiameter, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
-            internalDiameterDimension.SetValue3(externalDiameter - 50, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
-            nozzleOffset.SetValue3((externalDiameter - 50)/2, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
+            internalDiameterDimension.SetValue3(externalDiameter - cylinderWallThickness, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
+            nozzleOffset.SetValue3((externalDiameter - cylinderWallThickness) /2, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
         }
 
         /// <summary>
@@ -62,7 +65,6 @@ namespace SolidWorksTankDesign
         /// <param name="compartmentFrontPlane"></param>
         /// <param name="distance"></param>
         public Nozzle(
-            string compartmentFolder,
             string nozzlePositionSketchPath,
             int compartmentNumber,
             Feature referencePlane,
@@ -76,7 +78,7 @@ namespace SolidWorksTankDesign
 
             // Create a path where the empty manhole doc will be saved
             string ticks = DateTime.Now.Ticks.ToString();
-            string targetPath = Path.Combine(compartmentFolder, 
+            string targetPath = Path.Combine(SolidWorksDocumentProvider.ProjectFolderPath, 
                 $"{MANHOLE_NAME}{SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber].Nozzles.Count + 1}_{ticks}.SLDASM");
 
             // Open empty manhole doc and save it to a new destination
@@ -238,6 +240,14 @@ namespace SolidWorksTankDesign
                             0, null, 0);
                         Feature sketch = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
 
+                        nozzleModelDoc.Extension.SelectByID2(
+                            "Centerline wall intersection",
+                            "DATUMPOINT",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
+                        Feature centerlineWallIntersection = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
+
                         try
                         {
                             // Populate the _nozzleSettings with the retrieved PIDs for those entities that has to be reachable from manhole's document
@@ -250,6 +260,7 @@ namespace SolidWorksTankDesign
                             _nozzleSettings.PIDNozzleRightRefPlane = nozzleModelDoc.Extension.GetPersistReference3(nozzleRightRefPlane);
                             _nozzleSettings.PIDCutPlane = nozzleModelDoc.Extension.GetPersistReference3(plane1);
                             _nozzleSettings.PIDSketch = nozzleModelDoc.Extension.GetPersistReference3(sketch);
+                            _nozzleSettings.PIDCenterlineWallIntersection = nozzleModelDoc.Extension.GetPersistReference3(centerlineWallIntersection);
                         }
                         catch (Exception ex)
                         {
@@ -419,8 +430,8 @@ namespace SolidWorksTankDesign
             // Select the previously created cutout plane to create the sketch on.
             GetCutOutPlane().Select2(false, 1);
 
-            // Start a new sketch on the selected cutout plane.
-            sketchManager.InsertSketch(true);
+            //// Start a new sketch on the selected cutout plane.
+            //sketchManager.InsertSketch(true);
 
             // Enter sketch editing mode.
             shellDoc.EditSketch();
@@ -447,9 +458,15 @@ namespace SolidWorksTankDesign
             shellDoc.SketchAddConstraints("sgCOINCIDENT");
 
             // Get active sketch
-            Sketch sketch = shellDoc.GetActiveSketch2();
+            Sketch sketch = sketchManager.ActiveSketch;
+            string sketchName = ((Feature)sketch).Name;
 
-            return ((Feature)sketch).Name;
+            // Start a new sketch on the selected cutout plane.
+            sketchManager.InsertSketch(true);
+
+            //SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
+
+            return sketchName;
         }
 
         /// <summary>
@@ -465,6 +482,9 @@ namespace SolidWorksTankDesign
             // Get the main shell document where the cut-extrude will be applied.
             ModelDoc2 shellDoc = SolidWorksDocumentProvider.GetActiveDoc();
             FeatureManager featureManager = shellDoc.FeatureManager;
+
+            // Select the sketch that was created in AddCutOutSketch — FeatureCut4 requires an active sketch selection
+            bool status = shellDoc.Extension.SelectByID2(sketchName, "SKETCH", 0, 0, 0, false, 0, null, 0);
 
             //2.Create Cut - Extrude Feature:
             //Perform the cut - extrude operation on the selected cylindrical shells.
@@ -491,7 +511,7 @@ namespace SolidWorksTankDesign
                 false,
                 true,
                 false,
-                false,
+                true,
                 (int)swStartConditions_e.swStartSketchPlane,
                 0,
                 false,
@@ -668,6 +688,102 @@ namespace SolidWorksTankDesign
             CloseDocument();
         }
 
+
+        /// <summary>
+        /// COMPARTMENT DOCUMENT MUST BE OPENED.
+        /// Calculates the shortest distance (in meters) between the mid point (on the tank's center axis)
+        /// and the internal point (on the inner wall of the cylindrical shell).
+        /// Activates and closes the nozzle document internally.
+        /// </summary>
+        /// <returns>The distance in meters between the center axis and the inner wall.</returns>
+        public double GetDistanceFromCenterAxisToInnerWall()
+        {
+            // Activate the nozzle document to access its features
+            ModelDoc2 nozzleModelDoc = ActivateDocument();
+
+            // Get the point where the tank's centerline meets the external wall
+            Feature midPoint = GetMidPoint();
+
+            // Get the top reference plane of the nozzle (cut plane)
+            Feature innerPoint = GetInternalPoint();
+
+            return GetDistanceBetweenTwoFeatures(nozzleModelDoc, midPoint, innerPoint);
+        }
+
+
+        /// <summary>
+        /// COMPARTMENT DOCUMENT MUST BE OPENED.
+        /// Calculates the shortest distance (in meters) between the point where the tank's
+        /// centerline intersects the external wall and the nozzle's top reference plane (cut plane).
+        /// Activates and closes the nozzle document internally.
+        /// </summary>
+        /// <returns>The distance in meters between the centerline-wall intersection and the cut plane.</returns>
+        public double GetDistanceFromCenterlineWallIntersectionPointToNozzleTopPlane()
+        {
+            // Activate the nozzle document to access its features
+            ModelDoc2 nozzleModelDoc = ActivateDocument();
+
+            // Get the point where the tank's centerline meets the external wall
+            Feature centerLineWallIntersection = GetCenterlineWallIntersection();
+
+            // Get the top reference plane of the nozzle (cut plane)
+            Feature plane = GetCutPlane();
+
+            return GetDistanceBetweenTwoFeatures(nozzleModelDoc, centerLineWallIntersection, plane);
+        }
+
+        /// <summary>
+        /// COMPARTMENT DOCUMENT MUST BE OPENED.
+        /// Calculates the shortest distance (in meters) between the nozzle's internal point
+        /// (where the nozzle meets the inner wall of the cylindrical shell) and the nozzle's
+        /// top reference plane (cut plane).
+        /// Activates and closes the nozzle document internally.
+        /// </summary>
+        /// <returns>The distance in meters between the internal point and the cut plane.</returns>
+        public double GetDistanceFromNozzleInternalPointToNozzleTopPlane()
+        {
+            // Activate the nozzle document to access its features
+            ModelDoc2 nozzleModelDoc = ActivateDocument();
+
+            // Get the point where the tank's centerline meets the external wall
+            Feature nozzleInternalPoint = GetInternalPoint();
+
+            // Get the top reference plane of the nozzle (cut plane)
+            Feature plane = GetCutPlane();
+
+            return GetDistanceBetweenTwoFeatures(nozzleModelDoc, nozzleInternalPoint, plane);
+        }
+
+        /// <summary>
+        /// Calculates the closest distance between two SolidWorks features using ModelDoc2.ClosestDistance.
+        /// Always closes the nozzle document via the finally block, even if an exception occurs.
+        /// The caller is responsible for activating the nozzle document and retrieving the features beforehand.
+        /// </summary>
+        /// <param name="nozzleModelDoc">The nozzle model document (must already be activated).</param>
+        /// <param name="feature1">The first feature (point, plane, axis, etc.).</param>
+        /// <param name="feature2">The second feature to measure distance to.</param>
+        /// <returns>The shortest distance in meters between the two features.</returns>
+        private double GetDistanceBetweenTwoFeatures(ModelDoc2 nozzleModelDoc, Feature feature1, Feature feature2)
+        {
+            try
+            {
+                // Calculate the closest distance between the intersection point and the plane
+                double distance = nozzleModelDoc.ClosestDistance(
+                   feature1,
+                   feature2,
+                   out object Point1,
+                   out object Point2
+                );
+
+                return distance;
+            }
+
+            finally
+            {
+                CloseDocument();
+            }
+        }
+
         /// <summary>
         /// Rotates the manhole according to its central vertical axis.
         /// </summary>
@@ -757,7 +873,7 @@ namespace SolidWorksTankDesign
         /// that align key features of the assembly with corresponding features in the active document.
         /// Finally, it creates a cutout to accommodate the newly added manhole assembly and saves the modified document.
         /// </summary>
-        public void AddNozzleAssembly(string compartmentFolder, string nozzleDocPath, Compartment compartment, Nozzle nozzle)
+        public void AddNozzleAssembly(string nozzleDocPath, Compartment compartment, Nozzle nozzle)
         {
             // Activate current manhole document
             ActivateDocument();
@@ -789,7 +905,7 @@ namespace SolidWorksTankDesign
             string name = nozzleAssemblyDoc.GetTitle();
 
             // Package the manhole assembly and its associated files using Pack and Go, and get the path to the packed assembly
-            string path = DocumentManager.PackAndGo(compartmentFolder, nozzleAssemblyDoc, null, null);
+            string path = DocumentManager.PackAndGo(SolidWorksDocumentProvider.ProjectFolderPath, nozzleAssemblyDoc, null, null);
 
             // Close the manhole assembly document after it has been packed
             solidWorksApp.CloseDoc(nozzleAssemblyDoc.GetTitle());
@@ -875,7 +991,7 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Activates document of manhole assembly
         /// </summary>
-        public void ActivateDocument()
+        public ModelDoc2 ActivateDocument()
         {
             // Get compartment doc
             ModelDoc2 nozzleModelDoc = GetComponent().GetModelDoc2();
@@ -886,6 +1002,8 @@ namespace SolidWorksTankDesign
                 true, 
                 0, 
                 0);
+
+            return nozzleModelDoc;
         }
 
         /// <summary>
@@ -972,6 +1090,10 @@ namespace SolidWorksTankDesign
 
         public Feature GetCutExtrude() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                      _nozzleSettings.PIDCutExtrude,
+                     out int error);
+
+        public Feature GetCenterlineWallIntersection() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                     _nozzleSettings.PIDCenterlineWallIntersection,
                      out int error);
     }
 }

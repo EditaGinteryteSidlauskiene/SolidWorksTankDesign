@@ -54,6 +54,9 @@ namespace SolidWorksTankDesign
         [JsonProperty("PIDCutExtrude")]
         public byte[] PIDCutExtrude { get; set; }
 
+        [JsonProperty("PIDCenterlineWallIntersection")]
+        public byte[] PIDCenterlineWallIntersection { get; set; }
+
         public NozzleSettings() { }
 
         public NozzleSettings DeepClone()
@@ -75,7 +78,8 @@ namespace SolidWorksTankDesign
                 PIDTopPlaneMate = this.PIDTopPlaneMate?.ToArray(),
                 PIDNozzleAssemblyComp = this.PIDNozzleAssemblyComp?.ToArray(),
                 PIDCutOutPlane = this.PIDCutOutPlane?.ToArray(),
-                PIDCutExtrude = this.PIDCutExtrude?.ToArray()
+                PIDCutExtrude = this.PIDCutExtrude?.ToArray(),
+                PIDCenterlineWallIntersection = this.PIDCenterlineWallIntersection?.ToArray()
             };
         }
     }

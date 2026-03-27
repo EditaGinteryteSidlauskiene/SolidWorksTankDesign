@@ -1,6 +1,6 @@
 ﻿namespace SolidWorksTankDesign.MVP.Enums
 {
-    public enum NozzleVerticalReferenceType
+    public enum NozzleTopReferenceType
     {
         TankCenterline,
         NozzleCenterline

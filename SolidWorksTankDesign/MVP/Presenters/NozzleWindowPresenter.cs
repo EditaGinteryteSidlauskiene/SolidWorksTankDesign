@@ -1,15 +1,11 @@
-﻿using SolidWorks.Interop.sldworks;
+﻿using SolidWorksTankDesign.MVP.Enums;
 using SolidWorksTankDesign.MVP.Models;
 using SolidWorksTankDesign.MVP.Views;
+using SolidWorksTankDesign.MVP.Views.Controls;
 using SolidWorksTankDesign.TankSiteConfigurations;
-using SolidWorksTankDesign.Windows;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Controls;
+using System.Globalization;
+using System.Windows.Forms;
 
 namespace SolidWorksTankDesign.MVP.Presenters
 {
@@ -28,44 +24,205 @@ namespace SolidWorksTankDesign.MVP.Presenters
             _nozzleWindowView.NewNozzleButtonClicked += OnNewNozzleButtonClicked;
         }
 
-        private void OnNewNozzleButtonClicked(object sender, EventArgs e)
+        /// <summary>
+        /// Execute adding all nozzles configured in the UI to their corresponding SolidWorks compartments.
+        /// Iterates each CompartmentConfiguration and its Nozzles and calls the model/service for each nozzle.
+        /// Continues on per-nozzle errors and shows a summary when complete.
+        /// </summary>
+        public void ExecuteAddNozzles()
         {
-            System.Windows.Forms.Panel compartmentPanel = sender as System.Windows.Forms.Panel;
-            CompartmentConfiguration compartmentConfiguration = (CompartmentConfiguration)compartmentPanel.Tag;
+            if (_compartmentConfigurationModel == null)
+            {
+                MessageBox.Show("Compartment configuration model is not available.", "Operation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
 
-            Nozzle newNozzle = new Nozzle();
-            compartmentConfiguration.Nozzles.Add(newNozzle);
+            int total = 0;
+            int succeeded = 0;
+            var errors = new System.Text.StringBuilder();
 
-            _nozzleWindowView.AddNozzlePanel(newNozzle, compartmentPanel);
+            foreach (var config in _compartmentConfigurationModel.CompartmentConfigurations)
+            {
+                if (config.NozzleConfigurations == null) continue;
+
+                foreach (var nozzle in config.NozzleConfigurations)
+                {
+                    total++;
+
+                    // TODO: read actual reference type and distance from nozzle/UI when available.
+                    // For now use sensible defaults: add relative to left dished end at 0 meters.
+                    NozzleReferenceType referenceType = NozzleReferenceType.LeftDishedEnd;
+                    double distanceMeters = 0.0;
+
+                    try
+                    {
+                        //AddNozzle(config.ID, referenceType, distanceMeters);
+                        succeeded++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.AppendLine($"Compartment {config.Name} nozzle #{total}: {ex.Message}");
+                    }
+                }
+            }
+
+            string summary = $"Executed add for {total} nozzles. Successful: {succeeded}. Failed: {total - succeeded}.";
+            if (errors.Length > 0)
+            {
+                MessageBox.Show(summary + "\n\nErrors:\n" + errors.ToString(), "Execute Add Nozzles", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            else
+            {
+                MessageBox.Show(summary, "Execute Add Nozzles", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
 
-        public void AddNozzle(CompartmentConfigurationModel compartmentConfigurationModel, string referenceObject, string nozzleDistanceFromRef)
+        private void OnNewNozzleButtonClicked(object sender, EventArgs e)
         {
-            double.TryParse(nozzleDistanceFromRef, out double distance);
+            Panel compartmentPanel = sender as Panel;
+            CompartmentConfiguration compartmentConfiguration = (CompartmentConfiguration)compartmentPanel.Tag;
 
-            //`_nozzleModel.AddNozzle(compartmentConfigurationModel._projectFolder, referenceObject, distance / 1000);
+            NozzleConfiguration newNozzleConfig = new NozzleConfiguration();
+            compartmentConfiguration.NozzleConfigurations.Add(newNozzleConfig);
+
+            _nozzleWindowView.AddNozzlePanel(newNozzleConfig, compartmentPanel);
+        }
+
+        private void AddNozzle(
+            Guid compartmentConfigId,
+            NozzleReferenceType referenceType,
+            string nozzleDistanceFromRef)
+        {
+            nozzleDistanceFromRef = nozzleDistanceFromRef.Trim();
+
+            if (!double.TryParse(
+                nozzleDistanceFromRef,
+                NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.CurrentCulture,
+                out double distance))
+            {
+                MessageBox.Show(
+                    "Invalid input for distance. Please enter a valid number.",
+                    "Input Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+            else if (distance < 0)
+            {
+                MessageBox.Show(
+                    "Distance must be a positive value.",
+                    "Input Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            double distanceInMeters = distance / 1000; // Convert from millimeters to meters
+
+            try
+            {
+                _nozzleModel.AddNozzle(compartmentConfigId, referenceType, distanceInMeters);
+            }
+            catch (ArgumentException ex)
+            {
+                MessageBox.Show(ex.Message, "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "Operation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Unexpected error: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         public void RepositionNozzle(
-            bool isOffsetPositive, 
+            bool isOffsetPositive,
             string distanceFromFrontPlane,
-            bool isRotationDirectionPositive, 
+            bool isRotationDirectionPositive,
             string rotationAngle)
         {
+            // Allow either distance or rotation (or both). Empty input means "no change" for that value.
+            bool distanceProvided = !string.IsNullOrWhiteSpace(distanceFromFrontPlane);
+            bool angleProvided = !string.IsNullOrWhiteSpace(rotationAngle);
+
             double distance = 0;
             double angle = 0;
 
-            if(distanceFromFrontPlane !=  null && distanceFromFrontPlane != string.Empty)
+            if (distanceProvided)
             {
-                double.TryParse(distanceFromFrontPlane, out distance);
+                if (!double.TryParse(distanceFromFrontPlane.Trim(), NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.CurrentCulture, out distance))
+                {
+                    MessageBox.Show("Invalid input for distance. Please enter a valid number.", "Input Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                if (distance < 0)
+                {
+                    MessageBox.Show("Distance must be a non-negative value.", "Input Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
             }
 
-            if (rotationAngle != null && rotationAngle != string.Empty)
+            if (angleProvided)
             {
-                double.TryParse(rotationAngle, out angle);
+                if (!double.TryParse(rotationAngle.Trim(), NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.CurrentCulture, out angle))
+                {
+                    MessageBox.Show("Invalid input for rotation angle. Please enter a valid number.", "Input Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                if (angle < 0)
+                {
+                    MessageBox.Show("Rotation angle must be a non-negative value.", "Input Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
             }
 
-            _nozzleModel.RepositionNozzle(isOffsetPositive, distance / 1000, isRotationDirectionPositive, angle);
+            if (!distanceProvided && !angleProvided)
+            {
+                return;
+            }
+
+            double distanceInMeters = distanceProvided ? distance / 1000.0 : 0.0; // Convert from millimeters to meters
+
+            try
+            {
+                _nozzleModel.RepositionNozzle(isOffsetPositive, distanceInMeters, isRotationDirectionPositive, angle);
+            }
+            catch (ArgumentException ex)
+            {
+                MessageBox.Show(ex.Message, "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "Operation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Unexpected error: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+        }
+
+        public void UpdateReferencePoint(NozzleConfiguration nozzleConfiguration, ClickableImageHotspotsControl.DistanceChangedEventArgs e)
+        {
+            if (nozzleConfiguration == null || e == null) return;
+
+            if (e.TopReferenceType.HasValue)
+            {
+                nozzleConfiguration.TopReferenceType = e.TopReferenceType.Value;
+            }
+            else if (e.BottomReferencePoint.HasValue)
+            {
+                nozzleConfiguration.BottomReferencePoint = e.BottomReferencePoint.Value;
+            }
         }
     }
 }

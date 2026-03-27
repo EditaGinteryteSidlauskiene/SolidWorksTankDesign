@@ -35,6 +35,7 @@
             // 
             // BackArrowButton
             // 
+            this.BackArrowButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.BackArrowButton.BackColor = System.Drawing.Color.Transparent;
             this.BackArrowButton.Cursor = System.Windows.Forms.Cursors.Default;
             this.BackArrowButton.FlatAppearance.BorderSize = 0;
@@ -49,6 +50,7 @@
             // 
             // ForwardArrowButton
             // 
+            this.ForwardArrowButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.ForwardArrowButton.BackColor = System.Drawing.Color.Transparent;
             this.ForwardArrowButton.Cursor = System.Windows.Forms.Cursors.Default;
             this.ForwardArrowButton.FlatAppearance.BorderSize = 0;

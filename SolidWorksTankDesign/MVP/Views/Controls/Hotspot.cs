@@ -13,10 +13,16 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         public float X { get; set; }
         public float Y { get; set; }
 
-        public NozzleVerticalReferenceType? ReferenceType { get; set; }
+        public NozzleTopReferenceType? ReferenceType { get; set; }
 
         public NozzleBottomReferencePoint? BottomReferencePoint { get; set; }
 
         public NozzlePropertiesType? NozzlePropertiesType { get; set; }
+
+        public bool IsRotationArrow { get; set; }
+
+        public float Tolerance { get; set; } = 6f;
+
+        public Action OnClick { get; set; }
     }
 }

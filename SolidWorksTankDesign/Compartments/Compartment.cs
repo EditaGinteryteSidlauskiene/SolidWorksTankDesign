@@ -244,7 +244,6 @@ namespace SolidWorksTankDesign
         /// <param name="referencePlane"></param>
         /// <param name="distance"></param>
         public Nozzle AddNozzle(
-            string projectFolder,
             string nozzlePositionSketchPath,
             string nozzleDocPath,
             int compartmentNumber,
@@ -257,7 +256,6 @@ namespace SolidWorksTankDesign
             try
             {
                 nozzle = new Nozzle(
-                       projectFolder,
                         nozzlePositionSketchPath,
                         compartmentNumber,
                         referencePlane,
@@ -271,7 +269,7 @@ namespace SolidWorksTankDesign
 
                 Compartment compartment = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber];
 
-                nozzle.AddNozzleAssembly(projectFolder, nozzleDocPath, compartment, nozzle);
+                nozzle.AddNozzleAssembly(nozzleDocPath, compartment, nozzle);
             }
             catch (Exception ex)
             {

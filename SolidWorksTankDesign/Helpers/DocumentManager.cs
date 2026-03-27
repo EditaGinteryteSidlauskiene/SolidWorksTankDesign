@@ -37,11 +37,17 @@ namespace SolidWorksTankDesign
 
             try
             {
-                // SaveInitialConfiguration the document of tank site assembly
-                SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc.Save3(
-                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
-                (int)swFileSaveError_e.swGenericSaveError,
-                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+                ModelDoc2 tankSiteDoc = SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc;
+
+                // Force rebuild to propagate assembly-level features (like cut extrudes) to referenced parts
+                tankSiteDoc.ForceRebuild3(true);
+
+                // Save all modified documents referenced by the assembly (parts, subassemblies)
+                tankSiteDoc.Save3(
+                    (int)swSaveAsOptions_e.swSaveAsOptions_Silent |
+                    (int)swSaveAsOptions_e.swSaveAsOptions_SaveReferenced,
+                    (int)swFileSaveError_e.swGenericSaveError,
+                    (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
             }
             catch (Exception ex) { }
         }

@@ -132,7 +132,7 @@
     <Compile Include="MVP\Enums\NozzleBottomReferencePoint.cs" />
     <Compile Include="MVP\Enums\NozzlePropertiesType.cs" />
     <Compile Include="MVP\Enums\NozzleReferenceType.cs" />
-    <Compile Include="MVP\Enums\NozzleVerticalReferenceType.cs" />
+    <Compile Include="MVP\Enums\NozzleTopReferenceType.cs" />
     <Compile Include="MVP\Enums\PaintingAmountUnit.cs" />
     <Compile Include="MVP\Enums\TankType.cs" />
     <Compile Include="MVP\Enums\TreatmentTypes.cs" />
@@ -151,7 +151,9 @@
     <Compile Include="MVP\Services\INozzleSolidWorksService .cs" />
     <Compile Include="MVP\Services\NozzleSolidWorksService .cs" />
     <Compile Include="MVP\UIManager.cs" />
-    <Compile Include="MVP\Views\Controls\ClickableImageHotspotsControl .cs" />
+    <Compile Include="MVP\Views\Controls\ClickableImageHotspotsControl .cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="MVP\Views\Controls\Hotspot.cs" />
     <Compile Include="MVP\Views\INozzleWindowView.cs" />
     <Compile Include="MVP\Views\ICompartmentWindowView.cs" />
@@ -177,6 +179,7 @@
       <DependentUpon>TaskpaneHostUI.cs</DependentUpon>
     </Compile>
     <Compile Include="TankSiteConfigurations\CompartmentConfiguration.cs" />
+    <Compile Include="TankSiteConfigurations\NozzleConfiguration.cs" />
     <Compile Include="TankSiteConfigurations\TankProperties.cs" />
     <Compile Include="TaskpaneIntegration.cs" />
     <Compile Include="Treatments\CoatingLayer.cs" />
