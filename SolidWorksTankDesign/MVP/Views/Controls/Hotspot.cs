@@ -21,6 +21,8 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
 
         public bool IsRotationArrow { get; set; }
 
+        public bool IsFlipArrow { get; set; }
+
         public float Tolerance { get; set; } = 6f;
 
         public Action OnClick { get; set; }

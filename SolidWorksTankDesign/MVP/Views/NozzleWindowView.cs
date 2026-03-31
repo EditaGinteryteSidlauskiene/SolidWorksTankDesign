@@ -86,6 +86,14 @@ namespace SolidWorksTankDesign.MVP.Views
                 Y = 0.5f,
                 IsRotationArrow = true,
                 Tolerance = 20f
+            },
+
+            new Hotspot
+            {
+                X = 0.45f,
+                Y = 0.9f,
+                IsFlipArrow = true,
+                Tolerance = 25f
             }
         };
 
@@ -305,6 +313,7 @@ namespace SolidWorksTankDesign.MVP.Views
                     BottomReferencePoint = hs.BottomReferencePoint,
                     NozzlePropertiesType = hs.NozzlePropertiesType,
                     IsRotationArrow = hs.IsRotationArrow,
+                    IsFlipArrow = hs.IsFlipArrow,
                     Tolerance = hs.Tolerance
                 };
 
@@ -1342,6 +1351,10 @@ namespace SolidWorksTankDesign.MVP.Views
             else if (hotspot.IsRotationArrow == true)
             {
                 sketch.ToggleRotationVisualization();
+            }
+            else if (hotspot.IsFlipArrow == true)
+            {
+                sketch.ToggleFlip();
             }
         }
 

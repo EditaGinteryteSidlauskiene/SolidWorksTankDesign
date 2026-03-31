@@ -17,7 +17,6 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         private TextBox _nozzleCenterlineDistanceTextBox;
         private TextBox _nozzleBottomDistanceTextBox;
         private TextBox _rotationTextBox;
-        private Button _flipButton;
         private bool _showTankCenterlineDistance = false;
         private bool _showNozzleCenterlineDistance = false;
         private bool _showNozzleTopDistance = false;
@@ -55,17 +54,21 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         private const float DistanceLineY = 0.8f;
         private const float CapWidth = 0.04f;
         private const float DistLinePenWidth = 1.7f;
+        private const float FlipArrowPenWidth = 2.5f;
         private const float VertDistPerpOffset = 0.1f;
         private const float DistPerpOffsetNorm = 0.06f;
-        private const float RotationTbNormY = 0.43f;
-        private const float RotationTbFlippedX = 0.375f;
-        private const float RotationTbNormalX = 0.525f;
         private const float ArrowArcRadiusPx = 15f;
 
+        /// <summary>Raised when the active distance reference type changes (e.g. tank centerline, nozzle centerline, top/middle/bottom).</summary>
         public event EventHandler<DistanceChangedEventArgs> DistanceChanged;
+        /// <summary>Raised when the nozzle flip state is toggled.</summary>
         public event EventHandler<EventArgs> FlipStateChanged;
         
 
+        /// <summary>
+        /// Event arguments indicating which distance reference type was activated.
+        /// Exactly one of <see cref="TopReferenceType"/> or <see cref="BottomReferencePoint"/> is set.
+        /// </summary>
         public class DistanceChangedEventArgs : EventArgs
         {
             public NozzleTopReferenceType? TopReferenceType { get; set; }
@@ -186,23 +189,6 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             // Position will be set dynamically in Paint event
             Controls.Add(_rotationTextBox);
             _rotationTextBox.BringToFront();
-
-            // Add flip button
-            _flipButton = new Button
-            {
-                Text = "Flip",
-                Width = 35,
-                Height = 25,
-                BackColor = Color.Transparent,  // ← transparent background
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
-                Font = new Font("Arial", 10, FontStyle.Regular)
-            };
-            _flipButton.FlatAppearance.BorderSize = 0;
-            _flipButton.FlatAppearance.MouseOverBackColor = Color.LightGray;  // ← gray on hover
-            _flipButton.Click += FlipButton_Click;
-            Controls.Add(_flipButton);
-            _flipButton.BringToFront();
         }
 
         /// <summary>
@@ -320,10 +306,11 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             }
         }
 
+
         /// <summary>
-        /// Toggles the nozzle orientation between left and right, repaints, and raises the FlipStateChanged event.
+        /// Toggles the nozzle flip state. Called by the flip arrow hotspot click or the legacy flip button.
         /// </summary>
-        private void FlipButton_Click(object sender, EventArgs e)
+        public void ToggleFlip()
         {
             _isFlipped = !_isFlipped;
             _pictureBox.Invalidate();
@@ -472,11 +459,17 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             {
                 ToggleNozzleMiddleDistanceVisualization();
             }
+            else if (hotspot.IsFlipArrow)
+            {
+                ToggleFlip();
+            }
         }
 
-        // The fixed drawing size matches the old effective area (control 400×400 minus 75px padding on each side).
-        // Keeping this constant ensures visualizations stay the same size regardless of the actual control dimensions,
-        // while the larger control provides overflow room for rotated content.
+        /// <summary>
+        /// The fixed drawing size matches the old effective area (control 400×400 minus 75px padding on each side).
+        /// Keeping this constant ensures visualizations stay the same size regardless of the actual control dimensions,
+        /// while the larger control provides overflow room for rotated content.
+        /// </summary>
         private const int DrawingAreaSize = 250;
 
         /// <summary>
@@ -664,7 +657,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             }
 
             // ===== ROTATED: Draw dashed center lines through circle center =====
-            using (Pen dashedPen = new Pen(Color.Green, 1.5f))
+            using (Pen dashedPen = new Pen(Color.Black, 1.5f))
             {
                 dashedPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
 
@@ -730,6 +723,11 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             float dot7X = circleCenterNormX;
             float dot7Y = circleCenterNormY - outerCircleRadiusPx / imageRect.Height;
             DrawDot(g, ImageToControlPoint(dot7X, dot7Y, imageRect), Color.FromArgb(80, 135, 138));
+
+            // ===== ROTATED: Rotation arrow =====
+
+            PointF rotationArrowLocation = DrawRotationArrow(g, circleCenter);
+
 
             // Compute dotX/dotY for tank centerline and nozzle centerline visualization sections
             // Position tank centerline dot 5px from the outer circle's vertical center line
@@ -800,6 +798,12 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
 
             // ===== ROTATED: Draw distance visualizations =====
 
+            float flipArrowSpan = 0.1f;
+            float flipArrowY = circleCenterNormY + OuterCircleRadius + CenterLineOverflowPx / imageRect.Height + 0.02f;
+            float flipArrowStartX = circleCenterNormX - flipArrowSpan;
+            float flipArrowEndX = circleCenterNormX + flipArrowSpan;
+            DrawFlipArrow(g, imageRect, flipArrowStartX, flipArrowEndX, flipArrowY);
+
             // Draw tank centerline distance visualization (rotated)
             if (_showTankCenterlineDistance)
             {
@@ -811,40 +815,40 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
 
                 _tcDistStartX = tcLineX; _tcDistStartY = tcStartY; _tcDistEndY = tcEndY;
 
-                DrawDistanceLine(g, imageRect, tcLineX, tcStartY, tcEndY);
+                DrawDistanceLine(g, imageRect, tcLineX, tcStartY, tcEndY, _isFlipped, true);
             }
 
             // Draw nozzle centerline distance visualization (rotated)
             if (_showNozzleCenterlineDistance)
             {
-                DrawDistanceLine(g, imageRect, _ncDistStartX, _ncDistStartY, _ncDistEndY);
+                DrawDistanceLine(g, imageRect, _ncDistStartX, _ncDistStartY, _ncDistEndY, !_isFlipped);
             }
 
             // Draw nozzle top/bottom/middle distance visualization (rotated)
             if (_showNozzleTopDistance || _showNozzleBottomDistance || _showNozzleMiddleDistance)
             {
-                DrawDistanceLine(g, imageRect, _nbDistStartX, _nbDistStartY, _nbDistEndY);
+                DrawDistanceLine(g, imageRect, _nbDistStartX, _nbDistStartY, _nbDistEndY, !_isFlipped);
             }
 
             // ===== ROTATED: Draw horizontal offset distance line =====
             PointF distLineStart = ImageToControlPoint(centerX, DistanceLineY, imageRect);
             PointF distLineEnd = ImageToControlPoint(startX, DistanceLineY, imageRect);
 
-            using (Pen distLinePen = new Pen(Color.Black, DistLinePenWidth))
+            using (Pen distLinePen = new Pen(Color.ForestGreen, DistLinePenWidth))
             {
                 g.DrawLine(distLinePen, distLineStart, distLineEnd);
             }
 
             PointF capLeftTop = ImageToControlPoint(centerX, DistanceLineY - CapWidth / 2, imageRect);
             PointF capLeftBottom = ImageToControlPoint(centerX, DistanceLineY + CapWidth / 2, imageRect);
-            using (Pen capPen = new Pen(Color.Black, DistLinePenWidth))
+            using (Pen capPen = new Pen(Color.ForestGreen, DistLinePenWidth))
             {
                 g.DrawLine(capPen, capLeftTop, capLeftBottom);
             }
 
             PointF capRightTop = ImageToControlPoint(startX, DistanceLineY - CapWidth / 2, imageRect);
             PointF capRightBottom = ImageToControlPoint(startX, DistanceLineY + CapWidth / 2, imageRect);
-            using (Pen capPen2 = new Pen(Color.Black, DistLinePenWidth))
+            using (Pen capPen2 = new Pen(Color.ForestGreen, DistLinePenWidth))
             {
                 g.DrawLine(capPen2, capRightTop, capRightBottom);
             }
@@ -853,14 +857,12 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             g.Transform = originalTransform;
             originalTransform.Dispose();
 
-            // ===== NON-ROTATED: Draw semi-circular rotation arrow at circle center =====
-            DrawRotationArrow(g, circleCenter);
-
             // ===== NON-ROTATED: Position textboxes and button =====
             PositionOverlayControls(imageRect, circleCenter, circleCenterNormX, circleCenterNormY,
                 centerX, startX, _tcDistStartX, _tcDistStartY, _tcDistEndY,
                 _ncDistStartX, _ncDistStartY, _ncDistEndY,
-                _nbDistStartX, _nbDistStartY, _nbDistEndY);
+                _nbDistStartX, _nbDistStartY, _nbDistEndY,
+                rotationArrowLocation.X, rotationArrowLocation.Y);
 
             // ===== UPDATE HOTSPOT POSITIONS (except TankCenterline and RotationArrow) =====
             // Dots are drawn in rotated space, but hit-testing uses non-rotated screen coords.
@@ -885,6 +887,14 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                 rotArrowHs.Y = circleCenterNormY;
             }
 
+            // Update flip arrow hotspot to rotated screen position
+            var flipArrowHs = _hotspots.FirstOrDefault(h => h.IsFlipArrow);
+            if (flipArrowHs != null)
+            {
+                float flipMidX = (flipArrowStartX + flipArrowEndX) / 2f;
+                flipArrowHs.X = RotateNormX(flipMidX, flipArrowY, pivotNormX, pivotNormY, rotRadForHotspot, imageRect);
+                flipArrowHs.Y = RotateNormY(flipMidX, flipArrowY, pivotNormX, pivotNormY, rotRadForHotspot, imageRect);
+            }
         }
 
         /// <summary>
@@ -897,26 +907,109 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         }
 
         /// <summary>
-        /// Draws a vertical distance line with horizontal end caps at the given normalized coordinates.
+        /// Draws a vertical distance line with arrowheads at both ends and horizontal dashed leader lines.
         /// Used by tank centerline, nozzle centerline, and top/middle/bottom distance visualizations.
         /// </summary>
-        private void DrawDistanceLine(Graphics g, Rectangle imageRect, float lineX, float startY, float endY)
+        /// <param name="dashToRight">When true, dashed lines extend to the right; when false, to the left.</param>
+        /// <param name="shortenBottomDash">When true, the bottom dashed line is drawn at half length.</param>
+        private void DrawDistanceLine(Graphics g, Rectangle imageRect, float lineX, float startY, float endY, bool dashToRight = true, bool shortenBottomDash = false)
         {
             PointF start = ImageToControlPoint(lineX, startY, imageRect);
             PointF end = ImageToControlPoint(lineX, endY, imageRect);
 
-            using (Pen distPen = new Pen(Color.Black, DistLinePenWidth))
+            using (Pen distPen = new Pen(Color.ForestGreen, DistLinePenWidth))
                 g.DrawLine(distPen, start, end);
 
-            PointF capTop1 = ImageToControlPoint(lineX - CapWidth / 2, startY, imageRect);
-            PointF capTop2 = ImageToControlPoint(lineX + CapWidth / 2, startY, imageRect);
-            PointF capBot1 = ImageToControlPoint(lineX - CapWidth / 2, endY, imageRect);
-            PointF capBot2 = ImageToControlPoint(lineX + CapWidth / 2, endY, imageRect);
-
-            using (Pen capPen = new Pen(Color.Black, DistLinePenWidth))
+            // Draw arrowhead at the end (right side when not flipped, left side when flipped)
+            float arrowLen = 6f;
+            float arrowWidth = 4f;
+            float dirX = end.X - start.X;
+            float dirY = end.Y - start.Y;
+            float len = (float)Math.Sqrt(dirX * dirX + dirY * dirY);
+            if (len > 0)
             {
-                g.DrawLine(capPen, capTop1, capTop2);
-                g.DrawLine(capPen, capBot1, capBot2);
+                dirX /= len;
+                dirY /= len;
+                float normX = -dirY;
+                float normY = dirX;
+
+                PointF leftWing1 = new PointF(start.X + arrowLen * dirX - arrowWidth * normX,
+                                          start.Y + arrowLen * dirY - arrowWidth * normY);
+                PointF leftWing2 = new PointF(start.X + arrowLen * dirX + arrowWidth * normX,
+                                          start.Y + arrowLen * dirY + arrowWidth * normY);
+
+                PointF rightWing1 = new PointF(end.X - arrowLen * dirX + arrowWidth * normX,
+                                          end.Y - arrowLen * dirY + arrowWidth * normY);
+                PointF rightWing2 = new PointF(end.X - arrowLen * dirX - arrowWidth * normX,
+                                          end.Y - arrowLen * dirY - arrowWidth * normY);
+
+                using (Brush brush = new SolidBrush(Color.ForestGreen))
+                {
+                    g.FillPolygon(brush, new PointF[] { start, leftWing1, leftWing2 });
+                    g.FillPolygon(brush, new PointF[] { end, rightWing1, rightWing2 });
+                }
+            }
+
+            // Draw horizontal dashed lines from each arrowhead toward the nozzle line
+            float dashOffset = dashToRight ? 30f : -30f;
+            float bottomDashOffset = shortenBottomDash ? dashOffset / 2f : dashOffset;
+            using (Pen dashedPen = new Pen(Color.ForestGreen, 1.5f))
+            {
+                dashedPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                g.DrawLine(dashedPen, start, new PointF(start.X + dashOffset, start.Y));
+                g.DrawLine(dashedPen, end, new PointF(end.X + bottomDashOffset, end.Y));
+            }
+        }
+
+        /// <summary>
+        /// Draws a horizontal flip arrow with arrowheads at both ends.
+        /// Also updates the flip arrow hotspot position to the center of the arrow line.
+        /// </summary>
+        private void DrawFlipArrow(Graphics g, Rectangle imageRect, float startX, float endX, float lineY)
+        {
+            PointF start = ImageToControlPoint(startX, lineY, imageRect);
+            PointF end = ImageToControlPoint(endX, lineY, imageRect);
+
+            using (Pen distPen = new Pen(Color.RoyalBlue, FlipArrowPenWidth))
+                g.DrawLine(distPen, start, end);
+
+            // Draw arrowhead at the end (right side when not flipped, left side when flipped)
+            float arrowLen = 8f;
+            float arrowWidth = 6f;
+            float dirX = end.X - start.X;
+            float dirY = end.Y - start.Y;
+            float len = (float)Math.Sqrt(dirX * dirX + dirY * dirY);
+            if (len > 0)
+            {
+                dirX /= len;
+                dirY /= len;
+                float normX = -dirY;
+                float normY = dirX;
+
+                PointF leftWing1 = new PointF(start.X + arrowLen * dirX - arrowWidth * normX,
+                                          start.Y + arrowLen * dirY - arrowWidth * normY);
+                PointF leftWing2 = new PointF(start.X + arrowLen * dirX + arrowWidth * normX,
+                                          start.Y + arrowLen * dirY + arrowWidth * normY);
+
+                PointF rightWing1 = new PointF(end.X - arrowLen * dirX + arrowWidth * normX,
+                                          end.Y - arrowLen * dirY + arrowWidth * normY);
+                PointF rightWing2 = new PointF(end.X - arrowLen * dirX - arrowWidth * normX,
+                                          end.Y - arrowLen * dirY - arrowWidth * normY);
+
+                using (Brush brush = new SolidBrush(Color.RoyalBlue))
+                {
+                    g.FillPolygon(brush, new PointF[] { start, leftWing1, leftWing2 });
+                    g.FillPolygon(brush, new PointF[] { end, rightWing1, rightWing2 });
+                }
+                    
+            }
+
+            // Update the flip arrow hotspot position to the center of the arrow line
+            var flipHs = _hotspots.FirstOrDefault(h => h.IsFlipArrow);
+            if (flipHs != null)
+            {
+                flipHs.X = (startX + endX) / 2f;
+                flipHs.Y = lineY;
             }
         }
 
@@ -939,7 +1032,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         /// <summary>
         /// Draws a semi-circular rotation arrow indicator at the given center point.
         /// </summary>
-        private void DrawRotationArrow(Graphics g, PointF circleCenter)
+        private PointF DrawRotationArrow(Graphics g, PointF circleCenter)
         {
             RectangleF arcRect = new RectangleF(
                 circleCenter.X - ArrowArcRadiusPx,
@@ -980,6 +1073,8 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             {
                 g.FillPolygon(arrowBrush, new PointF[] { tip, wing1, wing2 });
             }
+
+            return tip;
         }
 
         /// <summary>
@@ -991,7 +1086,8 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             float centerX, float startX,
             float tcDistStartX, float tcDistStartY, float tcDistEndY,
             float ncDistStartX, float ncDistStartY, float ncDistEndY,
-            float nbDistStartX, float nbDistStartY, float nbDistEndY)
+            float nbDistStartX, float nbDistStartY, float nbDistEndY,
+            float rotationArrowX, float rotationArrowY)
         {
             int pbOffX = _pictureBox.Location.X;
             int pbOffY = _pictureBox.Location.Y;
@@ -1000,12 +1096,16 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             float pivX = circleCenterNormX;
             float pivY = circleCenterNormY;
 
-            // Position rotation textbox (mirrored when flipped)
-            float rotTbX = _isFlipped ? RotationTbFlippedX : RotationTbNormalX;
-            PointF rotationLocation = ImageToControlPoint(rotTbX, RotationTbNormY, imageRect);
-            _rotationTextBox.Location =
-                new Point((int)rotationLocation.X - _rotationTextBox.Width / 2 + pbOffX,
-                (int)rotationLocation.Y - _rotationTextBox.Height / 2 + pbOffY);
+            // In PositionOverlayControls, replace the rotation textbox positioning with:
+            float rotTbOffsetX = _isFlipped ? -0.075f : 0.075f;
+            float rotTbAnchorX = circleCenterNormX + rotTbOffsetX;
+            float rotTbAnchorY = circleCenterNormY - 0.1f;
+            float rotRotTbX = RotateNormX(rotTbAnchorX, rotTbAnchorY, pivX, pivY, rotRad, imageRect);
+            float rotRotTbY = RotateNormY(rotTbAnchorX, rotTbAnchorY, pivX, pivY, rotRad, imageRect);
+            PointF rotTbPos = ImageToControlPoint(rotRotTbX, rotRotTbY, imageRect);
+            _rotationTextBox.Location = new Point(
+                (int)(rotTbPos.X - _rotationTextBox.Width / 2f) + pbOffX,
+                (int)(rotTbPos.Y - _rotationTextBox.Height / 2f) + pbOffY);
 
             // Position the distance TextBox anchored to the midpoint of the offset distance line
             float distMidNormX = (centerX + startX) / 2f;
@@ -1024,9 +1124,9 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             float rotFlipX = RotateNormX(distMidNormX, flipTbAnchorY, pivX, pivY, rotRad, imageRect);
             float rotFlipY = RotateNormY(distMidNormX, flipTbAnchorY, pivX, pivY, rotRad, imageRect);
             PointF flipPos = ImageToControlPoint(rotFlipX, rotFlipY, imageRect);
-            _flipButton.Location = new Point(
-                (int)(flipPos.X - _flipButton.Width / 2f) + pbOffX,
-                (int)(flipPos.Y - _flipButton.Height / 2f) + pbOffY);
+            //_flipButton.Location = new Point(
+            //    (int)(flipPos.X - _flipButton.Width / 2f) + pbOffX,
+            //    (int)(flipPos.Y - _flipButton.Height / 2f) + pbOffY);
 
             // Position tank/nozzle centerline distance textbox
             if (_showTankCenterlineDistance)
@@ -1375,7 +1475,6 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
 
             _offsetTextBox.Visible = enabled;
             _rotationTextBox.Visible = enabled;
-            _flipButton.Visible = enabled;
             _nozzleCenterlineDistanceTextBox.Visible = enabled && (_showTankCenterlineDistance || _showNozzleCenterlineDistance);
             _nozzleBottomDistanceTextBox.Visible = enabled && (_showNozzleTopDistance || _showNozzleBottomDistance || _showNozzleMiddleDistance);
 
