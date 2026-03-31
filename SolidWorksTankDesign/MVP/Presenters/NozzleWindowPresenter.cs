@@ -211,7 +211,7 @@ namespace SolidWorksTankDesign.MVP.Presenters
             }
         }
 
-        public void UpdateReferencePoint(NozzleConfiguration nozzleConfiguration, ClickableImageHotspotsControl.DistanceChangedEventArgs e)
+        public void UpdateReferencePoint(NozzleConfiguration nozzleConfiguration, NozzleConfigurationControl.DistanceChangedEventArgs e)
         {
             if (nozzleConfiguration == null || e == null) return;
 

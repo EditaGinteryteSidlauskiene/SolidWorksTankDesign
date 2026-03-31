@@ -11,7 +11,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
-using static SolidWorksTankDesign.MVP.Views.Controls.ClickableImageHotspotsControl;
+using static SolidWorksTankDesign.MVP.Views.Controls.NozzleConfigurationControl;
 using Point = System.Drawing.Point;
 using Size = System.Drawing.Size;
 
@@ -296,7 +296,7 @@ namespace SolidWorksTankDesign.MVP.Views
             newNozzlePanel.Controls.Add(nozzleLabel);
 
             // Sketch image — oversized to prevent clipping when the nozzle visualization is rotated
-            ClickableImageHotspotsControl nozzleSketchPictureBox = new ClickableImageHotspotsControl();
+            NozzleConfigurationControl nozzleSketchPictureBox = new NozzleConfigurationControl();
             nozzleSketchPictureBox.Name = "NozzleSketchControl";
             nozzleSketchPictureBox.Size = new Size(300, 300);
             nozzleSketchPictureBox.Location = new Point(25, nozzleLabel.Bottom + 150);
@@ -1322,7 +1322,7 @@ namespace SolidWorksTankDesign.MVP.Views
         ////    NozzlePositiveRotationDirectionButton.Visible = true;
         //}
 
-        private void HandleHotspotClick(Hotspot hotspot, ClickableImageHotspotsControl sketch, Panel nozzlePanel)
+        private void HandleHotspotClick(Hotspot hotspot, NozzleConfigurationControl sketch, Panel nozzlePanel)
         {
             if (hotspot.ReferenceType == NozzleTopReferenceType.TankCenterline)
             {
@@ -1358,7 +1358,7 @@ namespace SolidWorksTankDesign.MVP.Views
             }
         }
 
-                private void ToggleConnectionPropertiesPanel(ClickableImageHotspotsControl sketch, Panel nozzlePanel)
+                private void ToggleConnectionPropertiesPanel(NozzleConfigurationControl sketch, Panel nozzlePanel)
         {
             PanelBindingContext nozzlePanelBindingContext = nozzlePanel.Tag as PanelBindingContext;
             BindingSource bindingSource = nozzlePanelBindingContext.BindingSource;

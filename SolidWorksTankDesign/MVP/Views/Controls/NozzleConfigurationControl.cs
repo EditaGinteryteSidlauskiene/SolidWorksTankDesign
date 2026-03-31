@@ -9,7 +9,7 @@ using SolidWorksTankDesign.TankSiteConfigurations;
 
 namespace SolidWorksTankDesign.MVP.Views.Controls
 {
-    public class ClickableImageHotspotsControl : UserControl
+    public class NozzleConfigurationControl : UserControl
     {
         private PictureBox _pictureBox;
         private List<Hotspot> _hotspots;
@@ -75,7 +75,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             public NozzleBottomReferencePoint? BottomReferencePoint { get; set; }
         }
 
-        public ClickableImageHotspotsControl()
+        public NozzleConfigurationControl()
         {
             InitializeComponents(); 
             _hotspots = new List<Hotspot>();
