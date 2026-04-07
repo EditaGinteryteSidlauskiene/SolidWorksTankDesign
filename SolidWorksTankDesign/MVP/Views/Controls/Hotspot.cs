@@ -19,6 +19,8 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
 
         public NozzlePropertiesType? NozzlePropertiesType { get; set; }
 
+        public NozzleReferenceType? NozzleReferenceType { get; set; }
+
         public bool IsRotationArrow { get; set; }
 
         public bool IsFlipArrow { get; set; }

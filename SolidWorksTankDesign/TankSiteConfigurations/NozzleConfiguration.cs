@@ -17,58 +17,59 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
         private string _designation;
 
         [JsonIgnore]
-        public string _notes;
+        private string _notes;
 
         [JsonIgnore]
-        public NozzleReferenceType _referenceType;
+        private NozzleReferenceType _referenceType;
 
         // distance along compartment axis from selected reference plane: left/right dished end or an existing nozzle in meters
         [JsonIgnore]
-        public double _distanceFromReference;
+        private double _distanceFromReference = 0.1;
 
         // TankCenterline / NozzleCenterline
         [JsonIgnore]
-        public NozzleTopReferenceType _topReferenceType;
+        private NozzleTopReferenceType _topReferenceType;
         [JsonIgnore]
-        public NozzleBottomReferencePoint _bottomReferencePoint;
+        private NozzleBottomReferencePoint _bottomReferencePoint;
 
         [JsonIgnore]
         // vertical distance from the chosen top point: tank centreline OR nozzle centreline in meters
-        public double _distanceFromTopReferenceMeters { get; set; } = 0.1;
+        private double _distanceFromTopReferenceMeters = 0.1;
         [JsonIgnore]
-        public double _distanceFromBottomReferenceMeters { get; set; } = 0.1;
+        private double _distanceFromBottomReferenceMeters = 0.1;
 
         // Offset and rotation
         [JsonIgnore]
-        public double _offsetMeters { get; set; } = 0.1; // default 0.1 m -> 100 mm UI default
+        private double _offsetMeters = 0.1; // default 0.1 m -> 100 mm UI default
         [JsonIgnore]
-        public bool _isOffsetPositive { get; set; }
+        private bool _isOffsetPositive;
         [JsonIgnore]
-        public double _rotationAngleDegrees { get; set; } = 0.0;
+        private double _rotationAngleDegrees = 0.0;
         [JsonIgnore]
-        public bool _isRotationDirectionPositive { get; set; }
+        private bool _isRotationDirectionPositive;
 
         // Orientation / flip
         [JsonIgnore]
-        public bool _flipped { get; set; }
+        private bool _flipped;
 
         // Neck properties
         [JsonIgnore]
-        public string _neckSize { get; set; }
+        private string _neckSize;
         [JsonIgnore]  
-        public double _neckThicknessMeters { get; set; }
+        private double _neckThicknessMeters;
         [JsonIgnore]  
-        public string _neckMaterial { get; set; }
+        private string _neckMaterial;
 
         // Connection properties
         [JsonIgnore]
-        public string _connectionType { get; set; }
+        private string _connectionType;
         [JsonIgnore]
-        public string _connectionProperties { get; set; }
+        private string _connectionProperties;
         [JsonIgnore]
-        public string _connectionMaterial { get; set; }
+        private string _connectionMaterial;
 
         public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid? ReferenceNozzleId { get; set; }
 
         public string Designation 
         {
@@ -271,6 +272,7 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
             return new NozzleConfiguration
             {
                 Id = this.Id,
+                ReferenceNozzleId = this.ReferenceNozzleId,
                 Designation = this.Designation,
                 Notes = this.Notes,
                 ReferenceType = this.ReferenceType,

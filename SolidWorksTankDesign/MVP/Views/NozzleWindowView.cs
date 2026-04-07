@@ -286,7 +286,7 @@ namespace SolidWorksTankDesign.MVP.Views
             {
                 Text = "Nozzle",
                 AutoSize = false,
-                Font = new Font("Microsoft Sans Serif", 9.75F, FontStyle.Bold, GraphicsUnit.Point, ((byte)(0))),
+                Font = new Font("Microsoft Sans Serif", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0),
                 Location = new Point(4, 4),
                 Name = "NozzleLabel",
                 Cursor = Cursors.Hand,
@@ -295,11 +295,46 @@ namespace SolidWorksTankDesign.MVP.Views
             nozzleLabel.Click += NozzleLabel_Click;
             newNozzlePanel.Controls.Add(nozzleLabel);
 
+            // Nozzle designation textbox
+            TextBox nozzleDesignationTextBox = new TextBox
+            {
+                Name = "NozzleDesignationTextBox",
+                Location = new Point(60, nozzleLabel.Location.Y),
+                Width = 100,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Microsoft Sans Serif", 9.75F, FontStyle.Regular, GraphicsUnit.Point, 0)
+            };
+            nozzleDesignationTextBox.DataBindings.Add(
+                "Text",
+                panelBindingContext.BindingSource,
+                "Designation",
+                true,
+                DataSourceUpdateMode.OnPropertyChanged,
+                string.Empty);
+            newNozzlePanel.Controls.Add(nozzleDesignationTextBox);
+            if (newNozzlePanel.Size.Height == 500)
+                nozzleDesignationTextBox.BringToFront();
+
             // Sketch image — oversized to prevent clipping when the nozzle visualization is rotated
+            CompartmentConfiguration compartmentConfiguration = compartmentPanel.Tag as CompartmentConfiguration;
+            var configs = _compartmentConfigurationModel.CompartmentConfigurations;
+            int index = configs.IndexOf(compartmentConfiguration);
+
+            DishedEndAlignment rightDishedEndAlignment = (index >= 0 && index < configs.Count - 1) ?
+                configs[index + 1].LeftDishedEndAlignment :
+                DishedEndAlignment.Right;
+
+            NozzlePositionControl nozzlePositionControl = new NozzlePositionControl(
+                compartmentConfiguration, nozzleConfiguration, rightDishedEndAlignment);
+            nozzlePositionControl.Name = "NozzlePositionControl";
+            nozzlePositionControl.Size = new Size(330, 149);
+            nozzlePositionControl.Location = new Point(10, nozzleLabel.Location.Y + 30);
+            newNozzlePanel.Controls.Add(nozzlePositionControl);
+
             NozzleConfigurationControl nozzleSketchPictureBox = new NozzleConfigurationControl();
             nozzleSketchPictureBox.Name = "NozzleSketchControl";
-            nozzleSketchPictureBox.Size = new Size(300, 300);
-            nozzleSketchPictureBox.Location = new Point(25, nozzleLabel.Bottom + 150);
+            nozzleSketchPictureBox.Size = new Size(330, 310);
+            nozzleSketchPictureBox.Location = new Point(10, nozzleLabel.Bottom + 160);
 
             // Add hotspots with click handlers
             foreach (Hotspot hs in _hotspots)
@@ -1138,15 +1173,29 @@ namespace SolidWorksTankDesign.MVP.Views
                 // Step 1: Resize all panels
                 for (int i = 0; i < panels.Count; i++)
                 {
+                    Control[] designationControls = panels[i].Controls.Find("NozzleDesignationTextBox", true);
+
                     if (panels[i] == control)
                     {
-                        panels[i].Size = new Size(352, 500); // Enlarged panel
+                        panels[i].Size = new Size(352, 500);
                         panels[i].Cursor = Cursors.Default;
+                        
+                        if (designationControls.Length > 0)
+                            designationControls[0].BringToFront();
+
+                        // Refresh reference nozzle list
+                        Control posCtrl = panels[i].Controls.Cast<Control>()
+                            .FirstOrDefault(c => c.Name == "NozzlePositionControl");
+                        if (posCtrl is NozzlePositionControl npc)
+                            npc.RefreshReferenceNozzleList();
                     }
                     else
                     {
                         panels[i].Size = new Size(352, 25); // Minimized panel
                         panels[i].Cursor = Cursors.Hand;
+
+                        if (designationControls.Length > 0)
+                            designationControls[0].SendToBack();
                     }
                 }
 
@@ -1273,19 +1322,22 @@ namespace SolidWorksTankDesign.MVP.Views
 
         private void ForwardArrowButton_Click(object sender, EventArgs e)
         {
+            var comp = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments;
+            var configs = SolidWorksDocumentProvider._tankProperties.CompartmentsConfigurations;
 
-            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
-            Feature refPlane = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0].GetRightEndPlane();
+
+            //SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
+            //Feature refPlane = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0].GetRightEndPlane();
 
 
-            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0].AddNozzle(
-                "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Nozzle position sketch.SLDASM",
-                "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Manhole DN600 Neck with flange.SLDASM",
-                0,
-                refPlane,
-                1,
-                true,
-                2500);
+            //SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0].AddNozzle(
+            //    "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Nozzle position sketch.SLDASM",
+            //    "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Manhole DN600 Neck with flange.SLDASM",
+            //    0,
+            //    refPlane,
+            //    1,
+            //    true,
+            //    2500);
 
 
 
@@ -1358,7 +1410,7 @@ namespace SolidWorksTankDesign.MVP.Views
             }
         }
 
-                private void ToggleConnectionPropertiesPanel(NozzleConfigurationControl sketch, Panel nozzlePanel)
+        private void ToggleConnectionPropertiesPanel(NozzleConfigurationControl sketch, Panel nozzlePanel)
         {
             PanelBindingContext nozzlePanelBindingContext = nozzlePanel.Tag as PanelBindingContext;
             BindingSource bindingSource = nozzlePanelBindingContext.BindingSource;

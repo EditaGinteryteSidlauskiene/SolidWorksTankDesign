@@ -155,6 +155,9 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="MVP\Views\Controls\Hotspot.cs" />
+    <Compile Include="MVP\Views\Controls\NozzlePositionControl .cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="MVP\Views\INozzleWindowView.cs" />
     <Compile Include="MVP\Views\ICompartmentWindowView.cs" />
     <Compile Include="MVP\Views\IInitialConfigurationView.cs" />

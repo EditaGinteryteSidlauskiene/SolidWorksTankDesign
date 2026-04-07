@@ -52,7 +52,6 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         private const float DistVisualizationOffsetNorm = 0.15f;
         private const float DistVisualizationHeightPx = 40f;
         private const float DistanceLineY = 0.8f;
-        private const float CapWidth = 0.04f;
         private const float DistLinePenWidth = 1.7f;
         private const float FlipArrowPenWidth = 2.5f;
         private const float VertDistPerpOffset = 0.1f;
@@ -477,14 +476,17 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         /// When no image is loaded, returns a centered fixed-size rectangle matching the original
         /// effective drawing area. When an image is loaded, computes the letterboxed/pillarboxed rect.
         /// </summary>
+        private const int DrawingAreaVerticalOffsetPx = 10;
+        private const int DrawingAreaHorizontalOffsetPx = 15;
+
         private Rectangle GetImageRect()
         {
             if (_pictureBox.Image == null)
             {
                 // Center a fixed-size drawing area within the PictureBox so that
                 // visualizations render at the same size as before the padding was removed.
-                int x = (_pictureBox.ClientSize.Width - DrawingAreaSize) / 2;
-                int y = (_pictureBox.ClientSize.Height - DrawingAreaSize) / 2;
+                int x = (_pictureBox.ClientSize.Width - DrawingAreaSize) / 2 + DrawingAreaHorizontalOffsetPx;
+                int y = (_pictureBox.ClientSize.Height - DrawingAreaSize) / 2 - DrawingAreaVerticalOffsetPx;
                 return new Rectangle(x, y, DrawingAreaSize, DrawingAreaSize);
             }
 
@@ -839,18 +841,34 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                 g.DrawLine(distLinePen, distLineStart, distLineEnd);
             }
 
-            PointF capLeftTop = ImageToControlPoint(centerX, DistanceLineY - CapWidth / 2, imageRect);
-            PointF capLeftBottom = ImageToControlPoint(centerX, DistanceLineY + CapWidth / 2, imageRect);
-            using (Pen capPen = new Pen(Color.ForestGreen, DistLinePenWidth))
+            // Draw arrowheads at both ends
+            float arrowLen = 6f;
+            float arrowWidth = 4f;
+            float dirX = distLineEnd.X - distLineStart.X;
+            float dirY = distLineEnd.Y - distLineStart.Y;
+            float len = (float)Math.Sqrt(dirX * dirX + dirY * dirY);
+            if (len > 0)
             {
-                g.DrawLine(capPen, capLeftTop, capLeftBottom);
-            }
+                dirX /= len;
+                dirY /= len;
+                float normX = -dirY;
+                float normY = dirX;
 
-            PointF capRightTop = ImageToControlPoint(startX, DistanceLineY - CapWidth / 2, imageRect);
-            PointF capRightBottom = ImageToControlPoint(startX, DistanceLineY + CapWidth / 2, imageRect);
-            using (Pen capPen2 = new Pen(Color.ForestGreen, DistLinePenWidth))
-            {
-                g.DrawLine(capPen2, capRightTop, capRightBottom);
+                PointF rightWing1 = new PointF(distLineStart.X + arrowLen * dirX - arrowWidth * normX,
+                                          distLineStart.Y + arrowLen * dirY - arrowWidth * normY);
+                PointF rightWing2 = new PointF(distLineStart.X + arrowLen * dirX + arrowWidth * normX,
+                                          distLineStart.Y + arrowLen * dirY + arrowWidth * normY);
+
+                PointF leftWing1 = new PointF(distLineEnd.X - arrowLen * dirX + arrowWidth * normX,
+                                          distLineEnd.Y - arrowLen * dirY + arrowWidth * normY);
+                PointF leftWing2 = new PointF(distLineEnd.X - arrowLen * dirX - arrowWidth * normX,
+                                          distLineEnd.Y - arrowLen * dirY - arrowWidth * normY);
+
+                using (Brush brush = new SolidBrush(Color.ForestGreen))
+                {
+                    g.FillPolygon(brush, new PointF[] { distLineStart, rightWing1, rightWing2 });
+                    g.FillPolygon(brush, new PointF[] { distLineEnd, leftWing1, leftWing2 });
+                }
             }
 
             // ===== RESTORE TRANSFORM =====
