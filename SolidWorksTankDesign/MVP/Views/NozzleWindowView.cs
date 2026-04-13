@@ -1,5 +1,4 @@
-﻿using SolidWorks.Interop.sldworks;
-using SolidWorksTankDesign.MVP.Enums;
+﻿using SolidWorksTankDesign.MVP.Enums;
 using SolidWorksTankDesign.MVP.Models;
 using SolidWorksTankDesign.MVP.Presenters;
 using SolidWorksTankDesign.MVP.Services;
@@ -11,7 +10,6 @@ using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
-using static SolidWorksTankDesign.MVP.Views.Controls.NozzleConfigurationControl;
 using Point = System.Drawing.Point;
 using Size = System.Drawing.Size;
 
@@ -91,23 +89,31 @@ namespace SolidWorksTankDesign.MVP.Views
             new Hotspot
             {
                 X = 0.45f,
-                Y = 0.9f,
-                IsFlipArrow = true,
-                Tolerance = 25f
+                Y = 0.905f,
+                FlipDot = FlipDot.Central
+            },
+            new Hotspot
+            {
+                X = 0.3f,
+                Y = 0.8732307f,
+                FlipDot = FlipDot.Left
+            },
+            new Hotspot
+            {
+                X = 0.59999f,
+                Y = 0.8732307f,
+                FlipDot = FlipDot.Right
+            },
+            new Hotspot
+            {
+                X = 0.45f,
+                Y = 0.315f,
+                IsNozzleLength = true
             }
         };
 
-        private enum NozzleOrientation
-        {
-            Left,
-            Right
-        }
-
-        private NozzleOrientation _orientation = NozzleOrientation.Left;
-
         private PointF _hotspot0OriginalPosition;
 
-        private int _nozzleBottomMiddlePosition = 0;
         private FlowLayoutPanel _compartmentsFlowPanel;
 
         public NozzleWindowView(CompartmentConfigurationModel compartmentConfigurationModel)
@@ -174,7 +180,7 @@ namespace SolidWorksTankDesign.MVP.Views
                 // Let FlowLayoutPanel handle positioning. First compartment expanded, others collapsed.
                 if (idx == 0)
                 {
-                    newCompartmentPanel.Size = new Size(390, 450);
+                    newCompartmentPanel.Size = new Size(390, 550);
                     newCompartmentPanel.Cursor = Cursors.Default;
                 }
                 else
@@ -222,7 +228,7 @@ namespace SolidWorksTankDesign.MVP.Views
             newNozzleButton.Name = "NewNozzleButton";
             newNozzleButton.Font = new Font("Microsoft Sans Serif", 9, FontStyle.Bold);
             newNozzleButton.Size = new Size(144, 29);
-            newNozzleButton.Location = new Point(3, 410);
+            newNozzleButton.Location = new Point(3, 510);
             newNozzleButton.MouseClick += NewNozzleButton_MouseClick;
 
             return newNozzleButton;
@@ -276,7 +282,7 @@ namespace SolidWorksTankDesign.MVP.Views
                 Control label = compartmentPanel.Controls.Cast<Control>().FirstOrDefault(c => c.Name == "CompartmentLabel");
                 int startY = label != null ? label.Bottom + 10 : 10;
                 newNozzlePanel.Location = new Point(20, startY);
-                newNozzlePanel.Size = new Size(352, 500);
+                newNozzlePanel.Size = new Size(352, 600);
             }
 
             compartmentPanel.Controls.Add(newNozzlePanel);
@@ -312,11 +318,16 @@ namespace SolidWorksTankDesign.MVP.Views
                 DataSourceUpdateMode.OnPropertyChanged,
                 string.Empty);
             newNozzlePanel.Controls.Add(nozzleDesignationTextBox);
-            if (newNozzlePanel.Size.Height == 500)
+            if (newNozzlePanel.Size.Height == 600)
                 nozzleDesignationTextBox.BringToFront();
+            else
+            {
+                if (nozzleConfiguration.Designation != null) 
+                    nozzleLabel.Text = nozzleConfiguration.Designation;
+            }
 
-            // Sketch image — oversized to prevent clipping when the nozzle visualization is rotated
-            CompartmentConfiguration compartmentConfiguration = compartmentPanel.Tag as CompartmentConfiguration;
+                // Sketch image — oversized to prevent clipping when the nozzle visualization is rotated
+                CompartmentConfiguration compartmentConfiguration = compartmentPanel.Tag as CompartmentConfiguration;
             var configs = _compartmentConfigurationModel.CompartmentConfigurations;
             int index = configs.IndexOf(compartmentConfiguration);
 
@@ -327,14 +338,14 @@ namespace SolidWorksTankDesign.MVP.Views
             NozzlePositionControl nozzlePositionControl = new NozzlePositionControl(
                 compartmentConfiguration, nozzleConfiguration, rightDishedEndAlignment);
             nozzlePositionControl.Name = "NozzlePositionControl";
-            nozzlePositionControl.Size = new Size(330, 149);
-            nozzlePositionControl.Location = new Point(10, nozzleLabel.Location.Y + 30);
+            nozzlePositionControl.Size = new Size(330, 199);
+            nozzlePositionControl.Location = new Point(0, nozzleLabel.Location.Y + 30);
             newNozzlePanel.Controls.Add(nozzlePositionControl);
 
             NozzleConfigurationControl nozzleSketchPictureBox = new NozzleConfigurationControl();
             nozzleSketchPictureBox.Name = "NozzleSketchControl";
-            nozzleSketchPictureBox.Size = new Size(330, 310);
-            nozzleSketchPictureBox.Location = new Point(10, nozzleLabel.Bottom + 160);
+            nozzleSketchPictureBox.Size = new Size(350, 370);
+            nozzleSketchPictureBox.Location = new Point(0, nozzleLabel.Bottom + 200);
 
             // Add hotspots with click handlers
             foreach (Hotspot hs in _hotspots)
@@ -348,7 +359,8 @@ namespace SolidWorksTankDesign.MVP.Views
                     BottomReferencePoint = hs.BottomReferencePoint,
                     NozzlePropertiesType = hs.NozzlePropertiesType,
                     IsRotationArrow = hs.IsRotationArrow,
-                    IsFlipArrow = hs.IsFlipArrow,
+                    IsNozzleLength = hs.IsNozzleLength,
+                    FlipDot = hs.FlipDot,
                     Tolerance = hs.Tolerance
                 };
 
@@ -1177,9 +1189,16 @@ namespace SolidWorksTankDesign.MVP.Views
 
                     if (panels[i] == control)
                     {
-                        panels[i].Size = new Size(352, 500);
+                        panels[i].Size = new Size(352, 600);
                         panels[i].Cursor = Cursors.Default;
-                        
+
+                        var nozzleLabelControls = panels[i].Controls.Find("NozzleLabel", false);
+                        if (nozzleLabelControls.Length > 0)
+                        {
+                            var ctx = panels[i].Tag as PanelBindingContext;
+                            nozzleLabelControls[0].Text = "Nozzle";
+                        }
+
                         if (designationControls.Length > 0)
                             designationControls[0].BringToFront();
 
@@ -1193,6 +1212,13 @@ namespace SolidWorksTankDesign.MVP.Views
                     {
                         panels[i].Size = new Size(352, 25); // Minimized panel
                         panels[i].Cursor = Cursors.Hand;
+                        var nozzleLabelControls = panels[i].Controls.Find("NozzleLabel", false);
+                        if (nozzleLabelControls.Length > 0)
+                        {
+                            var ctx = panels[i].Tag as PanelBindingContext;
+                            if (ctx?.NozzleConfiguration?.Designation != null)
+                                nozzleLabelControls[0].Text = ctx.NozzleConfiguration.Designation;
+                        }
 
                         if (designationControls.Length > 0)
                             designationControls[0].SendToBack();
@@ -1255,10 +1281,10 @@ namespace SolidWorksTankDesign.MVP.Views
 
                         int height = CalculateCompartmentPanelHeight(panel);
 
-                        panels[i].Size = new Size(390, height < 450 ? 450 : height); // Enlarged panel
+                        panels[i].Size = new Size(390, height < 450 ? 550 : height); // Enlarged panel
                         panels[i].Cursor = Cursors.Default;
 
-                        RepositionNewNozzleButton(panels[i], height < 450 ? 410 : height - 40);
+                        RepositionNewNozzleButton(panels[i], height < 450 ? 510 : height - 40);
                     }
                     else
                     {
@@ -1404,9 +1430,21 @@ namespace SolidWorksTankDesign.MVP.Views
             {
                 sketch.ToggleRotationVisualization();
             }
-            else if (hotspot.IsFlipArrow == true)
+            else if (hotspot.FlipDot == FlipDot.Left)
             {
-                sketch.ToggleFlip();
+                sketch.ToggleFlip(FlipDot.Left);
+            }
+            else if (hotspot.FlipDot == FlipDot.Central)
+            {
+                sketch.ToggleFlip(FlipDot.Central);
+            }
+            else if (hotspot.FlipDot == FlipDot.Right)
+            {
+                sketch.ToggleFlip(FlipDot.Right);
+            }
+            else if (hotspot.IsNozzleLength)
+            {
+                sketch.ToggleNozzleLengthVisualization();
             }
         }
 

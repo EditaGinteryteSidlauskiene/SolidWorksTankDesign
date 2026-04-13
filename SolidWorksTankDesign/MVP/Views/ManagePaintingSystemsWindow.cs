@@ -16,7 +16,7 @@ namespace SolidWorksTankDesign.Windows
         //public ManagePaintingSystemsWindow(CompartmentsWindow compartmentsWindow, List<Treatment> treatments)
         //{
         //    _comparmmentsWindow = compartmentsWindow;
-        //    InitializeComponent();
+        //    InitializeComponents();
 
         //    AddControls(treatments);
         //}

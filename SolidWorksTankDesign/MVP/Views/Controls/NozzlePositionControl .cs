@@ -31,20 +31,30 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         private PictureBox _positionPictureBox;
 
         // ===== Geometry constants =====
-        private const int RectangleWidth = 150;
-        private const int RectangleHeight = 75;
-        private const int DishedEndHeight = 60;
+        private const int CompartmentRectangleWidth = 152;
+        private const int CompartmentRectangleHeight = 75;
+        private const int NozzleRectangleWidth = 10;
+        private const int NozzleRectangleHeight = 50;
+        private const int DishedEndHeight = 40;
         private const float CompartmentLengthLineWidth = 2f;
         private const int CompartmentLengthLineOffset = 20;
         private const float LineArrowLength = 6f;
         private const float LineArrowWidth = 4f;
         private const float DotRadius = 3.5f;
-        private const int DistanceLineLength = 40;
-        private const int DistanceTextBoxYOffset = 30;
+        /// <summary>Length of the distance visualization line — always 1/4 of the compartment rectangle width.</summary>
+        private const int DistanceLineLength = CompartmentRectangleWidth / 4;
+        private const int DistanceTextBoxYOffset = 20;
+        private const int ReferenceNozzleLabelYOffset = 60;
 
+        /// <summary>Clickable hotspots rebuilt each paint cycle based on current layout.</summary>
         List<Hotspot> _hotspots = new List<Hotspot>();
+        /// <summary>Distance input TextBox — hidden until a reference hotspot is clicked.</summary>
         TextBox _distanceTextBox;
-        ComboBox _referenceNozzleComboBox;
+        /// <summary>Label displaying the currently selected reference nozzle designation. Opens a context menu on click.</summary>
+        Label _referenceNozzleLabel;
+        /// <summary>Context menu listing all available reference nozzles (excludes the current nozzle).</summary>
+        ContextMenuStrip _referenceNozzleMenu;
+        /// <summary>Label showing the compartment length in mm below the compartment rectangle.</summary>
         Label _compartmentLengthLabel;
         /// <summary>Timer for the validation error flash effect. Disposed on tick or control disposal.</summary>
         Timer _flashTimer;
@@ -65,15 +75,16 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             _compartmentConfig = compartmentConfig ?? throw new ArgumentNullException(nameof(compartmentConfig));
             _currentNozzleConfiguration = currentNozzleConfiguration ?? throw new ArgumentNullException(nameof(currentNozzleConfiguration));
             _rightDishedEndAlignment = rightDishedEndAlignment;
-            InitializeComponent();
+            InitializeComponents();
         }
 
         /// <summary>
         /// Creates and configures all child controls: PictureBox for drawing, distance TextBox
-        /// with data binding (mm ↔ meters), and reference nozzle ComboBox with placeholder.
+        /// with data binding (mm ↔ meters), and reference nozzle label with context menu.
         /// </summary>
-        private void InitializeComponent()
+        private void InitializeComponents()
         {
+            // ===== PictureBox — main drawing surface =====
             _positionPictureBox = new PictureBox
             {
                 Dock = DockStyle.Fill,
@@ -84,19 +95,23 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
 
             _positionPictureBox.Paint += _positionPictureBox_Paint;
             _positionPictureBox.MouseClick += _positionPictureBox_MouseClick;
+            _positionPictureBox.MouseMove += _positionPictureBox_MouseMove;
 
-            // Distance input TextBox — hidden until a reference hotspot is clicked
+            // ===== Distance input TextBox — hidden until a reference hotspot is clicked =====
             _distanceTextBox = new TextBox
             {
                 Name = "DistanceTextBox",
+                Font = new Font(Font.FontFamily, 10f),
                 Width = DistanceLineLength,
                 Height = 15,
-                BorderStyle = BorderStyle.FixedSingle,
+                BorderStyle = BorderStyle.None,
                 TextAlign = HorizontalAlignment.Center,
-                BackColor = Color.White,
+                BackColor = BackColor,
+                Cursor = Cursors.Hand,
                 Visible = false
             };
 
+            // Two-way data binding: model stores meters, UI displays mm
             var distanceBinding = _distanceTextBox.DataBindings.Add(
                 "Text",
                 _currentNozzleConfiguration,
@@ -104,7 +119,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                 true,
                 DataSourceUpdateMode.OnPropertyChanged);
 
-            // model (meters) → UI (mm)
+            // Format: model (meters) → UI (mm)
             distanceBinding.Format += (s, ev) =>
             {
                 if (ev.Value is double meters)
@@ -113,7 +128,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                     ev.Value = string.Empty;
             };
 
-            // UI (mm) → model (meters): validates input before writing to model
+            // Parse: UI (mm) → model (meters) with validation
             distanceBinding.Parse += (s, ev) =>
             {
                 string text = (ev.Value ?? string.Empty).ToString().Trim();
@@ -162,42 +177,45 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             Controls.Add(_distanceTextBox);
             _distanceTextBox.BringToFront();
 
-            // Build the reference nozzle list: all nozzles in compartment except the current one
+            // ===== Reference nozzle label + context menu =====
+            // Build list of all nozzles in compartment except the current one
             List<NozzleConfiguration> nozzleConfigurations = _compartmentConfig.NozzleConfigurations.ToList();
             nozzleConfigurations.Remove(_currentNozzleConfiguration);
 
-            // Insert a placeholder at index 0 so "Select" shows by default
-            var placeholder = new NozzleConfiguration { Designation = "Select" };
-            nozzleConfigurations.Insert(0, placeholder);
-
-            _referenceNozzleComboBox = new ComboBox
+            // Build context menu with one item per available reference nozzle
+            _referenceNozzleMenu = new ContextMenuStrip();
+            foreach (var nozzle in nozzleConfigurations)
             {
-                Name = "ReferenceNozzleComboBox",
+                var item = _referenceNozzleMenu.Items.Add(nozzle.Designation);
+                item.Tag = nozzle.Id;
+                item.Click += (s, ev) =>
+                {
+                    var menuItem = s as ToolStripItem;
+                    _referenceNozzleLabel.Text = menuItem.Text;
+                    _currentNozzleConfiguration.ReferenceNozzleId = (Guid)menuItem.Tag;
+                };
+            }
+
+            // Label that looks like plain text but opens the context menu on click
+            _referenceNozzleLabel = new Label
+            {
+                Name = "ReferenceNozzleLabel",
                 Size = new Size(55, 20),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                DataSource = nozzleConfigurations,
-                DisplayMember = "Designation",
-                ValueMember = "Id",
-                Visible = false
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font(Font.FontFamily, 9f, FontStyle.Bold),
+                ForeColor = Color.Black,
+                BackColor = BackColor,
+                Cursor = Cursors.Hand,
+                Visible = false,
+                Text = nozzleConfigurations.Count > 0 ? nozzleConfigurations[0].Designation : string.Empty
             };
-            _referenceNozzleComboBox.SelectedIndexChanged += (s, ev) =>
+            _referenceNozzleLabel.Click += (s, ev) =>
             {
-                // Real nozzle selected — save its Id to the model
-                if (_referenceNozzleComboBox.SelectedIndex > 0
-                    && _referenceNozzleComboBox.SelectedValue is Guid selectedId)
-                {
-                    _currentNozzleConfiguration.ReferenceNozzleId = selectedId;
-                }
-                // Placeholder "Select" chosen — clear any previously saved reference
-                else if (_referenceNozzleComboBox.SelectedIndex == 0)
-                {
-                    _currentNozzleConfiguration.ReferenceNozzleId = null;
-                }
+                _referenceNozzleMenu.Show(_referenceNozzleLabel, new Point(0, _referenceNozzleLabel.Height));
             };
 
-            Controls.Add(_referenceNozzleComboBox);
-            _referenceNozzleComboBox.BringToFront();
-
+            Controls.Add(_referenceNozzleLabel);
+            _referenceNozzleLabel.BringToFront();
         }
 
         /// <summary>
@@ -261,6 +279,37 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         }
 
         /// <summary>
+        /// Changes the cursor to a hand when hovering over a clickable dot,
+        /// and reverts to the default cursor when moving away.
+        /// </summary>
+        private void _positionPictureBox_MouseMove(object sender, MouseEventArgs e)
+        {
+            float mouseX = e.Location.X / (float)_positionPictureBox.Width;
+            float mouseY = e.Location.Y / (float)_positionPictureBox.Height;
+
+            bool overDot = false;
+
+            for (int i = 0; i < _hotspots.Count; i++)
+            {
+                float horizontalTolerance = _hotspots[i].Tolerance / _positionPictureBox.Width;
+                float verticalTolerance = _hotspots[i].Tolerance / _positionPictureBox.Height;
+
+                float dx = mouseX - _hotspots[i].X;
+                float dy = mouseY - _hotspots[i].Y;
+                float nx = dx / horizontalTolerance;
+                float ny = dy / verticalTolerance;
+
+                if ((nx * nx + ny * ny) <= 1f)
+                {
+                    overDot = true;
+                    break;
+                }
+            }
+
+            _positionPictureBox.Cursor = overDot ? Cursors.Hand : Cursors.Default;
+        }
+
+        /// <summary>
         /// Handles mouse clicks on the compartment visualization.
         /// Converts click position to normalized coordinates, hit-tests against hotspots,
         /// updates the active reference type, and toggles direction for consecutive OtherNozzle clicks.
@@ -300,9 +349,26 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                         _currentNozzleConfiguration.ReferenceNozzleId = null;
                     }
 
-                    // Persist to model and trigger repaint
+                    // Persist reference type to model
                     _currentNozzleConfiguration.ReferenceType = _activeNozzleReferenceType.Value;
                     _previousNozzleReferenceType = _activeNozzleReferenceType;
+
+                    // When OtherNozzle is activated, immediately persist the currently displayed
+                    // label selection so the model is up to date even if the user doesn't
+                    // open the menu (first nozzle already showing).
+                    if (_activeNozzleReferenceType == NozzleReferenceType.OtherNozzle
+                        && _referenceNozzleMenu.Items.Count > 0)
+                    {
+                        foreach (ToolStripItem item in _referenceNozzleMenu.Items)
+                        {
+                            if (item.Text == _referenceNozzleLabel.Text)
+                            {
+                                _currentNozzleConfiguration.ReferenceNozzleId = (Guid)item.Tag;
+                                break;
+                            }
+                        }
+                    }
+
                     _positionPictureBox.Invalidate();
 
                     break;
@@ -312,100 +378,136 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
 
         /// <summary>
         /// Draws the distance measurement line with arrowheads for the active reference type.
-        /// For OtherNozzle, also positions the reference nozzle ComboBox.
+        /// For LeftDishedEnd and RightDishedEnd, the line is anchored to the corresponding edge.
+        /// For OtherNozzle, the line extends from the nozzle center and the reference label is shown.
         /// Returns the line start point for positioning the distance TextBox.
         /// </summary>
         private Point DrawHotspotVisualization(Graphics graphics, Rectangle rectangle)
         {
             int lineStartX = 0;
             int lineEndX = 0;
-            bool leftArrowHead = false;
-            bool rightArrowHead = false;
+            int nozzleVisualizationX = 0;
 
-            // Determine line position and arrowhead direction based on active reference type
+            // Determine line position and nozzle visualization placement based on active reference type
             if (_activeNozzleReferenceType == NozzleReferenceType.LeftDishedEnd)
             {
-                // Arrow starts at left edge, points right
+                // Arrow starts at left edge, points right toward the nozzle
                 lineStartX = rectangle.Left;
                 lineEndX = lineStartX + DistanceLineLength;
-                rightArrowHead = true;
+                nozzleVisualizationX = lineEndX;
             }
                 
             else if (_activeNozzleReferenceType == NozzleReferenceType.RightDishedEnd)
             {
-                // Arrow ends at right edge, points left
+                // Arrow ends at right edge, points left toward the nozzle
                 lineStartX = rectangle.Right - DistanceLineLength;
                 lineEndX = rectangle.Right;
-                leftArrowHead = true;
+                nozzleVisualizationX = lineStartX;
             }
 
             else if (_activeNozzleReferenceType == NozzleReferenceType.OtherNozzle)
             {
                 if(_isReferenceToLeft)
                 {
-                    // Arrow points left from nozzle center; ComboBox appears to the right
+                    // Arrow points left from nozzle center; reference label appears above the right end
                     lineStartX = rectangle.Location.X + rectangle.Width / 2 - DistanceLineLength;
                     lineEndX = lineStartX + DistanceLineLength;
-                    leftArrowHead = true;
+                    nozzleVisualizationX = lineStartX;
 
-                    PositionReferenceNozzleComboBox(new Point(lineEndX + 10, rectangle.Location.Y - 10 - DistanceTextBoxYOffset));
+                    PositionReferenceNozzleLabel(new Point(
+                        lineEndX - _referenceNozzleLabel.Width / 2, 
+                        rectangle.Location.Y - ReferenceNozzleLabelYOffset));
                 }
                 else
                 {
-                    // Arrow points right from nozzle center; ComboBox appears to the left
+                    // Arrow points right from nozzle center; reference label appears above the left end
                     lineStartX = rectangle.Location.X + rectangle.Width / 2;
                     lineEndX = lineStartX + DistanceLineLength;
-                    rightArrowHead = true;
+                    nozzleVisualizationX = lineEndX;
 
-                    PositionReferenceNozzleComboBox(new Point(lineStartX - 10 - _referenceNozzleComboBox.Width, rectangle.Location.Y - 10 - DistanceTextBoxYOffset));
+                    PositionReferenceNozzleLabel(new Point(
+                        lineStartX - _referenceNozzleLabel.Width / 2, 
+                        rectangle.Location.Y - ReferenceNozzleLabelYOffset));
                 }
             }
 
-
+            // Draw the distance measurement line with arrowheads and dashed leader lines
             PaintLineWithArrowheads(
                 graphics,
                 lineStartX, lineEndX,
-                rectangle.Location.Y - 10,
-                leftArrowHead,
-                rightArrowHead);
+                rectangle.Location.Y - 20,
+                rectangle.Location.Y - 30,
+                30);
 
-            leftArrowHead = false;
-            rightArrowHead = false;
+            // Draw a small nozzle rectangle at the end of the distance line
+            PaintNozzleVisualization(graphics, nozzleVisualizationX, rectangle.Location.Y);
 
-            return new Point(lineStartX, rectangle.Location.Y - 10);
+            return new Point(lineStartX, rectangle.Location.Y - 20);
         }
 
         /// <summary>
-        /// Shows the reference nozzle ComboBox at the specified location.
+        /// Draws a small nozzle rectangle with a vertical center line at the specified position.
+        /// Represents the nozzle being positioned within the compartment.
         /// </summary>
-        private void PositionReferenceNozzleComboBox(Point comboBoxLocation)
+        /// <param name="graphics">The graphics surface to draw on.</param>
+        /// <param name="rectX">X coordinate of the nozzle rectangle center.</param>
+        /// <param name="rectCenterY">Top Y coordinate of the compartment rectangle, used to vertically position the nozzle.</param>
+        private void PaintNozzleVisualization(Graphics graphics, int rectX, int rectCenterY)
         {
-            _referenceNozzleComboBox.Visible = true;
-            _referenceNozzleComboBox.Location = comboBoxLocation;
+            Rectangle nozzleRect = new Rectangle(
+                rectX - NozzleRectangleWidth / 2, 
+                rectCenterY - NozzleRectangleHeight / 4,
+                NozzleRectangleWidth,
+                NozzleRectangleHeight);
+
+            PaintRectangle(graphics, nozzleRect, 1.5f);
+            
+            // Vertical center line extending below the nozzle rectangle
+            using (Pen centraLinePen = new Pen(Color.ForestGreen, CompartmentLengthLineWidth))
+            {
+                graphics.DrawLine(
+                    centraLinePen, 
+                    nozzleRect.X + NozzleRectangleWidth / 2, 
+                    nozzleRect.Y,
+                    nozzleRect.X + NozzleRectangleWidth / 2,
+                    nozzleRect.Y + NozzleRectangleHeight + 10);
+            }
         }
 
         /// <summary>
-        /// Main paint handler. Draws the compartment rectangle, dished ends, length visualization,
-        /// clickable hotspot dots, and (when active) the distance measurement line with TextBox.
-        /// Hides the reference nozzle ComboBox at the start of each paint cycle;
-        /// it is re-shown by DrawHotspotVisualization only when OtherNozzle is active.
+        /// Shows the reference nozzle label at the specified location.
+        /// </summary>
+        private void PositionReferenceNozzleLabel(Point labelLocation)
+        {
+            _referenceNozzleLabel.Visible = true;
+            _referenceNozzleLabel.Location = labelLocation;
+        }
+
+        /// <summary>
+        /// Main paint handler. Draws all compartment visualization elements in the following order:
+        /// 1. Compartment rectangle outline
+        /// 2. Left and right dished end arcs
+        /// 3. Compartment length line with arrowheads and label
+        /// 4. Clickable hotspot dots (left/right dished end corners, and center OtherNozzle dot)
+        /// 5. Active distance visualization line with nozzle rectangle and TextBox (when a reference is selected)
+        /// Hides the reference nozzle label at the start; re-shown only when OtherNozzle is active.
         /// </summary>
         private void _positionPictureBox_Paint(object sender, PaintEventArgs e)
         {
-            // Hide ComboBox at the start — DrawHotspotVisualization re-shows it only for OtherNozzle
-            _referenceNozzleComboBox.Visible = false;
+            // Hide label at the start — DrawHotspotVisualization re-shows it only for OtherNozzle
+            _referenceNozzleLabel.Visible = false;
 
             Graphics graphics = e.Graphics;
             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
             Rectangle rectangle = GetCompartmentRectangle();
 
-            // Draw static compartment elements
-            PaintRectangle(graphics, rectangle);
+            // ===== Draw static compartment elements =====
+            PaintRectangle(graphics, rectangle, 2f);
             PaintDishedEnds(graphics, rectangle);
             AddCompartmentLengthVisualization(graphics, rectangle);
 
-            // Rebuild hotspots each paint cycle (positions depend on current layout)
+            // ===== Rebuild hotspots each paint cycle (positions depend on current layout) =====
             _hotspots.Clear();
             AddCornerDots(graphics, rectangle);
 
@@ -413,7 +515,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             if (_compartmentConfig.NozzleConfigurations.Count > 1)
                 AddReferenceNozzleVisualization(graphics, rectangle);
 
-            // Draw active distance visualization and position the TextBox
+            // ===== Draw active distance visualization and position the TextBox =====
             if (_activeNozzleReferenceType.HasValue)
             {
                 Point visualizationLocation = DrawHotspotVisualization(graphics, rectangle);
@@ -431,26 +533,18 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         }
 
         /// <summary>
-        /// Draws a small nozzle rectangle at the top center of the compartment with a clickable dot.
+        /// Draws a clickable dot at the top center of the compartment rectangle
+        /// representing the OtherNozzle reference point.
         /// Only shown when more than one nozzle exists in the compartment.
         /// </summary>
         private void AddReferenceNozzleVisualization(Graphics graphics, Rectangle rectangle)
         {
-            int rectWidth = 13;
-            int rectHeight = 20;
+            Point dotPointLocation = new Point(
+                rectangle.X + rectangle.Width / 2,
+                rectangle.Top);
 
-            // Center the nozzle rectangle on the top edge of the compartment
-            Rectangle nozzleRectangle = new Rectangle(
-                rectangle.X + rectangle.Width / 2 - rectWidth / 2, rectangle.Top - rectHeight / 2,
-                rectWidth, rectHeight);
-
-            PaintRectangle(graphics, nozzleRectangle);
-
-            // Place the clickable dot at the center of the nozzle rectangle
-            Point nozzlePointLocation = new Point(nozzleRectangle.X + rectWidth / 2,
-                nozzleRectangle.Y + rectHeight / 2);
-            DrawDot(graphics, nozzlePointLocation);
-            AddHotspot(nozzlePointLocation, NozzleReferenceType.OtherNozzle);
+            DrawDot(graphics, dotPointLocation);
+            AddHotspot(dotPointLocation, NozzleReferenceType.OtherNozzle);
         }
 
         /// <summary>
@@ -459,11 +553,12 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         /// </summary>
         private void AddCornerDots(Graphics graphics, Rectangle rectangle)
         {
-            // Draw dots on upper corners
+            // Left dished end dot (upper-left corner)
             Point dotLocation = new Point(rectangle.Left, rectangle.Top);
             DrawDot(graphics, dotLocation);
             AddHotspot(dotLocation, NozzleReferenceType.LeftDishedEnd);
 
+            // Right dished end dot (upper-right corner)
             dotLocation = new Point(rectangle.Right, rectangle.Top);
             DrawDot(graphics, dotLocation);
             AddHotspot(dotLocation, NozzleReferenceType.RightDishedEnd);
@@ -487,7 +582,8 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         }
 
         /// <summary>
-        /// Registers a clickable hotspot at the given pixel location (converted to normalized 0..1 coordinates).
+        /// Registers a clickable hotspot at the given pixel location.
+        /// Converts pixel coordinates to normalized 0..1 coordinates for resolution-independent hit-testing.
         /// </summary>
         private void AddHotspot(Point dotLocation, NozzleReferenceType nozzleReferenceType)
         {
@@ -512,13 +608,16 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                 rectangle.Left, 
                 rectangle.Right, 
                 rectangle.Bottom + CompartmentLengthLineOffset,
-                true, true);
+                rectangle.Bottom + CompartmentLengthLineOffset + 10,
+                - CompartmentLengthLineOffset - 10);
 
             AddCompartmentLengthLabel(rectangle);
         }
 
         /// <summary>
         /// Creates the compartment length label once and repositions it on each paint.
+        /// The label is added as a child of the PictureBox and sent to the back so it
+        /// doesn't interfere with drawn elements.
         /// </summary>
         private void AddCompartmentLengthLabel(Rectangle rectangle)
         {
@@ -529,7 +628,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             {
                 _compartmentLengthLabel = new Label
                 {
-                    Text = $"{_compartmentConfig.Length.ToString()} mm",
+                    Text = _compartmentConfig.Length.ToString(),
                     TextAlign = ContentAlignment.TopCenter,
                     ForeColor = Color.ForestGreen,
                     Font = new Font("Microsoft Sans Serif", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0),
@@ -540,26 +639,33 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                 _positionPictureBox.Controls.Add(_compartmentLengthLabel);
             }
 
-            _compartmentLengthLabel.Location = new Point(rectangle.X + RectangleWidth / 2 - labelWidth / 2, rectangle.Bottom + 2);
+            // Center the label below the compartment rectangle
+            _compartmentLengthLabel.Location = new Point(rectangle.X + CompartmentRectangleWidth / 2 - labelWidth / 2, rectangle.Bottom + 2);
         }
 
         /// <summary>
-        /// Draws a horizontal line with optional arrowheads at either end.
-        /// When only one arrowhead is drawn, adds a perpendicular end cap on the opposite side.
+        /// Draws a horizontal line with arrowheads at both ends, plus vertical dashed leader lines
+        /// extending from each endpoint to connect with the compartment rectangle edges.
         /// </summary>
+        /// <param name="startX">Left endpoint X coordinate.</param>
+        /// <param name="endX">Right endpoint X coordinate.</param>
+        /// <param name="lineLocationY">Y coordinate of the horizontal line.</param>
+        /// <param name="dashedLineY">Y coordinate where dashed leader lines originate.</param>
+        /// <param name="dashedLineDistanceToObject">Length of dashed leader lines (positive = downward, negative = upward).</param>
         private void PaintLineWithArrowheads(
             Graphics graphics, 
             int startX, int endX, 
-            int lineLocationY, 
-            bool leftArrowHead, bool rightArrowHead)
+            int lineLocationY,
+            int dashedLineY,
+            int dashedLineDistanceToObject)
         {
+            // Draw the main horizontal line
             using (Pen linePen = new Pen(Color.ForestGreen, CompartmentLengthLineWidth))
             {
                 graphics.DrawLine(linePen, startX, lineLocationY, endX, lineLocationY);
             }
 
-            // Draw arrowheads
-            
+            // Compute arrowhead wing points
             PointF leftWing1 = new PointF(startX + LineArrowLength,
                                           lineLocationY - LineArrowWidth);
             PointF leftWing2 = new PointF(startX + LineArrowLength,
@@ -570,39 +676,53 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             PointF rightWing2 = new PointF(endX - LineArrowLength,
                                       lineLocationY + LineArrowWidth);
 
-            // Fill arrowhead triangles
+            // Fill arrowhead triangles at both ends
             using (Brush brush = new SolidBrush(Color.ForestGreen))
             {
-                if (leftArrowHead)
                     graphics.FillPolygon(brush, new PointF[] { new Point(startX, lineLocationY), leftWing1, leftWing2 });
-
-                if (rightArrowHead)
                     graphics.FillPolygon(brush, new PointF[] { new Point(endX, lineLocationY), rightWing1, rightWing2 });
             }
 
-            // When only one arrowhead is shown, draw a perpendicular end cap on the other side
-            if (!(leftArrowHead && rightArrowHead))
+            // Draw vertical dashed leader lines connecting arrowheads to the compartment edges
+            PaintDashedLines(graphics, startX, endX, dashedLineY, dashedLineDistanceToObject);
+        }
+
+        /// <summary>
+        /// Draws vertical dashed leader lines at both endpoints of a measurement line.
+        /// These connect the arrowhead line to the compartment rectangle edges.
+        /// </summary>
+        /// <param name="lineStartX">X coordinate of the left dashed line.</param>
+        /// <param name="lineEndX">X coordinate of the right dashed line.</param>
+        /// <param name="lineLocationY">Y coordinate where the dashed lines start.</param>
+        /// <param name="distanceToObject">Length of each dashed line (positive = downward).</param>
+        private void PaintDashedLines(Graphics graphics, int lineStartX, int lineEndX, int lineLocationY, int distanceToObject)
+        {
+            Point startPoint1 = new Point(lineStartX, lineLocationY);
+            Point endPoint1 = new Point(lineStartX, lineLocationY + distanceToObject);
+
+            Point startPoint2 = new Point(lineEndX, lineLocationY);
+            Point endPoint2 = new Point(lineEndX, lineLocationY + distanceToObject);
+
+            using (Pen dashedLinePen = new Pen(Color.ForestGreen, CompartmentLengthLineWidth))
             {
-                using (Pen lineEnding = new Pen(Color.ForestGreen, CompartmentLengthLineWidth))
-                {
-                    if (leftArrowHead)
-                        graphics.DrawLine(lineEnding, endX, lineLocationY - 5, endX, lineLocationY + 5);
-                    else
-                        graphics.DrawLine(lineEnding, startX, lineLocationY - 5, startX, lineLocationY + 5);
-                }
+                dashedLinePen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+
+                graphics.DrawLine(dashedLinePen, startPoint1, endPoint1);
+                graphics.DrawLine(dashedLinePen, startPoint2, endPoint2);
             }
         }
 
         /// <summary>
         /// Computes the centered compartment rectangle within the PictureBox.
+        /// The rectangle is offset slightly upward (by 1/3 of its height) to leave room
+        /// for the length visualization below.
         /// </summary>
         private Rectangle GetCompartmentRectangle()
         {
-            // Create rectangle
-            int rectangleCenterX = _positionPictureBox.Width / 2 - RectangleWidth / 2;
-            int rectangleCenterY = _positionPictureBox.Height / 2 - RectangleHeight / 3;
+            int rectangleCenterX = _positionPictureBox.Width / 2 - CompartmentRectangleWidth / 2;
+            int rectangleCenterY = _positionPictureBox.Height / 2 - CompartmentRectangleHeight / 3;
 
-            return new Rectangle(rectangleCenterX, rectangleCenterY, RectangleWidth, RectangleHeight);
+            return new Rectangle(rectangleCenterX, rectangleCenterY, CompartmentRectangleWidth, CompartmentRectangleHeight);
         }
 
         /// <summary>
@@ -619,22 +739,27 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                 DrawDishedEnd(graphics, dishedEndPen, rectangle.Left, rectangle.Top, circleDiameter, _compartmentConfig.LeftDishedEndAlignment);
                 DrawDishedEnd(graphics, dishedEndPen, rectangle.Right, rectangle.Top, circleDiameter, _rightDishedEndAlignment);
             }
-
         }
 
         /// <summary>
-        /// Draws a single dished end arc at the specified edge, oriented left or right.
+        /// Draws a single dished end arc at the specified edge.
+        /// Left-aligned arcs open to the left (convex outward); right-aligned arcs open to the right.
         /// </summary>
+        /// <param name="edgeX">X coordinate of the compartment edge where the arc is centered.</param>
+        /// <param name="topY">Top Y coordinate of the arc bounding rectangle.</param>
+        /// <param name="circleDiameter">Diameter of the arc (matches compartment height).</param>
+        /// <param name="dishedEndAlignment">Determines which direction the arc opens.</param>
         private void DrawDishedEnd(Graphics graphics, Pen dishedEndPen, int edgeX, int topY, int circleDiameter, DishedEndAlignment dishedEndAlignment)
         {
-            // Arc bounding rectangle centered on the edge
+            // Arc bounding rectangle centered horizontally on the edge
             Rectangle leftArcRect = new Rectangle(
                 edgeX - DishedEndHeight / 2,
                 topY,
                 DishedEndHeight,
                 circleDiameter);
 
-            // Left-aligned: arc opens to the left (90° sweep); right-aligned: opens to the right (270° sweep)
+            // Left-aligned: arc sweeps from 90° for 180° (opens left)
+            // Right-aligned: arc sweeps from 270° for 180° (opens right)
             if (dishedEndAlignment == DishedEndAlignment.Left)
                 graphics.DrawArc(dishedEndPen, leftArcRect, 90, 180);
             else
@@ -642,11 +767,11 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         }
 
         /// <summary>
-        /// Draws a black-outlined rectangle.
+        /// Draws a black-outlined rectangle with the specified line width.
         /// </summary>
-        private void PaintRectangle(Graphics graphics, Rectangle rectangle)
+        private void PaintRectangle(Graphics graphics, Rectangle rectangle, float lineWidth)
         {
-            using (Pen rectanglePen = new Pen(Color.Black, 2f))
+            using (Pen rectanglePen = new Pen(Color.Black, lineWidth))
             {
                 graphics.DrawRectangle(rectanglePen, rectangle);
             }
@@ -670,7 +795,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
         }
 
         /// <summary>
-        /// Rebuilds the reference nozzle ComboBox data source from the current compartment's nozzle list,
+        /// Rebuilds the reference nozzle context menu from the current compartment's nozzle list,
         /// excluding the current nozzle. Restores the previous selection if ReferenceNozzleId is set.
         /// Called when the nozzle panel is expanded to pick up newly added nozzles.
         /// </summary>
@@ -681,30 +806,35 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                 .Where(n => n.Id != _currentNozzleConfiguration.Id)
                 .ToList();
 
-            // Insert placeholder so "Select" appears at index 0
-            var placeholder = new NozzleConfiguration { Designation = "Select" };
-            nozzleConfigurations.Insert(0, placeholder);
-
-            // Replace the data source to pick up any newly added nozzles
-            _referenceNozzleComboBox.DataSource = nozzleConfigurations;
-            _referenceNozzleComboBox.DisplayMember = "Designation";
-            _referenceNozzleComboBox.ValueMember = "Id";
+            // Rebuild context menu items
+            _referenceNozzleMenu.Items.Clear();
+            foreach (var nozzle in nozzleConfigurations)
+            {
+                var item = _referenceNozzleMenu.Items.Add(nozzle.Designation);
+                item.Tag = nozzle.Id;
+                item.Click += (s, ev) =>
+                {
+                    var menuItem = s as ToolStripItem;
+                    _referenceNozzleLabel.Text = menuItem.Text;
+                    _currentNozzleConfiguration.ReferenceNozzleId = (Guid)menuItem.Tag;
+                };
+            }
 
             // Restore the previous selection if the referenced nozzle still exists
             if (_currentNozzleConfiguration.ReferenceNozzleId.HasValue)
             {
-                for (int i = 0; i < nozzleConfigurations.Count; i++)
+                var match = nozzleConfigurations.FirstOrDefault(
+                    n => n.Id == _currentNozzleConfiguration.ReferenceNozzleId.Value);
+                if (match != null)
                 {
-                    if (nozzleConfigurations[i].Id == _currentNozzleConfiguration.ReferenceNozzleId.Value)
-                    {
-                        _referenceNozzleComboBox.SelectedIndex = i;
-                        return;
-                    }
+                    _referenceNozzleLabel.Text = match.Designation;
+                    return;
                 }
             }
 
-            // No saved selection or referenced nozzle was deleted — show placeholder
-            _referenceNozzleComboBox.SelectedIndex = 0;
+            // No saved selection or referenced nozzle was deleted — show first available
+            if (nozzleConfigurations.Count > 0)
+                _referenceNozzleLabel.Text = nozzleConfigurations[0].Designation;
         }
     }
 }

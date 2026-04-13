@@ -128,6 +128,7 @@
     <Compile Include="MVP\Enums\Class.cs" />
     <Compile Include="MVP\Enums\ConstructionStandard.cs" />
     <Compile Include="MVP\Enums\EnumManager.cs" />
+    <Compile Include="MVP\Enums\FlipDot.cs" />
     <Compile Include="MVP\Enums\LeftEndConnection.cs" />
     <Compile Include="MVP\Enums\NozzleBottomReferencePoint.cs" />
     <Compile Include="MVP\Enums\NozzlePropertiesType.cs" />

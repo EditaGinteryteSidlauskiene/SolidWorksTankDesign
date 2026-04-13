@@ -37,6 +37,8 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
         private double _distanceFromTopReferenceMeters = 0.1;
         [JsonIgnore]
         private double _distanceFromBottomReferenceMeters = 0.1;
+        [JsonIgnore]
+        private double _nozzleLength = 0.01;
 
         // Offset and rotation
         [JsonIgnore]
@@ -147,6 +149,16 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
             {
                 _distanceFromBottomReferenceMeters = value;
                 OnPropertyChanged(nameof(DistanceFromBottomReferenceMeters));
+            }
+        }
+
+        public double NozzleLength
+        {
+            get { return _nozzleLength; }
+            set
+            {
+                _nozzleLength = value;
+                OnPropertyChanged(nameof(NozzleLength));
             }
         }
 
