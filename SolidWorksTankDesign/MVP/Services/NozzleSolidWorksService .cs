@@ -171,7 +171,8 @@ namespace SolidWorksTankDesign.MVP.Services
 
                         if (existingNozzle != null)
                         {
-                            ApplyExistingNozzlePositionChanges(compartment, existingNozzle, nozzleConfig);
+                            if (HasNozzlePositionChanged(existingNozzle, nozzleConfig))
+                                ApplyExistingNozzlePositionChanges(compartment, existingNozzle, nozzleConfig);
                         }
                         else
                         {
@@ -222,12 +223,60 @@ namespace SolidWorksTankDesign.MVP.Services
             return false;
         }
 
+        /// <summary>
+        /// Resolves the reference plane for the given nozzle configuration.
+        /// Compartment document must be active before calling this.
+        /// </summary>
+        private Feature ResolveReferencePlane(Compartment compartment, NozzleConfiguration nozzleConfig)
+        {
+            switch (nozzleConfig.ReferenceType)
+            {
+                case NozzleReferenceType.LeftDishedEnd:
+                    return compartment.GetLeftEndPlane();
+
+                case NozzleReferenceType.RightDishedEnd:
+                    return compartment.GetRightEndPlane();
+
+                case NozzleReferenceType.OtherNozzle:
+                    if (nozzleConfig.ReferenceNozzleId.HasValue)
+                    {
+                        var refNozzle = compartment.Nozzles?.FirstOrDefault(n =>
+                            n._nozzleSettings != null && n._nozzleSettings.ID == nozzleConfig.ReferenceNozzleId.Value);
+                        if (refNozzle != null)
+                            return refNozzle.GetPositionPlane();
+                    }
+                    return compartment.Nozzles?.LastOrDefault()?.GetPositionPlane();
+
+                default:
+                    return null;
+            }
+        }
+
         private bool HasNozzlePositionChanged(Nozzle nozzle, NozzleConfiguration nozzleConfig)
         {
-            if (Math.Abs(nozzleConfig.RotationAngleDegrees) > 0.1)
+            NozzleSettings s = nozzle._nozzleSettings;
+
+            if (nozzleConfig.ReferenceType != s.ReferenceType
+                || Math.Abs(nozzleConfig.DistanceFromReference - s.DistanceFromReference) > 0.0001)
                 return true;
 
-            if (Math.Abs(nozzleConfig.OffsetMeters) > 0.001)
+            if (nozzleConfig.OffsetPosition != FlipDot.Central && nozzleConfig.OffsetMeters != 0
+                && (nozzleConfig.OffsetPosition != s.OffsetPosition
+                    || Math.Abs(nozzleConfig.OffsetMeters - s.OffsetMeters) > 0.0001))
+                return true;
+
+            if (Math.Abs(nozzleConfig.RotationAngleDegrees - s.RotationAngleDegrees) > 0.01)
+                return true;
+
+            if (nozzleConfig.DistanceFromTopReferenceMeters > 0
+                && (nozzleConfig.TopReferenceType != s.TopReferenceType
+                    || Math.Abs(nozzleConfig.DistanceFromTopReferenceMeters - s.DistanceFromTopReferenceMeters) > 0.0001))
+                return true;
+
+            if (nozzleConfig.DistanceFromBottomReferenceMeters > 0
+                && (nozzleConfig.BottomReferencePoint != s.BottomReferencePoint
+                    || Math.Abs(nozzleConfig.DistanceFromBottomReferenceMeters - s.DistanceFromBottomReferenceMeters) > 0.0001
+                    || nozzleConfig.IsLongNozzle != s.IsLongNozzle))
                 return true;
 
             return false;
@@ -323,6 +372,23 @@ namespace SolidWorksTankDesign.MVP.Services
         {
             NozzleSettings s = nozzle._nozzleSettings;
 
+            if (nozzleConfig.ReferenceType != s.ReferenceType
+                || Math.Abs(nozzleConfig.DistanceFromReference - s.DistanceFromReference) > 0.0001)
+            {
+                compartment.ActivateDocument();
+
+                Feature newReferencePlane = ResolveReferencePlane(compartment, nozzleConfig);
+                if (newReferencePlane != null)
+                {
+                    if (nozzleConfig.ReferenceType != s.ReferenceType)
+                        SWFeatureManager.ChangeReferenceOfReferencePlane(newReferencePlane, nozzle.GetPositionPlane());
+
+                    nozzle.ChangeDistance(nozzleConfig.DistanceFromReference);
+                    s.ReferenceType         = nozzleConfig.ReferenceType;
+                    s.DistanceFromReference = nozzleConfig.DistanceFromReference;
+                }
+            }
+
             if (nozzleConfig.OffsetPosition != FlipDot.Central && nozzleConfig.OffsetMeters != 0
                 && (nozzleConfig.OffsetPosition != s.OffsetPosition
                     || Math.Abs(nozzleConfig.OffsetMeters - s.OffsetMeters) > 0.0001))
@@ -352,8 +418,8 @@ namespace SolidWorksTankDesign.MVP.Services
                 nozzle.ActivateDocument();
                 nozzle.SetTopReferenceDistance(nozzleConfig.TopReferenceType, nozzleConfig.DistanceFromTopReferenceMeters);
                 nozzle.CloseDocument();
-                s.TopReferenceType                  = nozzleConfig.TopReferenceType;
-                s.DistanceFromTopReferenceMeters    = nozzleConfig.DistanceFromTopReferenceMeters;
+                s.TopReferenceType               = nozzleConfig.TopReferenceType;
+                s.DistanceFromTopReferenceMeters = nozzleConfig.DistanceFromTopReferenceMeters;
             }
 
             if (nozzleConfig.DistanceFromBottomReferenceMeters > 0

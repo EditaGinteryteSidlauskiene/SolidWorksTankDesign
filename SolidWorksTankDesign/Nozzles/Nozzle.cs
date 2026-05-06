@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Security.Cryptography;
 using System.Windows.Forms;
 using System.Xml.Linq;
 using static System.Net.WebRequestMethods;
@@ -571,14 +572,65 @@ namespace SolidWorksTankDesign
 
             cutExtrude.ModifyDefinition(cutExtrudeFeatData, shellDoc, null);
 
-
             cutExtrude.Name = sketchName.Substring(0, sketchName.LastIndexOf(' ')) + " extrude";
 
             // Store a reference to the newly created cut-extrude feature in the manhole settings for later use.
             nozzle._nozzleSettings.PIDCutExtrude = shellDoc.Extension.GetPersistReference3(cutExtrude);
 
+            
             // Update the SolidWorks documents to reflect the changes and save them.
             DocumentManager.UpdateAndSaveDocuments();
+
+            // Replicate the macro sequence that makes the cut visible in the UI after the first nozzle.
+            RefreshCutDisplay(cutExtrude);
+
+        }
+
+        /// <summary>
+        /// Replicates the VBA macro sequence needed to make a newly created cut-extrude visible
+        /// in the SolidWorks UI for every nozzle after the first.
+        ///
+        /// The macro runs with the TANK SITE ASSEMBLY as the active document. Every API call
+        /// (ShowConfiguration2, ClearSelection2, EditRebuild3, AssemblyPartToggle, EditAssembly)
+        /// must therefore be made on that top-level document.
+        /// </summary>
+        private void RefreshCutDisplay(Feature cutExtrude)
+        {
+            ModelDoc2 tankSiteDoc = SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc;
+
+            // Step 1: select the cut extrude body feature.
+            bool isSelected = cutExtrude.Select2(false, 0);
+
+            // Step 2: switch Tank Site Assembly to its "_flexible" derived configuration.
+            string[] configNames = (string[])tankSiteDoc.GetConfigurationNames();
+            string flexibleConfig = configNames?.FirstOrDefault(
+                c => c.IndexOf("_flexible", StringComparison.OrdinalIgnoreCase) >= 0);
+
+            if (flexibleConfig == null)
+            {
+                tankSiteDoc.EditRebuild3();
+                ((AssemblyDoc)tankSiteDoc).EditAssembly();
+                return;
+            }
+
+            tankSiteDoc.ShowConfiguration2(flexibleConfig);
+
+            // Step 3: clear selection, disable contour selection.
+            tankSiteDoc.ClearSelection2(true);
+            ((SelectionMgr)tankSiteDoc.SelectionManager).EnableContourSelection = false;
+
+            // Step 4: rebuild.
+            tankSiteDoc.EditRebuild3();
+
+            // Step 5: clear selection.
+            tankSiteDoc.ClearSelection2(true);
+
+            // Step 6 & 7: exit component-editing context, return to assembly editing.
+            ((AssemblyDoc)tankSiteDoc).AssemblyPartToggle();
+            ((AssemblyDoc)tankSiteDoc).EditAssembly();
+
+            // Step 8: switch back to default configuration.
+            tankSiteDoc.ShowConfiguration2("Default");
         }
 
         /// <summary>
@@ -1499,6 +1551,7 @@ namespace SolidWorksTankDesign
                 return 0;
             }
         }
+
 
         public NozzleAssemblyComponent FindShellIntersectingComponent()
         {

@@ -93,6 +93,12 @@ namespace SolidWorksTankDesign
         [JsonProperty("DistanceFromTopReferenceMeters")]
         public double DistanceFromTopReferenceMeters { get; set; }
 
+        [JsonProperty("DistanceFromReference")]
+        public double DistanceFromReference { get; set; }
+
+        [JsonProperty("ReferenceType")]
+        public NozzleReferenceType ReferenceType { get; set; }
+
         public NozzleSettings() { }
 
         public NozzleSettings DeepClone()
@@ -126,7 +132,9 @@ namespace SolidWorksTankDesign
                 DistanceFromBottomReferenceMeters = this.DistanceFromBottomReferenceMeters,
                 IsLongNozzle = this.IsLongNozzle,
                 TopReferenceType = this.TopReferenceType,
-                DistanceFromTopReferenceMeters = this.DistanceFromTopReferenceMeters
+                DistanceFromTopReferenceMeters = this.DistanceFromTopReferenceMeters,
+                DistanceFromReference = this.DistanceFromReference,
+                ReferenceType = this.ReferenceType
             };
         }
     }
