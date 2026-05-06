@@ -1,4 +1,6 @@
-﻿using SolidWorksTankDesign.MVP.Enums;
+﻿using SolidWorksTankDesign;
+using SolidWorksTankDesign.Helpers;
+using SolidWorksTankDesign.MVP.Enums;
 using SolidWorksTankDesign.MVP.Models;
 using SolidWorksTankDesign.MVP.Views;
 using SolidWorksTankDesign.MVP.Views.Controls;
@@ -22,6 +24,25 @@ namespace SolidWorksTankDesign.MVP.Presenters
             _compartmentConfigurationModel = compartmentConfigurationModel;
 
             _nozzleWindowView.NewNozzleButtonClicked += OnNewNozzleButtonClicked;
+            _nozzleWindowView.ForwardButtonPressed += OnForwardButtonPressed;
+            _nozzleWindowView.BackButtonPressed += OnBackButtonPressed;
+        }
+
+        private void OnBackButtonPressed(object sender, EventArgs e)
+        {
+            // Navigate back to compartment window
+            // This will be implemented based on your navigation pattern
+        }
+
+        private void OnForwardButtonPressed(object sender, EventArgs e)
+        {
+            // Update tank properties with all configuration changes (including nozzles)
+            TankSiteDataManager.UpdateTankProperties();
+
+            // Apply nozzle changes to the actual Nozzle objects in SolidWorks
+            _nozzleModel.ApplyNozzleChanges();
+
+            // TODO: Navigate to next window or complete the configuration
         }
 
         /// <summary>

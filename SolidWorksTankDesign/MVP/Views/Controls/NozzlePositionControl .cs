@@ -97,7 +97,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             _positionPictureBox.MouseClick += _positionPictureBox_MouseClick;
             _positionPictureBox.MouseMove += _positionPictureBox_MouseMove;
 
-            // ===== Distance input TextBox — hidden until a reference hotspot is clicked =====
+             // ===== Distance input TextBox — hidden until a reference hotspot is clicked =====
             _distanceTextBox = new TextBox
             {
                 Name = "DistanceTextBox",
@@ -106,7 +106,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                 Height = 15,
                 BorderStyle = BorderStyle.None,
                 TextAlign = HorizontalAlignment.Center,
-                BackColor = BackColor,
+                BackColor = this.BackColor,
                 Cursor = Cursors.Hand,
                 Visible = false
             };
@@ -163,7 +163,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                     }
 
                     // Valid input — clear any error highlight and convert mm → meters
-                    _distanceTextBox.BackColor = Color.White;
+                    _distanceTextBox.BackColor = this.BackColor;
                     ev.Value = mm / 1000.0;
                 }
                 else
@@ -245,12 +245,12 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             // Immediately show error highlight
             tb.BackColor = Color.MistyRose;
 
-            // After 800ms, reset to white only if the user has corrected the input
+            // After 800ms, reset to parent's background color only if the user has corrected the input
             _flashTimer = new Timer { Interval = 800 };
             _flashTimer.Tick += (s, ev) =>
             {
                 if (IsDistanceValid(tb.Text))
-                    tb.BackColor = Color.White;
+                    tb.BackColor = this.BackColor;
 
                 _flashTimer.Stop();
                 _flashTimer.Dispose();

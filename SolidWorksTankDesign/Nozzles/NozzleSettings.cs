@@ -1,10 +1,16 @@
 ﻿using Newtonsoft.Json;
+using SolidWorksTankDesign.MVP.Enums;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SolidWorksTankDesign
 {
     public class NozzleSettings
     {
+        [JsonProperty("ID")]
+        public Guid ID { get; set; }
+
         [JsonProperty("PIDCenterAxis")]
         public byte[] PIDCenterAxis { get; set; }
 
@@ -25,6 +31,9 @@ namespace SolidWorksTankDesign
 
         [JsonProperty("PIDMidPoint")]
         public byte[] PIDMidPoint { get; set; }
+
+        [JsonProperty("PIDTopPoint")]
+        public byte[] PIDTopPoint { get; set; }
 
         [JsonProperty("PIDNozzleRightRefPlane")]
         public byte[] PIDNozzleRightRefPlane { get; set; }
@@ -57,12 +66,40 @@ namespace SolidWorksTankDesign
         [JsonProperty("PIDCenterlineWallIntersection")]
         public byte[] PIDCenterlineWallIntersection { get; set; }
 
+        [JsonProperty("NozzleAssemblyComponents")]
+        public List<NozzleAssemblyComponent> NozzleAssemblyComponents { get; set; } = new List<NozzleAssemblyComponent>();
+
+        [JsonProperty("RotationAngleDegrees")]
+        public double RotationAngleDegrees { get; set; }
+
+        [JsonProperty("OffsetMeters")]
+        public double OffsetMeters { get; set; }
+
+        [JsonProperty("OffsetPosition")]
+        public FlipDot OffsetPosition { get; set; } = FlipDot.Central;
+
+        [JsonProperty("BottomReferencePoint")]
+        public NozzleBottomReferencePoint BottomReferencePoint { get; set; }
+
+        [JsonProperty("DistanceFromBottomReferenceMeters")]
+        public double DistanceFromBottomReferenceMeters { get; set; }
+
+        [JsonProperty("IsLongNozzle")]
+        public bool IsLongNozzle { get; set; }
+
+        [JsonProperty("TopReferenceType")]
+        public NozzleTopReferenceType TopReferenceType { get; set; }
+
+        [JsonProperty("DistanceFromTopReferenceMeters")]
+        public double DistanceFromTopReferenceMeters { get; set; }
+
         public NozzleSettings() { }
 
         public NozzleSettings DeepClone()
         {
             return new NozzleSettings
             {
+                ID = this.ID,
                 PIDCenterAxis = this.PIDCenterAxis?.ToArray(),
                 PIDNozzleAxis = this.PIDNozzleAxis?.ToArray(),
                 PIDPositionPlane = this.PIDPositionPlane?.ToArray(),
@@ -70,6 +107,7 @@ namespace SolidWorksTankDesign
                 PIDInternalPoint = this.PIDInternalPoint?.ToArray(),
                 PIDInsidePoint = this.PIDInsidePoint?.ToArray(),
                 PIDMidPoint = this.PIDMidPoint?.ToArray(),
+                PIDTopPoint = this.PIDTopPoint?.ToArray(),
                 PIDNozzleRightRefPlane = this.PIDNozzleRightRefPlane?.ToArray(),
                 PIDCutPlane = this.PIDCutPlane?.ToArray(),
                 PIDSketch = this.PIDSketch?.ToArray(),
@@ -79,7 +117,16 @@ namespace SolidWorksTankDesign
                 PIDNozzleAssemblyComp = this.PIDNozzleAssemblyComp?.ToArray(),
                 PIDCutOutPlane = this.PIDCutOutPlane?.ToArray(),
                 PIDCutExtrude = this.PIDCutExtrude?.ToArray(),
-                PIDCenterlineWallIntersection = this.PIDCenterlineWallIntersection?.ToArray()
+                PIDCenterlineWallIntersection = this.PIDCenterlineWallIntersection?.ToArray(),
+                NozzleAssemblyComponents = this.NozzleAssemblyComponents,
+                RotationAngleDegrees = this.RotationAngleDegrees,
+                OffsetMeters = this.OffsetMeters,
+                OffsetPosition = this.OffsetPosition,
+                BottomReferencePoint = this.BottomReferencePoint,
+                DistanceFromBottomReferenceMeters = this.DistanceFromBottomReferenceMeters,
+                IsLongNozzle = this.IsLongNozzle,
+                TopReferenceType = this.TopReferenceType,
+                DistanceFromTopReferenceMeters = this.DistanceFromTopReferenceMeters
             };
         }
     }

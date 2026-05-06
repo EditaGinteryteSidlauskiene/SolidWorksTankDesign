@@ -39,16 +39,16 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
         private double _distanceFromBottomReferenceMeters = 0.1;
         [JsonIgnore]
         private double _nozzleLength = 0.01;
+        [JsonIgnore]
+        private bool _isLongNozzle;
 
         // Offset and rotation
         [JsonIgnore]
         private double _offsetMeters = 0.1; // default 0.1 m -> 100 mm UI default
         [JsonIgnore]
-        private bool _isOffsetPositive;
+        private FlipDot _offsetPosition = FlipDot.Central;
         [JsonIgnore]
         private double _rotationAngleDegrees = 0.0;
-        [JsonIgnore]
-        private bool _isRotationDirectionPositive;
 
         // Orientation / flip
         [JsonIgnore]
@@ -162,6 +162,16 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
             }
         }
 
+        public bool IsLongNozzle
+        {
+            get { return _isLongNozzle; }
+            set
+            {
+                _isLongNozzle = value;
+                OnPropertyChanged(nameof(IsLongNozzle));
+            }
+        }
+
         public double OffsetMeters
         {
             get { return _offsetMeters; }
@@ -172,13 +182,13 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
             }
         }
 
-        public bool IsOffsetPositive
+        public FlipDot OffsetPosition
         {
-            get { return _isOffsetPositive; }
+            get { return _offsetPosition; }
             set
             {
-                _isOffsetPositive = value;
-                OnPropertyChanged(nameof(IsOffsetPositive));
+                _offsetPosition = value;
+                OnPropertyChanged(nameof(OffsetPosition));
             }
         }
 
@@ -189,16 +199,6 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
             {
                 _rotationAngleDegrees = value;
                 OnPropertyChanged(nameof(RotationAngleDegrees));
-            }
-        }
-
-        public bool IsRotationDirectionPositive
-        {
-            get { return _isRotationDirectionPositive; }
-            set
-            {
-                _isRotationDirectionPositive = value;
-                OnPropertyChanged(nameof(IsRotationDirectionPositive));
             }
         }
 
@@ -293,10 +293,10 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
                 BottomReferencePoint = this.BottomReferencePoint,
                 DistanceFromTopReferenceMeters = this.DistanceFromTopReferenceMeters,
                 DistanceFromBottomReferenceMeters = this.DistanceFromBottomReferenceMeters,
+                IsLongNozzle = this.IsLongNozzle,
                 OffsetMeters = this.OffsetMeters,
-                IsOffsetPositive = this.IsOffsetPositive,
+                OffsetPosition = this.OffsetPosition,
                 RotationAngleDegrees = this.RotationAngleDegrees,
-                IsRotationDirectionPositive = this.IsRotationDirectionPositive,
                 Flipped = this.Flipped,
                 NeckSize = this.NeckSize,
                 NeckThicknessMeters = this.NeckThicknessMeters,

@@ -1,10 +1,8 @@
-using AddinWithTaskpane;
+﻿using AddinWithTaskpane;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorksTankDesign.Helpers;
-using SolidWorksTankDesign.MVP.Enums;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -29,7 +27,6 @@ namespace SolidWorksTankDesign
         private const string CENTER_AXIS_ROTATION_ANGLE = "CenterAxisRotationAngle";
         private const string OFFSET = "Offset";
         private const double cylinderWallThickness = 50;
-        private const double CUT_CLEARANCE_MM = 2.0;
 
         public NozzleSettings _nozzleSettings;
 
@@ -56,8 +53,7 @@ namespace SolidWorksTankDesign
             // Set new values
             externalDiameterDimension.SetValue3(externalDiameter, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
             internalDiameterDimension.SetValue3(externalDiameter - cylinderWallThickness, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
-            // Neutral offset = externalRadius, matching the startingPoint reference in SetOffset (user offset 0 → externalRadius).
-            nozzleOffset.SetValue3(externalDiameter / 2, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
+            nozzleOffset.SetValue3((externalDiameter - cylinderWallThickness) /2, (int)swSetValueInConfiguration_e.swSetValue_InAllConfigurations, "");
         }
 
         /// <summary>
@@ -220,14 +216,6 @@ namespace SolidWorksTankDesign
                         Feature midPoint = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
 
                         nozzleModelDoc.Extension.SelectByID2(
-                            "Top point",
-                            "DATUMPOINT",
-                            0, 0, 0,
-                            false,
-                            0, null, 0);
-                        Feature topPoint = selectionMgrAtNozzle.GetSelectedObject6(1, -1);
-
-                        nozzleModelDoc.Extension.SelectByID2(
                             "Nozzle Right Reference Plane",
                             "PLANE",
                             0, 0, 0,
@@ -269,7 +257,6 @@ namespace SolidWorksTankDesign
                             _nozzleSettings.PIDInternalPoint = nozzleModelDoc.Extension.GetPersistReference3(internalPoint);
                             _nozzleSettings.PIDInsidePoint = nozzleModelDoc.Extension.GetPersistReference3(insidePoint);
                             _nozzleSettings.PIDMidPoint = nozzleModelDoc.Extension.GetPersistReference3(midPoint);
-                            _nozzleSettings.PIDTopPoint = nozzleModelDoc.Extension.GetPersistReference3(topPoint);
                             _nozzleSettings.PIDNozzleRightRefPlane = nozzleModelDoc.Extension.GetPersistReference3(nozzleRightRefPlane);
                             _nozzleSettings.PIDCutPlane = nozzleModelDoc.Extension.GetPersistReference3(plane1);
                             _nozzleSettings.PIDSketch = nozzleModelDoc.Extension.GetPersistReference3(sketch);
@@ -334,7 +321,8 @@ namespace SolidWorksTankDesign
             nozzle.ActivateDocument();
 
             // Retrieve the axis and midpoint features of the manhole.
-            Feature nozzleCutoutPlane = SWFeatureManager.GetFeatureByName(nozzleComp, "Nozzle Cutout Plane");
+            Feature nozzleAxis = nozzle.GetNozzleAxis();
+            Feature midPoint = nozzle.GetMidPoint();
 
             // Close the manhole and compartment documents as we've extracted the needed information.
             nozzle.CloseDocument();
@@ -351,27 +339,28 @@ namespace SolidWorksTankDesign
 
             // Select the manhole axis and midpoint in the context of the main shell document.
             // This includes references to the compartment and manhole assembly names for accurate selection.
-            string cutoutPlaneFullPath = $"{nozzleCutoutPlane.Name}@" +
-                $"{ compartmentComp.Name2}@" +
-                $"{ shellDoc.GetTitle()}/" +
-                $"{ nozzleComp.Name2}@" +
-                $"{ compartmentComp.Name2.Split('-')[0]}";
+            shellDoc.Extension.SelectByID2(
+                            $"{nozzleAxis.Name}@{compartmentComp.Name2}@{shellDoc.GetTitle()}/{nozzleComp.Name2}@{compartmentComp.Name2.Split('-')[0]}",
+                            "AXIS",
+                            0, 0, 0,
+                            false,
+                            0, null, 0);
 
-            bool planeSelected = shellDoc.Extension.SelectByID2(
-                cutoutPlaneFullPath,
-                "PLANE",
-                0, 0, 0,
-                false,
-                0, null, 0);
+            shellDoc.Extension.SelectByID2(
+                            $"{midPoint.Name}@{compartmentComp.Name2}@{shellDoc.GetTitle()}/{nozzleComp.Name2}@{compartmentComp.Name2.Split('-')[0]}",
+                            "DATUMPOINT",
+                            0, 0, 0,
+                            true,
+                            1, null, 0);
 
             // Get access to the feature manager of the shell document.
             FeatureManager featureManager = shellDoc.FeatureManager;
 
-            // Create a new reference plane coincident with the nozzle cutout plane and perpendicular to the nozzle axis.
+            // Create a new reference plane that is perpendicular to the manhole axis and passes through the midpoint.
             Feature cutOutPlane = (Feature)featureManager.InsertRefPlane(
+                (int)swRefPlaneReferenceConstraints_e.swRefPlaneReferenceConstraint_Perpendicular,
+                0,
                 (int)swRefPlaneReferenceConstraints_e.swRefPlaneReferenceConstraint_Coincident,
-                0,
-                0,
                 0, 0, 0);
 
             // Set a descriptive name for the reference plane.
@@ -408,12 +397,21 @@ namespace SolidWorksTankDesign
             // Get the manhole axis
             Feature nozzleAxis = GetNozzleAxis();
 
-            // 3. Extract Cutout Radius:
-            // Diameter was already saved and flagged in AddNozzleAssembly — read it directly from settings.
-            NozzleAssemblyComponent shellIntersectingComponent = nozzle._nozzleSettings.NozzleAssemblyComponents
-                .FirstOrDefault(c => c.Settings.IsShellIntersecting);
+            // Get the manhole assembly component, containing all parts of the manhole assembly.
+            Component2 nozzleAssemblyComp = nozzle.GetNozzleAssemblyComp();
 
-            double radius = (shellIntersectingComponent.Settings.Diameter + CUT_CLEARANCE_MM) / 2.0 / 1000.0;
+            // 3. Extract Cutout Radius:
+
+            // Get the "Cutout sketch" feature within the manhole assembly component.
+            Feature cutOutScketch = SWFeatureManager.GetFeatureByName(nozzleAssemblyComp, "Cut out sketch");
+
+            // Get the "D1" externalDiameterDimension from the cutout sketch, which is assumed to represent the diameter.
+            Dimension dimension = cutOutScketch.Parameter("D1");
+
+            // Extract the externalDiameterDimension value as a double and convert it to a radius.
+            double radius = dimension.GetValue3(
+                (int)swInConfigurationOpts_e.swAllConfiguration,
+                null)[0];
 
             // 4. Create Cutout Sketch on Shell:
             // Close the manhole and compartment documents, as they are no longer needed.
@@ -430,73 +428,46 @@ namespace SolidWorksTankDesign
             SketchManager sketchManager = shellDoc.SketchManager;
 
             // Select the previously created cutout plane to create the sketch on.
-            Feature cutOutPlane = GetCutOutPlane();
-            bool cutPlaneSelected = shellDoc.Extension.SelectByID2(
-                          cutOutPlane.Name,
-                          "PLANE",
-                          0, 0, 0,
-                          false,
-                          0, null, 0);
+            GetCutOutPlane().Select2(false, 1);
 
-            // Start a new sketch on the selected cutout plane.
-            sketchManager.InsertSketch(true);
+            //// Start a new sketch on the selected cutout plane.
+            //sketchManager.InsertSketch(true);
 
             // Enter sketch editing mode.
             shellDoc.EditSketch();
 
             // Create a circle on the sketch with the extracted radius, centered at a default position (0, 0, 0).
-            SketchSegment circleSeg =  sketchManager.CreateCircleByRadius(0.1, 0, 0, radius);
+            sketchManager.CreateCircleByRadius(0, 0, 0, radius/2000);
 
-            //Select the manhole axis and the center point of the circle for constraint application.
-            // Get the center point of the circle and select it (append to keep axis selected)
-            bool pointSelected = shellDoc.Extension.SelectByID2(
-                           "Point2",
-                           "SKETCHPOINT",
-                           0, 0, 0,
-                           false,
-                           0, null, 0);
-
-            bool axisSelected = shellDoc.Extension.SelectByID2(
+            // Select the manhole axis and the center point of the circle for constraint application.
+            shellDoc.Extension.SelectByID2(
                             $"{nozzleAxis.Name}@{compartmentComp.Name2}@{shellDoc.GetTitle()}/{nozzleComp.Name2}@{compartmentComp.Name2.Split('-')[0]}",
                             "AXIS",
                             0, 0, 0,
-                            true,
+                            false,
                             0, null, 0);
 
+            shellDoc.Extension.SelectByID2(
+                           "Point2",
+                           "SKETCHPOINT",
+                           0, 0, 0,
+                           true,
+                           0, null, 0);
 
             // Add a coincident constraint to align the circle's center with the manhole axis.
             shellDoc.SketchAddConstraints("sgCOINCIDENT");
 
-
-            // Select the circle and add a driving diameter dimension (D1), then set it to the required value
-            bool circleSelected = circleSeg.Select4(false, null);
-            SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
-            solidWorksApp.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swInputDimValOnCreate, false);
-            DisplayDimension displayDim = (DisplayDimension)shellDoc.AddDimension2(0.1, 0.1, 0);
-            solidWorksApp.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swInputDimValOnCreate, true);
-            if (displayDim != null)
-            {
-                Dimension dim = displayDim.GetDimension2(0);
-                dim.SetSystemValue3(
-                    radius * 2,
-                    (int)swSetValueInConfiguration_e.swSetValue_InThisConfiguration,
-                    null);
-            }
-
             // Get active sketch
             Sketch sketch = sketchManager.ActiveSketch;
-            Feature sketchFeature = (Feature)sketch;
-            sketchFeature.Name = $"{compartmentComp.Name2.Split('-')[0]} {nozzleComp.Name2.Split('-')[0]} Cut out sketch";
-            string sketchName = sketchFeature.Name;
+            string sketchName = ((Feature)sketch).Name;
 
-            //Start a new sketch on the selected cutout plane.
-           sketchManager.InsertSketch(true);
+            // Start a new sketch on the selected cutout plane.
+            sketchManager.InsertSketch(true);
 
-            SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
+            //SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.ActivateDocument();
 
             return sketchName;
         }
-
 
         /// <summary>
         /// Creates a cut-out in the cylindrical shells of a tank assembly in SolidWorks. 
@@ -570,9 +541,6 @@ namespace SolidWorksTankDesign
             shellDoc.ClearSelection2(true);
 
             cutExtrude.ModifyDefinition(cutExtrudeFeatData, shellDoc, null);
-
-
-            cutExtrude.Name = sketchName.Substring(0, sketchName.LastIndexOf(' ')) + " extrude";
 
             // Store a reference to the newly created cut-extrude feature in the manhole settings for later use.
             nozzle._nozzleSettings.PIDCutExtrude = shellDoc.Extension.GetPersistReference3(cutExtrude);
@@ -946,73 +914,6 @@ namespace SolidWorksTankDesign
             // Add the packed manhole assembly to the currently active manhole document as a component
             Component2 nozzleAssembly = ComponentManager.AddComponentAssembly(_currentlyActiveNozzleDoc, path);
 
-            // Build _nozzleSettings.NozzleAssemblyComponents list from the sub-components of the nozzle assembly
-            _nozzleSettings.NozzleAssemblyComponents.Clear();
-            object[] subComponents = (object[])((AssemblyDoc)nozzleAssembly.GetModelDoc2()).GetComponents(true);
-            if (subComponents != null)
-            {
-                SelectionMgr selMgr           = (SelectionMgr)_currentlyActiveNozzleDoc.SelectionManager;
-                string nozzleDocTitle         = _currentlyActiveNozzleDoc.GetTitle();
-                string nozzleAssemblyDocTitle = System.IO.Path.GetFileNameWithoutExtension(path);
-
-                foreach (object obj in subComponents)
-                {
-                    Component2 subComp = (Component2)obj;
-                    NozzleAssemblyComponent assemblyComponent = new NozzleAssemblyComponent();
-
-                    // Read ComponentType and HasAdjustableLength from SolidWorks custom properties
-                    string componentTypeStr = SWFeatureManager.GetCustomPropertyFromComponent(subComp, "ComponentType");
-                    if (Enum.TryParse(componentTypeStr, out NozzleComponentType componentType))
-                        assemblyComponent.Settings.ComponentType = componentType;
-
-                    string hasAdjustableLengthStr = SWFeatureManager.GetCustomPropertyFromComponent(subComp, "HasAdjustableLength");
-                    if (bool.TryParse(hasAdjustableLengthStr, out bool hasAdjustableLength))
-                        assemblyComponent.Settings.HasAdjustableLength = hasAdjustableLength;
-
-                    // Store component PID by selecting it in _currentlyActiveNozzleDoc context
-                    // Path format: "SubAssemblyInstance@NozzleDocTitle/SubCompInstance@SubAssemblyDocTitle"
-                    string componentSelPath = $"{nozzleAssembly.Name2}@{nozzleDocTitle}/{subComp.Name2}@{nozzleAssemblyDocTitle}";
-                    bool componentSelected = _currentlyActiveNozzleDoc.Extension.SelectByID2(componentSelPath, "COMPONENT", 0, 0, 0, false, 0, null, 0);
-                    if (componentSelected)
-                    {
-                        Component2 selectedComp = (Component2)selMgr.GetSelectedObject6(1, -1);
-                        if (selectedComp != null)
-                            assemblyComponent.Settings.PIDComponent = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(selectedComp);
-                    }
-
-                    // For Flange: Plane1 = mating, Plane2 = free
-                    // For all other types: Plane2 = mating, Plane1 = free
-                    string matingPlaneName = assemblyComponent.Settings.ComponentType == NozzleComponentType.Flange ? "Plane1" : "Plane2";
-                    string freePlaneName   = assemblyComponent.Settings.ComponentType == NozzleComponentType.Flange ? "Plane2" : "Plane1";
-
-                    // Store mating plane PID by selecting it in _currentlyActiveNozzleDoc context
-                    // Path format: "PlaneName@SubAssemblyInstance@NozzleDocTitle/SubCompInstance@SubAssemblyDocTitle"
-                    string matingPlanePath = $"{matingPlaneName}@{nozzleAssembly.Name2}@{nozzleDocTitle}/{subComp.Name2}@{nozzleAssemblyDocTitle}";
-                    bool matingSelected = _currentlyActiveNozzleDoc.Extension.SelectByID2(matingPlanePath, "PLANE", 0, 0, 0, false, 0, null, 0);
-                    if (matingSelected)
-                    {
-                        Feature matingPlane = (Feature)selMgr.GetSelectedObject6(1, -1);
-                        if (matingPlane != null)
-                            assemblyComponent.Settings.PIDMatingPlane = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(matingPlane);
-                    }
-
-                    // Store free plane PID by selecting it in _currentlyActiveNozzleDoc context
-                    string freePlanePath = $"{freePlaneName}@{nozzleAssembly.Name2}@{nozzleDocTitle}/{subComp.Name2}@{nozzleAssemblyDocTitle}";
-                    bool freeSelected = _currentlyActiveNozzleDoc.Extension.SelectByID2(freePlanePath, "PLANE", 0, 0, 0, false, 0, null, 0);
-                    if (freeSelected)
-                    {
-                        Feature freePlane = (Feature)selMgr.GetSelectedObject6(1, -1);
-                        if (freePlane != null)
-                            assemblyComponent.Settings.PIDFreePlane = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(freePlane);
-                    }
-
-                    _nozzleSettings.NozzleAssemblyComponents.Add(assemblyComponent);
-                }
-
-                // Sort components top to bottom by distance from Inside point
-                _nozzleSettings.NozzleAssemblyComponents = GetComponentsSortedTopToBottom();
-            }
-
             // Get a reference to the "Center axis" feature of the added manhole assembly, which will be used for mating
             Feature nozzleAssemblyCenterAxis = SWFeatureManager.GetFeatureByName(nozzleAssembly, "Center axis");
 
@@ -1020,7 +921,7 @@ namespace SolidWorksTankDesign
             {
                 // Create mates to position and align the manhole assembly within the active document
                 // 1. Align the "Nozzle axis" of the active document with the "Center axis" of the manhole assembly
-                Feature axisMate = MateManager.CreateMate(
+                MateManager.CreateMate(
                     componentFeature1: SWFeatureManager.GetFeatureByName(_currentlyActiveNozzleDoc, "Nozzle axis"),
                     componentFeature2: nozzleAssemblyCenterAxis,
                     alignmentType: MateAlignment.Aligned,
@@ -1029,14 +930,14 @@ namespace SolidWorksTankDesign
                 // 2. Align the right plane of the active manhole with the right plane of the manhole assembly
                 MateManager.CreateMate(
                     componentFeature1: GetNozzleRightRefPlane(),
-                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Top),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right),
                     alignmentType: MateAlignment.Aligned,
                     name: $"{nozzleAssembly.Name2} - {RIGHT_PLANE_NAME}");
 
                 // 3. Anti-align the top plane of the manhole assembly with a "Cut plane" in the active document
                 Feature topPlaneMate = MateManager.CreateMate(
-                    componentFeature1: GetTopPoint(),
-                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right),
+                    componentFeature1: GetCutPlane(),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Top),
                     alignmentType: MateAlignment.Anti_Aligned,
                     distance: 0,
                     name: $"{nozzleAssembly.Name2} - {TOP_PLANE_NAME}");
@@ -1044,39 +945,14 @@ namespace SolidWorksTankDesign
                 // Store persistent references (PIDs) to the manhole assembly component and the top plane mate for future use
                 _nozzleSettings.PIDNozzleAssemblyComp = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(nozzleAssembly);
                 _nozzleSettings.PIDTopPlaneMate = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(topPlaneMate);
-
-                // After mates are created, check if the Right plane is pointing downward and flip the axis mate if needed
-                Feature nozzleAssemblyRightPlane = SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right);
-                bool isPlanePointingUp = SWFeatureManager.IsPlaneNormalPointingUp(nozzleAssemblyRightPlane);
-
-                // If the plane is pointing down (not up), flip the axis mate
-                if (!isPlanePointingUp && axisMate != null)
-                {
-                    MateManager.FlipMate(axisMate);
-                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "At least one of manhole assembly mates could not be created.");
             }
 
-            NozzleAssemblyComponent shellIntersectingComponent = FindShellIntersectingComponent();
-
-            if (shellIntersectingComponent != null)
-            {
-                shellIntersectingComponent.Settings.IsShellIntersecting = true;
-
-                Feature profileSketch = SWFeatureManager.GetFeatureByName(
-                    shellIntersectingComponent.GetComponent(), "Profile Sketch");
-
-                if (profileSketch != null)
-                {
-                    double diameter = profileSketch.Parameter("Diameter").GetValue3(
-                        (int)swInConfigurationOpts_e.swAllConfiguration, null)[0];
-
-                    shellIntersectingComponent.Settings.Diameter = diameter; // GetValue3 returns mm for this document
-                }
-            }
+            // Update and save the active document and any associated attribute documents
+            DocumentManager.UpdateAndSaveDocuments();
 
             // Add a cutout extrude feature (presumably to create space for the manhole assembly)
             AddCutOutExtrude(compartment, nozzle);
@@ -1183,10 +1059,6 @@ namespace SolidWorksTankDesign
                      _nozzleSettings.PIDMidPoint,
                      out int error);
 
-        public Feature GetTopPoint() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
-                     _nozzleSettings.PIDTopPoint,
-                     out int error);
-
         public Feature GetNozzleRightRefPlane() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                      _nozzleSettings.PIDNozzleRightRefPlane,
                      out int error);
@@ -1223,307 +1095,5 @@ namespace SolidWorksTankDesign
         public Feature GetCenterlineWallIntersection() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                      _nozzleSettings.PIDCenterlineWallIntersection,
                      out int error);
-
-        /// <summary>
-        /// Finds the nozzle assembly component that intersects the shell by checking which component's
-        /// mating and free planes straddle the external point (the point where the nozzle meets the outer
-        /// shell wall). Works regardless of how the planes are oriented per component type.
-        /// Nozzle document must be active before calling this method.
-        /// </summary>
-        /// <returns>The component that intersects the shell, or null if none found</returns>
-        /// <summary>
-        /// Positions the nozzle assembly along the nozzle axis so that the distance from the
-        /// chosen top reference point to the first (topmost) component's outermost plane equals
-        /// <paramref name="targetDistanceMeters"/>.
-        ///
-        /// Strategy – delta-based (no layout assumptions):
-        ///
-        ///   1. Measure the CURRENT distance from refPoint to the outermost plane of the first
-        ///      component: currentDist.
-        ///
-        ///   2. The required shift equals (targetDistance - currentDist).
-        ///      Apply that shift by adjusting the topPlaneMate distance by the same delta:
-        ///
-        ///          newMateDistance = currentMateDistance + (targetDistance - currentDist)
-        ///
-        /// This avoids any assumption about:
-        ///   • which plane (mating or free) of the first component is mated with the Right Plane, and
-        ///   • whether that mated plane is the outermost one.
-        ///
-        /// "Outermost" plane = whichever of matingPlane / freePlane has the GREATER signed
-        /// distance from InsidePoint (always at the deepest inner end, so neither plane of the
-        /// first component can fall on the wrong side of it — unlike refPoint, which can lie
-        /// between the two planes when the free plane extends below refPoint).
-        ///
-        /// Nozzle document must be active before calling this method.
-        /// </summary>
-        public void SetTopReferenceDistance(NozzleTopReferenceType refType, double targetDistanceMeters)
-        {
-            if (_nozzleSettings.NozzleAssemblyComponents == null || _nozzleSettings.NozzleAssemblyComponents.Count == 0)
-            {
-                MessageBox.Show("No nozzle assembly components found.", "SetTopReferenceDistance");
-                return;
-            }
-
-            // ── Step 1: resolve the reference point feature ──────────────────────────────────
-            // TankCenterline → TopPoint;  NozzleCenterline → ExternalPoint
-            Feature refPoint = refType == NozzleTopReferenceType.TankCenterline
-                ? GetTopPoint()
-                : GetExternalPoint();
-
-            if (refPoint == null)
-            {
-                MessageBox.Show(
-                    $"Could not retrieve reference point for {refType}.", "SetTopReferenceDistance");
-                return;
-            }
-
-            // ── Step 2: outermost plane of the first (topmost) component ─────────────────────
-            // Components are sorted top → bottom, so index 0 is the topmost.
-            // "Outermost" = the plane closest to the reference point, regardless of whether it is
-            // the mating plane or the free plane, and regardless of which one is mated with the
-            // Right Plane.
-            NozzleAssemblyComponent firstComponent = _nozzleSettings.NozzleAssemblyComponents[0];
-
-            Feature matingPlane = firstComponent.GetMatingPlane();
-            Feature freePlane   = firstComponent.GetFreePlane();
-            Feature insidePoint = GetInsidePoint();
-
-            if (matingPlane == null || freePlane == null || insidePoint == null)
-            {
-                MessageBox.Show("Could not retrieve mating/free plane or inside point.", "SetTopReferenceDistance");
-                return;
-            }
-
-            // Use InsidePoint (deepest inner end) as reference to determine which plane is outermost.
-            // InsidePoint is always on the opposite end from both planes of the first component,
-            // so neither plane can be on the wrong side of it — unlike refPoint, which can lie
-            // between the two planes (Case 2: free plane below refPoint).
-            // The plane with the GREATER signed distance from InsidePoint is the outermost.
-            double distMating = GetSignedDistanceAlongAxis(matingPlane, insidePoint, firstComponent);
-            double distFree   = GetSignedDistanceAlongAxis(freePlane,   insidePoint, firstComponent);
-
-            Feature outermostPlane = distMating >= distFree ? matingPlane : freePlane;
-            double  currentDist    = _currentlyActiveNozzleDoc.ClosestDistance(refPoint, outermostPlane, out _, out _);
-
-            // ── Step 3: current topPlaneMate distance ────────────────────────────────────────
-            Feature topPlaneMate = GetTopPlaneMate();
-            if (topPlaneMate == null)
-            {
-                MessageBox.Show("Top plane mate not found.", "SetTopReferenceDistance");
-                return;
-            }
-
-            DistanceMateFeatureData mateData = topPlaneMate.GetDefinition() as DistanceMateFeatureData;
-            if (mateData == null)
-            {
-                MessageBox.Show("Top plane mate is not a distance mate.", "SetTopReferenceDistance");
-                return;
-            }
-
-            double currentMateDistance = mateData.Distance;
-
-            // ── Step 4: delta and new mate distance ───────────────────────────────────────────
-            //
-            //   newMateDistance = currentMateDistance + (targetDistance - currentDist)
-            //
-            // Reasoning: shifting the assembly inward by Δ increases both currentDist and the
-            // mate distance by exactly Δ.  So to make currentDist reach targetDistance we need
-            // to increase the mate distance by (targetDistance - currentDist).
-            double delta          = targetDistanceMeters - currentDist;
-            double newMateDistance = currentMateDistance + delta;
-
-            if (newMateDistance < 0)
-            {
-                MessageBox.Show(
-                    $"Computed mate distance ({newMateDistance * 1000:F2} mm) is negative. " +
-                    "The target distance is too small for the current nozzle geometry.",
-                    "SetTopReferenceDistance");
-                return;
-            }
-
-            // ── Step 5: apply ─────────────────────────────────────────────────────────────────
-            MateManager.ChangeDistance(topPlaneMate, newMateDistance);
-
-            // Keep the stored PID up to date
-            _nozzleSettings.PIDTopPlaneMate =
-                _currentlyActiveNozzleDoc.Extension.GetPersistReference3(topPlaneMate);
-        }
-
-        /// <summary>
-        /// Adjusts the length of the last (bottommost) adjustable component so that the distance
-        /// from its free plane to the selected reference point equals targetDistanceMeters.
-        /// Nozzle document must be active before calling this method.
-        /// </summary>
-        public void SetAdjustableComponentLength(NozzleBottomReferencePoint refPoint, double targetDistanceMeters, bool isLongNozzle)
-        {
-            NozzleAssemblyComponent adjustableComponent = _nozzleSettings.NozzleAssemblyComponents
-                .LastOrDefault(c => c.Settings.HasAdjustableLength);
-
-            if (adjustableComponent == null)
-            {
-                string componentInfo = string.Join(", ", _nozzleSettings.NozzleAssemblyComponents
-                    .Select(c => $"{c.Settings.ComponentType}(HasAdjustableLength={c.Settings.HasAdjustableLength})"));
-                MessageBox.Show($"No adjustable component found.\nComponents: {componentInfo}", "SetAdjustableComponentLength");
-                return;
-            }
-
-            Feature matingPlane = adjustableComponent.GetMatingPlane();
-            if (matingPlane == null)
-            {
-                MessageBox.Show("Mating plane is null for adjustable component.", "SetAdjustableComponentLength");
-                return;
-            }
-
-            Feature refFeature;
-            switch (refPoint)
-            {
-                case NozzleBottomReferencePoint.Top:    refFeature = GetInternalPoint(); break;
-                case NozzleBottomReferencePoint.Middle: refFeature = GetMidPoint();      break;
-                case NozzleBottomReferencePoint.Bottom: refFeature = GetInsidePoint();   break;
-                default: return;
-            }
-
-            if (refFeature == null)
-            {
-                MessageBox.Show($"Reference point feature is null for {refPoint}.", "SetAdjustableComponentLength");
-                return;
-            }
-
-            double signedDist = GetSignedDistanceAlongAxis(matingPlane, refFeature, adjustableComponent);
-
-            // +1: free plane must be further outward than ref → D1 = signedDist + target
-            // -1: free plane must be closer (shallower) than ref → D1 = signedDist - target
-            bool freeIsDeeper = refPoint == NozzleBottomReferencePoint.Top
-                             || (refPoint == NozzleBottomReferencePoint.Middle && isLongNozzle);
-
-            double newD1 = freeIsDeeper
-                ? signedDist + targetDistanceMeters
-                : signedDist - targetDistanceMeters;
-
-            if (newD1 <= 0)
-            {
-                MessageBox.Show($"newD1={newD1:F4} is <= 0, skipping ChangeLength.", "SetAdjustableComponentLength");
-                return;
-            }
-
-            adjustableComponent.ChangeLength(newD1);
-        }
-
-        /// <summary>
-        /// Returns the signed distance from the reference point to the mating plane,
-        /// measured along the plane's normal (which is the nozzle axis direction).
-        /// Positive = mating plane is on the outward side of the reference point.
-        /// </summary>
-        private double GetSignedDistanceAlongAxis(Feature matingPlaneFeature, Feature refPointFeature, NozzleAssemblyComponent component)
-        {
-            SolidWorks.Interop.sldworks.MathUtility mathUtil =
-                (SolidWorks.Interop.sldworks.MathUtility)SolidWorksDocumentProvider._solidWorksApplication.GetMathUtility();
-
-            Component2 comp = component.GetComponent();
-            if (comp == null) return 0;
-
-            RefPlane matingRefPlane = (RefPlane)matingPlaneFeature.GetSpecificFeature2();
-            if (matingRefPlane == null) return 0;
-
-            MathTransform compTransform = comp.Transform2;
-
-            // Plane normal (0,0,1) in component model space → nozzle assembly space
-            SolidWorks.Interop.sldworks.MathVector normal =
-                (SolidWorks.Interop.sldworks.MathVector)mathUtil.CreateVector(new double[] { 0, 0, 1 });
-            normal = (SolidWorks.Interop.sldworks.MathVector)normal.MultiplyTransform(matingRefPlane.Transform);
-            normal = (SolidWorks.Interop.sldworks.MathVector)normal.MultiplyTransform(compTransform);
-            double[] n = (double[])normal.ArrayData;
-
-            // Plane origin (0,0,0) in component model space → nozzle assembly space
-            SolidWorks.Interop.sldworks.MathPoint planeOrigin =
-                (SolidWorks.Interop.sldworks.MathPoint)mathUtil.CreatePoint(new double[] { 0, 0, 0 });
-            planeOrigin = (SolidWorks.Interop.sldworks.MathPoint)planeOrigin.MultiplyTransform(matingRefPlane.Transform);
-            planeOrigin = (SolidWorks.Interop.sldworks.MathPoint)planeOrigin.MultiplyTransform(compTransform);
-            double[] o = (double[])planeOrigin.ArrayData;
-
-            // Reference point position in nozzle assembly space
-            RefPoint refPt = (RefPoint)refPointFeature.GetSpecificFeature2();
-            if (refPt == null) return 0;
-            double[] r = (double[])refPt.GetRefPoint().ArrayData;
-
-            // dot(matingPlaneOrigin - refPos, planeNormal)
-            // Positive when the mating plane is further outward than the reference point
-            return (o[0] - r[0]) * n[0]
-                 + (o[1] - r[1]) * n[1]
-                 + (o[2] - r[2]) * n[2];
-        }
-
-        /// <summary>
-        /// Returns the nozzle assembly components sorted from top to bottom
-        /// distance from the "Inside point". The component whose planes are furthest from the
-        /// Inside point is considered the topmost component.
-        /// Nozzle document must be active before calling this method.
-        /// </summary>
-        public List<NozzleAssemblyComponent> GetComponentsSortedTopToBottom()
-        {
-            if (_nozzleSettings.NozzleAssemblyComponents == null || _nozzleSettings.NozzleAssemblyComponents.Count == 0)
-                return new List<NozzleAssemblyComponent>();
-
-            Feature insidePointFeature = GetInsidePoint();
-            if (insidePointFeature == null)
-                return new List<NozzleAssemblyComponent>(_nozzleSettings.NozzleAssemblyComponents);
-
-            return _nozzleSettings.NozzleAssemblyComponents
-                .OrderByDescending(c => GetComponentAverageDistanceToInsidePoint(c, insidePointFeature))
-                .ToList();
-        }
-
-        /// <summary>
-        /// Returns the signed axial distance from the Inside point to the component's mating plane.
-        /// Uses the same transform-based approach as GetSignedDistanceAlongAxis for consistency.
-        /// </summary>
-        private double GetComponentAverageDistanceToInsidePoint(NozzleAssemblyComponent component, Feature insidePointFeature)
-        {
-            try
-            {
-                Feature matingPlaneFeature = component.GetMatingPlane();
-                if (matingPlaneFeature == null) return 0;
-
-                RefPoint insideRefPoint = (RefPoint)insidePointFeature.GetSpecificFeature2();
-                if (insideRefPoint == null) return 0;
-
-                double[] insidePos = (double[])insideRefPoint.GetRefPoint().ArrayData;
-
-                // Reuse the same signed distance logic: project (matingOrigin - insidePos) onto the plane normal
-                // in nozzle assembly space. This gives the axial distance, which is reliable for sorting.
-                return GetSignedDistanceAlongAxis(matingPlaneFeature, insidePointFeature, component);
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        public NozzleAssemblyComponent FindShellIntersectingComponent()
-        {
-            if (_nozzleSettings.NozzleAssemblyComponents == null || _nozzleSettings.NozzleAssemblyComponents.Count == 0)
-                return null;
-
-            // Get the external point feature and its XYZ coordinates
-            Feature externalPointFeature = GetExternalPoint();
-            if (externalPointFeature == null)
-                return null;
-
-            RefPoint externalRefPoint = (RefPoint)externalPointFeature.GetSpecificFeature2();
-            if (externalRefPoint == null)
-                return null;
-
-            double[] externalCoords = (double[])externalRefPoint.GetRefPoint().ArrayData;
-
-            // Check each component — return the first one whose mating and free planes straddle the external point
-            foreach (var component in _nozzleSettings.NozzleAssemblyComponents)
-            {
-                if (component.IsShellIntersecting(externalCoords))
-                    return component;
-            }
-
-            return null;
-        }
     }
 }

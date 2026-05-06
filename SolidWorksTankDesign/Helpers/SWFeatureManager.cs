@@ -378,6 +378,20 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
+        /// Reads a string custom property directly from an already-open component's model document.
+        /// </summary>
+        public static string GetCustomPropertyFromComponent(Component2 component, string propertyName)
+        {
+            ModelDoc2 compDoc = component.GetModelDoc2();
+            if (compDoc == null) return null;
+
+            CustomPropertyManager manager = compDoc.Extension.get_CustomPropertyManager("");
+            manager.Get6(propertyName, false, out string val, out _, out _, out _);
+
+            return val;
+        }
+
+        /// <summary>
         /// CURRENTLY ACTIVE SHELL DOC MUST BE ACTIVATED!!!
         /// </summary>
         /// <param name="dishedEnd"></param>
@@ -432,6 +446,45 @@ namespace SolidWorksTankDesign
         {
             Feature mate = MateManager.GetMateByName(document, mateName);
             compartment._compartmentSettings.PIDLeftEndMate = document.Extension.GetPersistReference3(mate);
+        }
+
+        /// <summary>
+        /// Checks if a plane's normal vector is pointing in the positive Z direction (upward).
+        /// Returns true if the plane normal points upward (positive Z), false if it points downward (negative Z).
+        /// </summary>
+        /// <param name="plane">The plane feature to check</param>
+        /// <returns>True if plane normal points upward, false if downward</returns>
+        public static bool IsPlaneNormalPointingUp(Feature plane)
+        {
+            try
+            {
+                if (plane == null) return true; // Default to true if plane is null
+
+                RefPlane refPlane = (RefPlane)plane.GetSpecificFeature2();
+                if (refPlane == null) return true;
+
+                MathTransform planeTransform = refPlane.Transform;
+                if (planeTransform == null) return true;
+
+                // Get the Z-axis (normal) of the plane's coordinate system
+                double[] zVector = new double[] { 0, 0, 1 };
+                SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
+                SolidWorks.Interop.sldworks.MathUtility mathUtil = (SolidWorks.Interop.sldworks.MathUtility)solidWorksApp.GetMathUtility();
+
+                SolidWorks.Interop.sldworks.MathVector normalVectorObj = (SolidWorks.Interop.sldworks.MathVector)mathUtil.CreateVector(zVector);
+                normalVectorObj = (SolidWorks.Interop.sldworks.MathVector)normalVectorObj.MultiplyTransform(planeTransform);
+
+                double[] planeNormal = (double[])normalVectorObj.ArrayData;
+
+                // Check if Z component is positive (pointing upward)
+                // If Z > 0, plane is pointing up. If Z < 0, plane is pointing down.
+                return planeNormal[2] > 0;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error checking plane normal direction: {ex.Message}");
+                return true; // Default to true on error
+            }
         }
     }
 }

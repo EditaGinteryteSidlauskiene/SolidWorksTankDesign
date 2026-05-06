@@ -404,5 +404,35 @@ namespace SolidWorksTankDesign.Helpers
 
             shelDocExtension.DeleteSelection2((int)swDeleteSelectionOptions_e.swDelete_Children);
         }
+
+        /// <summary>
+        /// Flips/reverses the alignment of a mate (converts Aligned to Anti_Aligned or vice versa).
+        /// </summary>
+        /// <param name="mate">The mate feature to flip</param>
+        public static void FlipMate(Feature mate)
+        {
+            try
+            {
+                if (mate == null) return;
+
+                // Get the mate's definition
+                object mateFeatureData = mate.GetDefinition();
+
+                if (mateFeatureData is CoincidentMateFeatureData coincidentMateData)
+                {
+                    // For coincident mates, toggle the MateAlignment
+                    int currentAlignment = coincidentMateData.MateAlignment;
+                    // If aligned (0), set to anti-aligned (1), and vice versa
+                    coincidentMateData.MateAlignment = (currentAlignment == (int)MateAlignment.Aligned) ? 
+                        (int)MateAlignment.Anti_Aligned : (int)MateAlignment.Aligned;
+
+                    mate.ModifyDefinition(coincidentMateData, SolidWorksDocumentProvider.GetActiveDoc(), null);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error flipping mate: {ex.Message}");
+            }
+        }
     }
 }

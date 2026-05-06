@@ -187,7 +187,7 @@
     <Compile Include="TankSiteConfigurations\TankProperties.cs" />
     <Compile Include="TaskpaneIntegration.cs" />
     <Compile Include="Treatments\CoatingLayer.cs" />
-    <Compile Include="Nozzles\Nozzle.cs" />
+    <Compile Include="Nozzles\Nozzle.cs" /><Compile Include="Nozzles\NozzleAssemblyComponent.cs" /><Compile Include="Nozzles\NozzleAssemblyComponentSettings.cs" /><Compile Include="Nozzles\NozzleComponentType.cs" />
     <Compile Include="Nozzles\NozzleSettings.cs" />
     <Compile Include="Treatments\Treatment.cs" />
     <Compile Include="Properties\Resources.Designer.cs">

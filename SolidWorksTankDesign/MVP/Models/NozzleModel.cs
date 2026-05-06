@@ -42,5 +42,12 @@ namespace SolidWorksTankDesign.MVP.Models
 
             _nozzleSWService.RepositionNozzle(isOffsetPositive, distance, isRotationDirectionPositive, angle);
         }
+
+        public void ApplyNozzleChanges()
+        {
+            if (_nozzleSWService == null) throw new InvalidOperationException("NozzleSolidWorksService not provided.");
+
+            _nozzleSWService.ApplyNozzleChanges();
+        }
     }
 }

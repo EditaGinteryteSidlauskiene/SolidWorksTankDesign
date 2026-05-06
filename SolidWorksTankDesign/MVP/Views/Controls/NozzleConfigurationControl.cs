@@ -384,6 +384,14 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                 return;
 
             _flipDot = flipDot;
+            _nozzleConfig.OffsetPosition = flipDot;
+
+            // Central means no offset — zero out distance
+            if (flipDot == FlipDot.Central)
+            {
+                _nozzleConfig.OffsetMeters = 0;
+            }
+
             _pictureBox.Invalidate();
             FlipStateChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -1657,7 +1665,10 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             {
                 _isNozzleMiddleRectangleLong = !_isNozzleMiddleRectangleLong;
             }
-            
+
+            if (_nozzleConfig != null)
+                _nozzleConfig.IsLongNozzle = _isNozzleMiddleRectangleLong;
+
             _lastActiveNozzleVisualization = VisualizationMiddle;
             _pictureBox.Invalidate();
 

@@ -374,7 +374,6 @@ namespace SolidWorksTankDesign.MVP.Views
             nozzleSketchPictureBox.FlipStateChanged += (s, e) =>
             {
                 nozzleConfiguration.Flipped = !nozzleConfiguration.Flipped;
-                nozzleConfiguration.IsOffsetPositive = nozzleConfiguration.Flipped;
             };
 
             nozzleSketchPictureBox.SetNozzleConfiguration(nozzleConfiguration);
@@ -1343,37 +1342,12 @@ namespace SolidWorksTankDesign.MVP.Views
 
         private void BackArrowButton_Click_1(object sender, EventArgs e)
         {
-            //    //BackButtonPressed?.Invoke(this, EventArgs.Empty);
+            BackButtonPressed?.Invoke(this, EventArgs.Empty);
         }
 
         private void ForwardArrowButton_Click(object sender, EventArgs e)
         {
-            var comp = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments;
-            var configs = SolidWorksDocumentProvider._tankProperties.CompartmentsConfigurations;
-
-
-            //SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0].ActivateDocument();
-            //Feature refPlane = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0].GetRightEndPlane();
-
-
-            //SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0].AddNozzle(
-            //    "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Nozzle position sketch.SLDASM",
-            //    "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Manhole DN600 Neck with flange.SLDASM",
-            //    0,
-            //    refPlane,
-            //    1,
-            //    true,
-            //    2500);
-
-
-
-
-            //    AddNozzle();
-
-            //    RepositionNozzle();
-            //    //ForwardButtonPressed?.Invoke(this, EventArgs.Empty);
-
-            //    //BackArrowButton.Enabled = true;
+            ForwardButtonPressed?.Invoke(this, EventArgs.Empty);
         }
 
         //private void NozzleNegativeDirectionButton_Click(object sender, EventArgs e)
