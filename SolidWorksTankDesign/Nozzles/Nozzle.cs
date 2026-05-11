@@ -81,25 +81,20 @@ namespace SolidWorksTankDesign
         {
             SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
 
-            // Create a path where the empty manhole doc will be saved
-            string ticks = DateTime.Now.Ticks.ToString();
-            string targetPath = Path.Combine(SolidWorksDocumentProvider.ProjectFolderPath, 
-                $"{MANHOLE_NAME}{SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[compartmentNumber].Nozzles.Count + 1}_{ticks}.SLDASM");
-
-            // Open empty manhole doc and save it to a new destination
+            // Open the template nozzle position sketch doc
             DocumentSpecification documentSpecification = solidWorksApp.GetOpenDocSpec(nozzlePositionSketchPath);
             documentSpecification.Silent = true;
             ModelDoc2 nozzlePositionSketchDoc = solidWorksApp.OpenDoc7(documentSpecification);
 
             if (nozzlePositionSketchDoc is null)
             {
-                string nozzleDocTitle = targetPath.Split('\\').Last().Split('.')[0];
+                string templateTitle = System.IO.Path.GetFileNameWithoutExtension(nozzlePositionSketchPath);
                 object[] activeDocs = solidWorksApp.GetDocuments();
 
                 foreach (object activeDoc in activeDocs)
                 {
                     string nameDoc = ((ModelDoc2)activeDoc).GetTitle();
-                    if (nameDoc == nozzleDocTitle)
+                    if (nameDoc == templateTitle)
                     {
                         nozzlePositionSketchDoc = (ModelDoc2)activeDoc;
                         break;
@@ -109,14 +104,19 @@ namespace SolidWorksTankDesign
 
             string name = nozzlePositionSketchDoc.GetTitle();
 
-            // Package the manhole assembly and its associated files using Pack and Go, and get the path to the packed assembly
-            string path = DocumentManager.PackAndGo(SolidWorksDocumentProvider.ProjectFolderPath, nozzlePositionSketchDoc, null, null);
+            int nozzleNumber = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager
+                .Compartments[compartmentNumber].Nozzles.Count + 1;
 
-            //nozzlePositionSketchDoc.SaveAs3(targetPath, 0, 0);
+            // Pack and Go — all files get a consistent ticks prefix, preserving all internal
+            // in-context references. The generated filename cannot be changed after packing
+            // without breaking the envelope part's in-context relations.
+            string path = DocumentManager.PackAndGo(
+                SolidWorksDocumentProvider.ProjectFolderPath,
+                nozzlePositionSketchDoc,
+                null, null);
 
-            // Close empty manhole and newly saved docs
+            // Close the template doc — the packed copy at 'path' is used from here on
             solidWorksApp.CloseDoc(nozzlePositionSketchDoc.GetTitle());
-            solidWorksApp.CloseDoc(targetPath);
 
             // Get active compartment's document
             ModelDoc2 compartmentDoc = SolidWorksDocumentProvider.GetActiveDoc();
@@ -129,8 +129,8 @@ namespace SolidWorksTankDesign
                 name: positionPlaneName,
                 flip: flip);
 
-            // Add a new manhole
-            Component2 nozzle = ComponentManager.AddComponentAssembly(compartmentDoc, targetPath);
+            // Add the nozzle using the Pack and Go output path
+            Component2 nozzle = ComponentManager.AddComponentAssembly(compartmentDoc, path);
 
             ModelDoc2 nozzleModelDoc = nozzle.GetModelDoc2();
 
@@ -1599,7 +1599,7 @@ namespace SolidWorksTankDesign
             ModelDoc2 manholeDoc = ActivateDocument();
 
             // The TankBody_Envelope feature only exists in the "WithEnvelope" configuration.
-            //manholeDoc.ShowConfiguration2("WithEnvelope");
+            manholeDoc.ShowConfiguration2("WithEnvelope");
 
             string envelopeName = $"TankBody_Envelope^{manholeDoc.GetTitle()}";
 
@@ -1619,14 +1619,14 @@ namespace SolidWorksTankDesign
 
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(envelopeDoc.GetTitle());
 
-            //manholeDoc.ShowConfiguration2("Default");
+            manholeDoc.ShowConfiguration2("Default");
 
             manholeDoc.Save3(
                 (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
                 (int)swFileSaveError_e.swGenericSaveError,
                 (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
 
-            //CloseDocument();
+            CloseDocument();
         }
 
         public void ChangeTankBodyEnvelopeDimensions(
@@ -1645,16 +1645,16 @@ namespace SolidWorksTankDesign
             int errors = 0;
             SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc2(envelopeName, false, ref errors);
             ModelDoc2 envelopeDoc = SolidWorksDocumentProvider.GetActiveDoc();
-            Feature tankBodySkect = SWFeatureManager.GetFeatureByName(envelopeDoc, "Tank body sketch");
+            Feature tankBodySketch = SWFeatureManager.GetFeatureByName(envelopeDoc, "Tank body sketch");
 
             if (leftSideLength != null && leftSideLength > 0)
             {
-                Dimension leftDimension = tankBodySkect.Parameter("LengthToLeft");
+                Dimension leftDimension = tankBodySketch.Parameter("LengthToLeft");
                 leftDimension.SetValue3(leftSideLength, (int)swSetValueInConfiguration_e.swSetValue_UseCurrentSetting, null);
             }
             if (rightSideLength != null && rightSideLength > 0)
             {
-                Dimension leftrightDimension = tankBodySkect.Parameter("LengthToRight");
+                Dimension leftrightDimension = tankBodySketch.Parameter("LengthToRight");
                 leftrightDimension.SetValue3(rightSideLength, (int)swSetValueInConfiguration_e.swSetValue_UseCurrentSetting, null);
             }
 

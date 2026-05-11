@@ -75,7 +75,7 @@ namespace SolidWorksTankDesign
             // Generate a unique folder name using the current timestamp (ticks)
             double ticks = DateTime.Now.Ticks;
             string timestampedPackAndGoFolder = $"{packAndGoFolderPath}\\{ticks}";
-            
+
             if (compartmentName != null && compartmentName != string.Empty)
             {
                 packAndGo.SetSaveToName(

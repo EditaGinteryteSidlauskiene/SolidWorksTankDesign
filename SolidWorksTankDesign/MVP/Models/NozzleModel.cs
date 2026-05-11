@@ -52,8 +52,9 @@ namespace SolidWorksTankDesign.MVP.Models
             Compartment compartment = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0];
             compartment.ActivateDocument();
             Nozzle nozzle = compartment.Nozzles[0];
-            nozzle.ChangeCutDiameterOfTankBodyEnvelope();
-            //DocumentManager.UpdateAndSaveDocuments();
+            //nozzle.ChangeCutDiameterOfTankBodyEnvelope();
+            nozzle.ChangeTankBodyEnvelopeDimensions(400, 400, 400, 400);
+            DocumentManager.UpdateAndSaveDocuments();
         }
     }
 }
