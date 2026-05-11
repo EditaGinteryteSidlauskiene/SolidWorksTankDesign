@@ -107,6 +107,48 @@ namespace SolidWorksTankDesign
             return $"{timestampedPackAndGoFolder}\\{ticks}_{assemblyModelDoc.GetTitle()}.SLDASM";
         }
 
+        public static string PackAndGoManhole(string projectFolder, ModelDoc2 assemblyModelDoc, int nozzleNumber)
+        {
+            // Get the Pack and Go interface for the assembly document
+            PackAndGo packAndGo = assemblyModelDoc.Extension.GetPackAndGo();
+
+            // Configure Pack and Go options
+            packAndGo.IncludeDrawings = true;           // Include associated drawings in the Pack and Go
+            packAndGo.FlattenToSingleFolder = true;     // SaveInitialConfiguration all files to a single folder (no subfolders)
+
+            // Define the base folder where Pack and Go files will be saved
+            string packAndGoFolderPath = projectFolder;
+
+            // Generate a unique folder name using the current timestamp (ticks)
+            double ticks = DateTime.Now.Ticks;
+            //string timestampedPackAndGoFolder = $"{packAndGoFolderPath}\\{ticks}";
+
+            //if (compartmentName != null && compartmentName != string.Empty)
+            //{
+            //    packAndGo.SetSaveToName(
+            //        true,
+            //        $"{packAndGoFolderPath}");
+
+            //    // Execute the Pack and Go operation
+            //    assemblyModelDoc.Extension.SavePackAndGo(packAndGo);
+
+            //    // Construct and return the full path to the packed assembly file
+            //    return $"{packAndGoFolderPath}\\{ticks.ToString()}_{compartmentName}\\{assemblyModelDoc.GetTitle()}_{ticks.ToString()}.SLDASM";
+            //}
+
+            // Add a prefix to all Pack and Go file names using the timestamp
+            packAndGo.AddSuffix = $"{nozzleNumber}_{ticks}";
+
+            // Set the save location for the Pack and Go files
+            packAndGo.SetSaveToName(true, packAndGoFolderPath);
+
+            // Execute the Pack and Go operation
+            assemblyModelDoc.Extension.SavePackAndGo(packAndGo);
+
+            // Construct and return the full path to the packed assembly file
+            return $"{packAndGoFolderPath}\\M{nozzleNumber}_{ticks}.SLDASM";
+        }
+
         /// <summary>
         /// Sets the folder where to store this project's folder.
         /// Default folder's path is stored in Settings.txt

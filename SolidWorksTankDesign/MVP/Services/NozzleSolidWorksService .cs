@@ -13,7 +13,7 @@ namespace SolidWorksTankDesign.MVP.Services
 {
     internal class NozzleSolidWorksService : INozzleSolidWorksService
     {
-        private string _nozzlePositionSketchPath = "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Nozzle position sketch.SLDASM";
+        private string _nozzlePositionSketchPath = "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\M.SLDASM";
         private string nozzleDocPath = "C:\\Users\\Edita\\TankDesignStudio\\TankSite\\Manholes\\Manhole DN600 Neck with flange.SLDASM";
 
         public void AddNozzle(Guid compartmentConfigId, NozzleReferenceType referenceType, double distance)

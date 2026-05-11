@@ -110,10 +110,10 @@ namespace SolidWorksTankDesign
             // Pack and Go — all files get a consistent ticks prefix, preserving all internal
             // in-context references. The generated filename cannot be changed after packing
             // without breaking the envelope part's in-context relations.
-            string path = DocumentManager.PackAndGo(
+            string path = DocumentManager.PackAndGoManhole(
                 SolidWorksDocumentProvider.ProjectFolderPath,
                 nozzlePositionSketchDoc,
-                null, null);
+                nozzleNumber);
 
             // Close the template doc — the packed copy at 'path' is used from here on
             solidWorksApp.CloseDoc(nozzlePositionSketchDoc.GetTitle());
