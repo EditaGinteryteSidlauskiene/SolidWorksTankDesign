@@ -265,6 +265,7 @@ namespace SolidWorksTankDesign
             //Modify changes
             bool success =  referencedPlane.ModifyDefinition(referencePlaneFeatureData, activeDoc, null);
 
+            SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.ActivateDocument();
             ComponentManager.RefreshDishedEnds();
 
             int errors = 0;

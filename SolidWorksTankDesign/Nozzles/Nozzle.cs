@@ -88,9 +88,31 @@ namespace SolidWorksTankDesign
 
             // Open empty manhole doc and save it to a new destination
             DocumentSpecification documentSpecification = solidWorksApp.GetOpenDocSpec(nozzlePositionSketchPath);
+            documentSpecification.Silent = true;
             ModelDoc2 nozzlePositionSketchDoc = solidWorksApp.OpenDoc7(documentSpecification);
 
-            nozzlePositionSketchDoc.SaveAs3(targetPath, 0, 0);
+            if (nozzlePositionSketchDoc is null)
+            {
+                string nozzleDocTitle = targetPath.Split('\\').Last().Split('.')[0];
+                object[] activeDocs = solidWorksApp.GetDocuments();
+
+                foreach (object activeDoc in activeDocs)
+                {
+                    string nameDoc = ((ModelDoc2)activeDoc).GetTitle();
+                    if (nameDoc == nozzleDocTitle)
+                    {
+                        nozzlePositionSketchDoc = (ModelDoc2)activeDoc;
+                        break;
+                    }
+                }
+            }
+
+            string name = nozzlePositionSketchDoc.GetTitle();
+
+            // Package the manhole assembly and its associated files using Pack and Go, and get the path to the packed assembly
+            string path = DocumentManager.PackAndGo(SolidWorksDocumentProvider.ProjectFolderPath, nozzlePositionSketchDoc, null, null);
+
+            //nozzlePositionSketchDoc.SaveAs3(targetPath, 0, 0);
 
             // Close empty manhole and newly saved docs
             solidWorksApp.CloseDoc(nozzlePositionSketchDoc.GetTitle());
@@ -289,6 +311,193 @@ namespace SolidWorksTankDesign
                     return;
                 }
             }
+        }
+
+        /// <summary>
+        /// Inserts a pre-designed manhole assembly into the currently active SolidWorks document. 
+        /// It first prepares the manhole assembly by packaging it using the PackAndGo functionality. 
+        /// Then, it adds the packaged assembly to the active document and precisely positions it using mates (geometric constraints)
+        /// that align key features of the assembly with corresponding features in the active document.
+        /// Finally, it creates a cutout to accommodate the newly added manhole assembly and saves the modified document.
+        /// </summary>
+        public void AddNozzleAssembly(string nozzleDocPath, Compartment compartment, Nozzle nozzle)
+        {
+            // Activate current manhole document
+            ActivateDocument();
+
+            int error = 0;
+            int warning = 0;
+
+            SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
+            DocumentSpecification documentSpecification = (DocumentSpecification)solidWorksApp.GetOpenDocSpec(nozzleDocPath);
+            documentSpecification.Silent = true;
+            ModelDoc2 nozzleAssemblyDoc = solidWorksApp.OpenDoc7(documentSpecification);
+
+            if (nozzleAssemblyDoc is null)
+            {
+                string nozzleDocTitle = nozzleDocPath.Split('\\').Last().Split('.')[0];
+                object[] activeDocs = solidWorksApp.GetDocuments();
+                foreach (object activeDoc in activeDocs)
+                {
+                    string nameDoc = ((ModelDoc2)activeDoc).GetTitle();
+                    if (nameDoc == nozzleDocTitle)
+                    {
+                        nozzleAssemblyDoc = (ModelDoc2)activeDoc;
+                        break;
+                    }
+                }
+            }
+
+            //string nameOfCurrentDoc = SolidWorksDocumentProvider.GetActiveDoc().GetTitle();
+            string name = nozzleAssemblyDoc.GetTitle();
+
+            // Package the manhole assembly and its associated files using Pack and Go, and get the path to the packed assembly
+            string path = DocumentManager.PackAndGo(SolidWorksDocumentProvider.ProjectFolderPath, nozzleAssemblyDoc, null, null);
+
+            // Close the manhole assembly document after it has been packed
+            solidWorksApp.CloseDoc(nozzleAssemblyDoc.GetTitle());
+            string docpath = _currentlyActiveNozzleDoc.GetPathName();
+
+            // Add the packed manhole assembly to the currently active manhole document as a component
+            Component2 nozzleAssembly = ComponentManager.AddComponentAssembly(_currentlyActiveNozzleDoc, path);
+
+            // Build _nozzleSettings.NozzleAssemblyComponents list from the sub-components of the nozzle assembly
+            _nozzleSettings.NozzleAssemblyComponents.Clear();
+            object[] subComponents = (object[])((AssemblyDoc)nozzleAssembly.GetModelDoc2()).GetComponents(true);
+            if (subComponents != null)
+            {
+                SelectionMgr selMgr = (SelectionMgr)_currentlyActiveNozzleDoc.SelectionManager;
+                string nozzleDocTitle = _currentlyActiveNozzleDoc.GetTitle();
+                string nozzleAssemblyDocTitle = System.IO.Path.GetFileNameWithoutExtension(path);
+
+                foreach (object obj in subComponents)
+                {
+                    Component2 subComp = (Component2)obj;
+                    NozzleAssemblyComponent assemblyComponent = new NozzleAssemblyComponent();
+
+                    // Read ComponentType and HasAdjustableLength from SolidWorks custom properties
+                    string componentTypeStr = SWFeatureManager.GetCustomPropertyFromComponent(subComp, "ComponentType");
+                    if (Enum.TryParse(componentTypeStr, out NozzleComponentType componentType))
+                        assemblyComponent.Settings.ComponentType = componentType;
+
+                    string hasAdjustableLengthStr = SWFeatureManager.GetCustomPropertyFromComponent(subComp, "HasAdjustableLength");
+                    if (bool.TryParse(hasAdjustableLengthStr, out bool hasAdjustableLength))
+                        assemblyComponent.Settings.HasAdjustableLength = hasAdjustableLength;
+
+                    // Store component PID by selecting it in _currentlyActiveNozzleDoc context
+                    // Path format: "SubAssemblyInstance@NozzleDocTitle/SubCompInstance@SubAssemblyDocTitle"
+                    string componentSelPath = $"{nozzleAssembly.Name2}@{nozzleDocTitle}/{subComp.Name2}@{nozzleAssemblyDocTitle}";
+                    bool componentSelected = _currentlyActiveNozzleDoc.Extension.SelectByID2(componentSelPath, "COMPONENT", 0, 0, 0, false, 0, null, 0);
+                    if (componentSelected)
+                    {
+                        Component2 selectedComp = (Component2)selMgr.GetSelectedObject6(1, -1);
+                        if (selectedComp != null)
+                            assemblyComponent.Settings.PIDComponent = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(selectedComp);
+                    }
+
+                    // For Flange: Plane1 = mating, Plane2 = free
+                    // For all other types: Plane2 = mating, Plane1 = free
+                    string matingPlaneName = assemblyComponent.Settings.ComponentType == NozzleComponentType.Flange ? "Plane1" : "Plane2";
+                    string freePlaneName = assemblyComponent.Settings.ComponentType == NozzleComponentType.Flange ? "Plane2" : "Plane1";
+
+                    // Store mating plane PID by selecting it in _currentlyActiveNozzleDoc context
+                    // Path format: "PlaneName@SubAssemblyInstance@NozzleDocTitle/SubCompInstance@SubAssemblyDocTitle"
+                    string matingPlanePath = $"{matingPlaneName}@{nozzleAssembly.Name2}@{nozzleDocTitle}/{subComp.Name2}@{nozzleAssemblyDocTitle}";
+                    bool matingSelected = _currentlyActiveNozzleDoc.Extension.SelectByID2(matingPlanePath, "PLANE", 0, 0, 0, false, 0, null, 0);
+                    if (matingSelected)
+                    {
+                        Feature matingPlane = (Feature)selMgr.GetSelectedObject6(1, -1);
+                        if (matingPlane != null)
+                            assemblyComponent.Settings.PIDMatingPlane = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(matingPlane);
+                    }
+
+                    // Store free plane PID by selecting it in _currentlyActiveNozzleDoc context
+                    string freePlanePath = $"{freePlaneName}@{nozzleAssembly.Name2}@{nozzleDocTitle}/{subComp.Name2}@{nozzleAssemblyDocTitle}";
+                    bool freeSelected = _currentlyActiveNozzleDoc.Extension.SelectByID2(freePlanePath, "PLANE", 0, 0, 0, false, 0, null, 0);
+                    if (freeSelected)
+                    {
+                        Feature freePlane = (Feature)selMgr.GetSelectedObject6(1, -1);
+                        if (freePlane != null)
+                            assemblyComponent.Settings.PIDFreePlane = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(freePlane);
+                    }
+
+                    _nozzleSettings.NozzleAssemblyComponents.Add(assemblyComponent);
+                }
+
+                // Sort components top to bottom by distance from Inside point
+                _nozzleSettings.NozzleAssemblyComponents = GetComponentsSortedTopToBottom();
+            }
+
+            // Get a reference to the "Center axis" feature of the added manhole assembly, which will be used for mating
+            Feature nozzleAssemblyCenterAxis = SWFeatureManager.GetFeatureByName(nozzleAssembly, "Center axis");
+
+            try
+            {
+                // Create mates to position and align the manhole assembly within the active document
+                // 1. Align the "Nozzle axis" of the active document with the "Center axis" of the manhole assembly
+                Feature axisMate = MateManager.CreateMate(
+                    componentFeature1: SWFeatureManager.GetFeatureByName(_currentlyActiveNozzleDoc, "Nozzle axis"),
+                    componentFeature2: nozzleAssemblyCenterAxis,
+                    alignmentType: MateAlignment.Aligned,
+                    name: $"{nozzleAssembly.Name2} - {CENTER_AXIS_NAME}");
+
+                // 2. Align the right plane of the active manhole with the right plane of the manhole assembly
+                MateManager.CreateMate(
+                    componentFeature1: GetNozzleRightRefPlane(),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Top),
+                    alignmentType: MateAlignment.Aligned,
+                    name: $"{nozzleAssembly.Name2} - {RIGHT_PLANE_NAME}");
+
+                // 3. Anti-align the top plane of the manhole assembly with a "Cut plane" in the active document
+                Feature topPlaneMate = MateManager.CreateMate(
+                    componentFeature1: GetTopPoint(),
+                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right),
+                    alignmentType: MateAlignment.Anti_Aligned,
+                    distance: 0,
+                    name: $"{nozzleAssembly.Name2} - {TOP_PLANE_NAME}");
+
+                // Store persistent references (PIDs) to the manhole assembly component and the top plane mate for future use
+                _nozzleSettings.PIDNozzleAssemblyComp = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(nozzleAssembly);
+                _nozzleSettings.PIDTopPlaneMate = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(topPlaneMate);
+
+                // After mates are created, check if the Right plane is pointing downward and flip the axis mate if needed
+                Feature nozzleAssemblyRightPlane = SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right);
+                bool isPlanePointingUp = SWFeatureManager.IsPlaneNormalPointingUp(nozzleAssemblyRightPlane);
+
+                // If the plane is pointing down (not up), flip the axis mate
+                if (!isPlanePointingUp && axisMate != null)
+                {
+                    MateManager.FlipMate(axisMate);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "At least one of manhole assembly mates could not be created.");
+            }
+
+            NozzleAssemblyComponent shellIntersectingComponent = FindShellIntersectingComponent();
+
+            if (shellIntersectingComponent != null)
+            {
+                shellIntersectingComponent.Settings.IsShellIntersecting = true;
+
+                Feature profileSketch = SWFeatureManager.GetFeatureByName(
+                    shellIntersectingComponent.GetComponent(), "Profile Sketch");
+
+                if (profileSketch != null)
+                {
+                    double diameter = profileSketch.Parameter("Diameter").GetValue3(
+                        (int)swInConfigurationOpts_e.swAllConfiguration, null)[0];
+
+                    shellIntersectingComponent.Settings.Diameter = diameter; // GetValue3 returns mm for this document
+                }
+            }
+
+            // Add a cutout extrude feature (presumably to create space for the manhole assembly)
+            AddCutOutExtrude(compartment, nozzle);
+
+            // Update and save the active document and any associated attribute documents
+            DocumentManager.UpdateAndSaveDocuments();
         }
 
         /// <summary>
@@ -587,50 +796,24 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
-        /// Replicates the VBA macro sequence needed to make a newly created cut-extrude visible
-        /// in the SolidWorks UI for every nozzle after the first.
-        ///
-        /// The macro runs with the TANK SITE ASSEMBLY as the active document. Every API call
-        /// (ShowConfiguration2, ClearSelection2, EditRebuild3, AssemblyPartToggle, EditAssembly)
-        /// must therefore be made on that top-level document.
+        /// Forces the Tank Site Assembly to rebuild and reset its editing context so that
+        /// geometry changes (new cut, moved cut after offset change, etc.) appear correctly in the UI.
         /// </summary>
-        private void RefreshCutDisplay(Feature cutExtrude)
+        public void RefreshCutDisplay(Feature cutExtrude)
+        {
+            cutExtrude.Select2(false, 0);
+            RefreshCutDisplay();
+        }
+
+        public void RefreshCutDisplay()
         {
             ModelDoc2 tankSiteDoc = SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc;
 
-            // Step 1: select the cut extrude body feature.
-            bool isSelected = cutExtrude.Select2(false, 0);
+            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
+                tankSiteDoc.GetTitle(), true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, 0);
 
-            // Step 2: switch Tank Site Assembly to its "_flexible" derived configuration.
-            string[] configNames = (string[])tankSiteDoc.GetConfigurationNames();
-            string flexibleConfig = configNames?.FirstOrDefault(
-                c => c.IndexOf("_flexible", StringComparison.OrdinalIgnoreCase) >= 0);
-
-            if (flexibleConfig == null)
-            {
-                tankSiteDoc.EditRebuild3();
-                ((AssemblyDoc)tankSiteDoc).EditAssembly();
-                return;
-            }
-
-            tankSiteDoc.ShowConfiguration2(flexibleConfig);
-
-            // Step 3: clear selection, disable contour selection.
-            tankSiteDoc.ClearSelection2(true);
-            ((SelectionMgr)tankSiteDoc.SelectionManager).EnableContourSelection = false;
-
-            // Step 4: rebuild.
             tankSiteDoc.EditRebuild3();
-
-            // Step 5: clear selection.
-            tankSiteDoc.ClearSelection2(true);
-
-            // Step 6 & 7: exit component-editing context, return to assembly editing.
-            ((AssemblyDoc)tankSiteDoc).AssemblyPartToggle();
             ((AssemblyDoc)tankSiteDoc).EditAssembly();
-
-            // Step 8: switch back to default configuration.
-            tankSiteDoc.ShowConfiguration2("Default");
         }
 
         /// <summary>
@@ -769,7 +952,7 @@ namespace SolidWorksTankDesign
 
             ((AssemblyDoc)_currentlyActiveNozzleDoc).EditRebuild();
 
-            CloseDocument();
+            SaveAndCloseDocument();
         }
 
 
@@ -889,7 +1072,7 @@ namespace SolidWorksTankDesign
             //Modify feature definition
             rightRefPlane.ModifyDefinition(rightRefPlaneFeatData, _currentlyActiveNozzleDoc, null);
 
-            CloseDocument();
+            SaveAndCloseDocument();
         }
 
         /// <summary>
@@ -912,15 +1095,15 @@ namespace SolidWorksTankDesign
                     (int)swSetValueInConfiguration_e.swSetValue_UseCurrentSetting,
                     null);
 
-                _currentlyActiveNozzleDoc.EditRebuild3();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error setting rotation angle: {ex.Message}");
-            }
+                    _currentlyActiveNozzleDoc.EditRebuild3();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error setting rotation angle: {ex.Message}");
+                    }
 
-            CloseDocument();
-        }
+                    SaveAndCloseDocument();
+                }
 
         /// <summary>
         /// Changes distance between manhole's top plane and sketch external point. This allows the manhole to be moved up and down.
@@ -947,193 +1130,6 @@ namespace SolidWorksTankDesign
             // Update attribute with the new PID
             _nozzleSettings.PIDTopPlaneMate = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(topPlaneMate);
 
-            DocumentManager.UpdateAndSaveDocuments();
-        }
-
-        /// <summary>
-        /// Inserts a pre-designed manhole assembly into the currently active SolidWorks document. 
-        /// It first prepares the manhole assembly by packaging it using the PackAndGo functionality. 
-        /// Then, it adds the packaged assembly to the active document and precisely positions it using mates (geometric constraints)
-        /// that align key features of the assembly with corresponding features in the active document.
-        /// Finally, it creates a cutout to accommodate the newly added manhole assembly and saves the modified document.
-        /// </summary>
-        public void AddNozzleAssembly(string nozzleDocPath, Compartment compartment, Nozzle nozzle)
-        {
-            // Activate current manhole document
-            ActivateDocument();
-
-            int error = 0;
-            int warning = 0;
-
-            SldWorks solidWorksApp = SolidWorksDocumentProvider._solidWorksApplication;
-            DocumentSpecification documentSpecification = (DocumentSpecification)solidWorksApp.GetOpenDocSpec(nozzleDocPath);
-            documentSpecification.Silent = true;
-            ModelDoc2 nozzleAssemblyDoc = solidWorksApp.OpenDoc7(documentSpecification);
-
-            if(nozzleAssemblyDoc is null)
-            {
-                string nozzleDocTitle = nozzleDocPath.Split('\\').Last().Split('.')[0];
-                object[] activeDocs = solidWorksApp.GetDocuments();
-                foreach (object activeDoc in activeDocs)
-                {
-                    string nameDoc = ((ModelDoc2)activeDoc).GetTitle();
-                    if (nameDoc == nozzleDocTitle)
-                    {
-                        nozzleAssemblyDoc = (ModelDoc2)activeDoc;
-                        break;
-                    }
-                }
-            }
-
-            //string nameOfCurrentDoc = SolidWorksDocumentProvider.GetActiveDoc().GetTitle();
-            string name = nozzleAssemblyDoc.GetTitle();
-
-            // Package the manhole assembly and its associated files using Pack and Go, and get the path to the packed assembly
-            string path = DocumentManager.PackAndGo(SolidWorksDocumentProvider.ProjectFolderPath, nozzleAssemblyDoc, null, null);
-
-            // Close the manhole assembly document after it has been packed
-            solidWorksApp.CloseDoc(nozzleAssemblyDoc.GetTitle());
-            string docpath = _currentlyActiveNozzleDoc.GetPathName();
-
-            // Add the packed manhole assembly to the currently active manhole document as a component
-            Component2 nozzleAssembly = ComponentManager.AddComponentAssembly(_currentlyActiveNozzleDoc, path);
-
-            // Build _nozzleSettings.NozzleAssemblyComponents list from the sub-components of the nozzle assembly
-            _nozzleSettings.NozzleAssemblyComponents.Clear();
-            object[] subComponents = (object[])((AssemblyDoc)nozzleAssembly.GetModelDoc2()).GetComponents(true);
-            if (subComponents != null)
-            {
-                SelectionMgr selMgr           = (SelectionMgr)_currentlyActiveNozzleDoc.SelectionManager;
-                string nozzleDocTitle         = _currentlyActiveNozzleDoc.GetTitle();
-                string nozzleAssemblyDocTitle = System.IO.Path.GetFileNameWithoutExtension(path);
-
-                foreach (object obj in subComponents)
-                {
-                    Component2 subComp = (Component2)obj;
-                    NozzleAssemblyComponent assemblyComponent = new NozzleAssemblyComponent();
-
-                    // Read ComponentType and HasAdjustableLength from SolidWorks custom properties
-                    string componentTypeStr = SWFeatureManager.GetCustomPropertyFromComponent(subComp, "ComponentType");
-                    if (Enum.TryParse(componentTypeStr, out NozzleComponentType componentType))
-                        assemblyComponent.Settings.ComponentType = componentType;
-
-                    string hasAdjustableLengthStr = SWFeatureManager.GetCustomPropertyFromComponent(subComp, "HasAdjustableLength");
-                    if (bool.TryParse(hasAdjustableLengthStr, out bool hasAdjustableLength))
-                        assemblyComponent.Settings.HasAdjustableLength = hasAdjustableLength;
-
-                    // Store component PID by selecting it in _currentlyActiveNozzleDoc context
-                    // Path format: "SubAssemblyInstance@NozzleDocTitle/SubCompInstance@SubAssemblyDocTitle"
-                    string componentSelPath = $"{nozzleAssembly.Name2}@{nozzleDocTitle}/{subComp.Name2}@{nozzleAssemblyDocTitle}";
-                    bool componentSelected = _currentlyActiveNozzleDoc.Extension.SelectByID2(componentSelPath, "COMPONENT", 0, 0, 0, false, 0, null, 0);
-                    if (componentSelected)
-                    {
-                        Component2 selectedComp = (Component2)selMgr.GetSelectedObject6(1, -1);
-                        if (selectedComp != null)
-                            assemblyComponent.Settings.PIDComponent = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(selectedComp);
-                    }
-
-                    // For Flange: Plane1 = mating, Plane2 = free
-                    // For all other types: Plane2 = mating, Plane1 = free
-                    string matingPlaneName = assemblyComponent.Settings.ComponentType == NozzleComponentType.Flange ? "Plane1" : "Plane2";
-                    string freePlaneName   = assemblyComponent.Settings.ComponentType == NozzleComponentType.Flange ? "Plane2" : "Plane1";
-
-                    // Store mating plane PID by selecting it in _currentlyActiveNozzleDoc context
-                    // Path format: "PlaneName@SubAssemblyInstance@NozzleDocTitle/SubCompInstance@SubAssemblyDocTitle"
-                    string matingPlanePath = $"{matingPlaneName}@{nozzleAssembly.Name2}@{nozzleDocTitle}/{subComp.Name2}@{nozzleAssemblyDocTitle}";
-                    bool matingSelected = _currentlyActiveNozzleDoc.Extension.SelectByID2(matingPlanePath, "PLANE", 0, 0, 0, false, 0, null, 0);
-                    if (matingSelected)
-                    {
-                        Feature matingPlane = (Feature)selMgr.GetSelectedObject6(1, -1);
-                        if (matingPlane != null)
-                            assemblyComponent.Settings.PIDMatingPlane = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(matingPlane);
-                    }
-
-                    // Store free plane PID by selecting it in _currentlyActiveNozzleDoc context
-                    string freePlanePath = $"{freePlaneName}@{nozzleAssembly.Name2}@{nozzleDocTitle}/{subComp.Name2}@{nozzleAssemblyDocTitle}";
-                    bool freeSelected = _currentlyActiveNozzleDoc.Extension.SelectByID2(freePlanePath, "PLANE", 0, 0, 0, false, 0, null, 0);
-                    if (freeSelected)
-                    {
-                        Feature freePlane = (Feature)selMgr.GetSelectedObject6(1, -1);
-                        if (freePlane != null)
-                            assemblyComponent.Settings.PIDFreePlane = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(freePlane);
-                    }
-
-                    _nozzleSettings.NozzleAssemblyComponents.Add(assemblyComponent);
-                }
-
-                // Sort components top to bottom by distance from Inside point
-                _nozzleSettings.NozzleAssemblyComponents = GetComponentsSortedTopToBottom();
-            }
-
-            // Get a reference to the "Center axis" feature of the added manhole assembly, which will be used for mating
-            Feature nozzleAssemblyCenterAxis = SWFeatureManager.GetFeatureByName(nozzleAssembly, "Center axis");
-
-            try
-            {
-                // Create mates to position and align the manhole assembly within the active document
-                // 1. Align the "Nozzle axis" of the active document with the "Center axis" of the manhole assembly
-                Feature axisMate = MateManager.CreateMate(
-                    componentFeature1: SWFeatureManager.GetFeatureByName(_currentlyActiveNozzleDoc, "Nozzle axis"),
-                    componentFeature2: nozzleAssemblyCenterAxis,
-                    alignmentType: MateAlignment.Aligned,
-                    name: $"{nozzleAssembly.Name2} - {CENTER_AXIS_NAME}");
-
-                // 2. Align the right plane of the active manhole with the right plane of the manhole assembly
-                MateManager.CreateMate(
-                    componentFeature1: GetNozzleRightRefPlane(),
-                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Top),
-                    alignmentType: MateAlignment.Aligned,
-                    name: $"{nozzleAssembly.Name2} - {RIGHT_PLANE_NAME}");
-
-                // 3. Anti-align the top plane of the manhole assembly with a "Cut plane" in the active document
-                Feature topPlaneMate = MateManager.CreateMate(
-                    componentFeature1: GetTopPoint(),
-                    componentFeature2: SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right),
-                    alignmentType: MateAlignment.Anti_Aligned,
-                    distance: 0,
-                    name: $"{nozzleAssembly.Name2} - {TOP_PLANE_NAME}");
-
-                // Store persistent references (PIDs) to the manhole assembly component and the top plane mate for future use
-                _nozzleSettings.PIDNozzleAssemblyComp = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(nozzleAssembly);
-                _nozzleSettings.PIDTopPlaneMate = _currentlyActiveNozzleDoc.Extension.GetPersistReference3(topPlaneMate);
-
-                // After mates are created, check if the Right plane is pointing downward and flip the axis mate if needed
-                Feature nozzleAssemblyRightPlane = SWFeatureManager.GetMajorPlane(nozzleAssembly, MajorPlane.Right);
-                bool isPlanePointingUp = SWFeatureManager.IsPlaneNormalPointingUp(nozzleAssemblyRightPlane);
-
-                // If the plane is pointing down (not up), flip the axis mate
-                if (!isPlanePointingUp && axisMate != null)
-                {
-                    MateManager.FlipMate(axisMate);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "At least one of manhole assembly mates could not be created.");
-            }
-
-            NozzleAssemblyComponent shellIntersectingComponent = FindShellIntersectingComponent();
-
-            if (shellIntersectingComponent != null)
-            {
-                shellIntersectingComponent.Settings.IsShellIntersecting = true;
-
-                Feature profileSketch = SWFeatureManager.GetFeatureByName(
-                    shellIntersectingComponent.GetComponent(), "Profile Sketch");
-
-                if (profileSketch != null)
-                {
-                    double diameter = profileSketch.Parameter("Diameter").GetValue3(
-                        (int)swInConfigurationOpts_e.swAllConfiguration, null)[0];
-
-                    shellIntersectingComponent.Settings.Diameter = diameter; // GetValue3 returns mm for this document
-                }
-            }
-
-            // Add a cutout extrude feature (presumably to create space for the manhole assembly)
-            AddCutOutExtrude(compartment, nozzle);
-
-            // Update and save the active document and any associated attribute documents
             DocumentManager.UpdateAndSaveDocuments();
         }
 
@@ -1191,6 +1187,22 @@ namespace SolidWorksTankDesign
 
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(_currentlyActiveNozzleDoc.GetTitle());
             _currentlyActiveNozzleDoc = null;
+        }
+
+        /// <summary>
+        /// Saves the nozzle document then closes it.
+        /// Use this instead of CloseDocument() after any modification so changes are not lost.
+        /// </summary>
+        public void SaveAndCloseDocument()
+        {
+            if (_currentlyActiveNozzleDoc == null) return;
+
+            _currentlyActiveNozzleDoc.Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+
+            CloseDocument();
         }
 
         public Nozzle DeepClone()
@@ -1455,7 +1467,6 @@ namespace SolidWorksTankDesign
 
             if (newD1 <= 0)
             {
-                MessageBox.Show($"newD1={newD1:F4} is <= 0, skipping ChangeLength.", "SetAdjustableComponentLength");
                 return;
             }
 
@@ -1552,7 +1563,6 @@ namespace SolidWorksTankDesign
             }
         }
 
-
         public NozzleAssemblyComponent FindShellIntersectingComponent()
         {
             if (_nozzleSettings.NozzleAssemblyComponents == null || _nozzleSettings.NozzleAssemblyComponents.Count == 0)
@@ -1577,6 +1587,108 @@ namespace SolidWorksTankDesign
             }
 
             return null;
+        }
+
+        public void ChangeCutDiameterOfTankBodyEnvelope()
+        {
+            NozzleAssemblyComponent shellComp = _nozzleSettings.NozzleAssemblyComponents
+                .FirstOrDefault(c => c.Settings.IsShellIntersecting);
+
+            double diameterMm = shellComp?.Settings.Diameter + CUT_CLEARANCE_MM ?? 0;
+
+            ModelDoc2 manholeDoc = ActivateDocument();
+
+            // The TankBody_Envelope feature only exists in the "WithEnvelope" configuration.
+            //manholeDoc.ShowConfiguration2("WithEnvelope");
+
+            string envelopeName = $"TankBody_Envelope^{manholeDoc.GetTitle()}";
+
+            int errors = 0;
+            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc2(envelopeName, false, ref errors);
+            ModelDoc2 envelopeDoc = SolidWorksDocumentProvider.GetActiveDoc();
+
+            Feature cutOutSketch = SWFeatureManager.GetFeatureByName(envelopeDoc, "Cut out sketch");
+            Dimension diameterDimension = cutOutSketch.Parameter("Diameter");
+            diameterDimension.SetValue3(diameterMm, (int)swSetValueInConfiguration_e.swSetValue_UseCurrentSetting, null);
+
+            envelopeDoc.EditRebuild3();
+            envelopeDoc.Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(envelopeDoc.GetTitle());
+
+            //manholeDoc.ShowConfiguration2("Default");
+
+            manholeDoc.Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+
+            //CloseDocument();
+        }
+
+        public void ChangeTankBodyEnvelopeDimensions(
+            double leftSideLength,
+            double rightSideLength,
+            double widthUp,
+            double widthDown)
+        {
+            ModelDoc2 manholeDoc = ActivateDocument();
+
+            // The TankBody_Envelope feature only exists in the "WithEnvelope" configuration.
+            manholeDoc.ShowConfiguration2("WithEnvelope");
+           
+            string envelopeName = $"TankBody_Envelope^{manholeDoc.GetTitle()}";
+
+            int errors = 0;
+            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc2(envelopeName, false, ref errors);
+            ModelDoc2 envelopeDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            Feature tankBodySkect = SWFeatureManager.GetFeatureByName(envelopeDoc, "Tank body sketch");
+
+            if (leftSideLength != null && leftSideLength > 0)
+            {
+                Dimension leftDimension = tankBodySkect.Parameter("LengthToLeft");
+                leftDimension.SetValue3(leftSideLength, (int)swSetValueInConfiguration_e.swSetValue_UseCurrentSetting, null);
+            }
+            if (rightSideLength != null && rightSideLength > 0)
+            {
+                Dimension leftrightDimension = tankBodySkect.Parameter("LengthToRight");
+                leftrightDimension.SetValue3(rightSideLength, (int)swSetValueInConfiguration_e.swSetValue_UseCurrentSetting, null);
+            }
+
+            Feature bossExtrude = SWFeatureManager.GetFeatureByName(envelopeDoc, "Boss-Extrude");
+            ExtrudeFeatureData2 extrudeData = (ExtrudeFeatureData2)bossExtrude.GetDefinition();
+
+            extrudeData.AccessSelections(envelopeDoc, null);
+
+            if (widthUp != null && widthUp > 0)
+            {
+                extrudeData.SetDepth(true, widthUp / 1000);
+            }
+            if (widthDown != null && widthDown > 0)
+            {
+                extrudeData.SetDepth(false, widthDown / 1000);
+            }
+            bossExtrude.ModifyDefinition(extrudeData, envelopeDoc, null);
+
+            envelopeDoc.EditRebuild3();
+            envelopeDoc.Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(envelopeDoc.GetTitle());
+
+            manholeDoc.ShowConfiguration2("Default");
+
+            manholeDoc.Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+
+            CloseDocument();
         }
     }
 }

@@ -257,8 +257,12 @@ namespace SolidWorksTankDesign.Helpers
             // Toggle the dimension
             mateData.FlipDimension = true;
 
-            // Updates the definition of a feature with the new values in an associated feature data object 
-            mate.ModifyDefinition(mateData, SolidWorksDocumentProvider.GetActiveDoc(), null);
+            // Pass the active document explicitly so ModifyDefinition always runs in the
+            // correct document context, regardless of what GetActiveDoc() returns at call time.
+            ModelDoc2 activeDoc = SolidWorksDocumentProvider.GetActiveDoc();
+            bool success = mate.ModifyDefinition(mateData, activeDoc, null);
+            if (!success)
+                MessageBox.Show("ChangeDistance: ModifyDefinition failed. Check that the correct document is active.", "MateManager");
         }
 
         /// <summary>

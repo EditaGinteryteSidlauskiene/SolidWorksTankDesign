@@ -48,6 +48,12 @@ namespace SolidWorksTankDesign.MVP.Models
             if (_nozzleSWService == null) throw new InvalidOperationException("NozzleSolidWorksService not provided.");
 
             _nozzleSWService.ApplyNozzleChanges();
+
+            Compartment compartment = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments[0];
+            compartment.ActivateDocument();
+            Nozzle nozzle = compartment.Nozzles[0];
+            nozzle.ChangeCutDiameterOfTankBodyEnvelope();
+            //DocumentManager.UpdateAndSaveDocuments();
         }
     }
 }

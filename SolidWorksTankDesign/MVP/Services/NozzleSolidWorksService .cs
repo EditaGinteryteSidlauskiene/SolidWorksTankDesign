@@ -173,21 +173,31 @@ namespace SolidWorksTankDesign.MVP.Services
                         {
                             if (HasNozzlePositionChanged(existingNozzle, nozzleConfig))
                                 ApplyExistingNozzlePositionChanges(compartment, existingNozzle, nozzleConfig);
+
                         }
                         else
                         {
                             // Nozzle doesn't exist - add new nozzle
                             AddNozzleFromConfiguration(compartment, config, nozzleConfig, i);
                         }
+                       
                     }
 
-                    compartment.CloseDocument();
+                   compartment.CloseDocument();
                 }
 
                 // Only save if there were actual changes
                 if (hasAnyChanges)
                 {
                     DocumentManager.UpdateAndSaveDocuments();
+
+                    // Refresh the Tank Site Assembly AFTER saving so the UI shows the updated
+                    // cut positions. Must not be called before saving — it activates the Tank Site
+                    // Assembly which causes UpdateAndSaveDocuments to skip sub-assembly saves.
+                    compartments
+                        .SelectMany(c => c.Nozzles ?? Enumerable.Empty<Nozzle>())
+                        .FirstOrDefault()
+                        ?.RefreshCutDisplay();
                 }
             }
             catch (Exception ex)
@@ -252,12 +262,23 @@ namespace SolidWorksTankDesign.MVP.Services
             }
         }
 
+        /// <summary>
+        /// Returns true if the nozzle position plane must be flipped (placed to the left) for the
+        /// given reference type and direction.
+        ///   flip = true  → placed LEFT  → RightDishedEnd OR (OtherNozzle AND isReferenceToLeft)
+        ///   flip = false → placed RIGHT → LeftDishedEnd  OR (OtherNozzle AND !isReferenceToLeft)
+        /// </summary>
+        private static bool RequiresFlip(NozzleReferenceType refType, bool isReferenceToLeft)
+            => refType == NozzleReferenceType.RightDishedEnd
+            || (refType == NozzleReferenceType.OtherNozzle && isReferenceToLeft);
+
         private bool HasNozzlePositionChanged(Nozzle nozzle, NozzleConfiguration nozzleConfig)
         {
             NozzleSettings s = nozzle._nozzleSettings;
 
             if (nozzleConfig.ReferenceType != s.ReferenceType
-                || Math.Abs(nozzleConfig.DistanceFromReference - s.DistanceFromReference) > 0.0001)
+                || Math.Abs(nozzleConfig.DistanceFromReference - s.DistanceFromReference) > 0.0001
+                || nozzleConfig.IsReferenceToLeft != s.IsReferenceToLeft)
                 return true;
 
             if (nozzleConfig.OffsetPosition != FlipDot.Central && nozzleConfig.OffsetMeters != 0
@@ -356,7 +377,8 @@ namespace SolidWorksTankDesign.MVP.Services
                     var newNozzle = compartment.Nozzles.Last();
                     if (newNozzle._nozzleSettings != null)
                     {
-                        newNozzle._nozzleSettings.ID = nozzleConfig.Id;
+                        newNozzle._nozzleSettings.ID                = nozzleConfig.Id;
+                        newNozzle._nozzleSettings.IsReferenceToLeft = nozzleConfig.IsReferenceToLeft;
                     }
 
                     ApplyInitialPositionChanges(compartment, newNozzle, nozzleConfig);
@@ -373,9 +395,16 @@ namespace SolidWorksTankDesign.MVP.Services
             NozzleSettings s = nozzle._nozzleSettings;
 
             if (nozzleConfig.ReferenceType != s.ReferenceType
-                || Math.Abs(nozzleConfig.DistanceFromReference - s.DistanceFromReference) > 0.0001)
+                || Math.Abs(nozzleConfig.DistanceFromReference - s.DistanceFromReference) > 0.0001
+                || nozzleConfig.IsReferenceToLeft != s.IsReferenceToLeft)
             {
                 compartment.ActivateDocument();
+
+                bool newFlip     = RequiresFlip(nozzleConfig.ReferenceType, nozzleConfig.IsReferenceToLeft);
+                bool currentFlip = RequiresFlip(s.ReferenceType, s.IsReferenceToLeft);
+
+                if (newFlip != currentFlip)
+                    nozzle.FlipDimension();
 
                 Feature newReferencePlane = ResolveReferencePlane(compartment, nozzleConfig);
                 if (newReferencePlane != null)
@@ -383,9 +412,11 @@ namespace SolidWorksTankDesign.MVP.Services
                     if (nozzleConfig.ReferenceType != s.ReferenceType)
                         SWFeatureManager.ChangeReferenceOfReferencePlane(newReferencePlane, nozzle.GetPositionPlane());
 
+                    SolidWorksDocumentProvider._tankSiteAssembly._assemblyOfDishedEnds.CloseDocument();
                     nozzle.ChangeDistance(nozzleConfig.DistanceFromReference);
                     s.ReferenceType         = nozzleConfig.ReferenceType;
                     s.DistanceFromReference = nozzleConfig.DistanceFromReference;
+                    s.IsReferenceToLeft     = nozzleConfig.IsReferenceToLeft;
                 }
             }
 
@@ -410,30 +441,44 @@ namespace SolidWorksTankDesign.MVP.Services
                 s.RotationAngleDegrees = nozzleConfig.RotationAngleDegrees;
             }
 
-            if (nozzleConfig.DistanceFromTopReferenceMeters > 0
+            bool topRefChanged = nozzleConfig.DistanceFromTopReferenceMeters > 0
                 && (nozzleConfig.TopReferenceType != s.TopReferenceType
-                    || Math.Abs(nozzleConfig.DistanceFromTopReferenceMeters - s.DistanceFromTopReferenceMeters) > 0.0001))
+                    || Math.Abs(nozzleConfig.DistanceFromTopReferenceMeters - s.DistanceFromTopReferenceMeters) > 0.0001);
+
+            bool bottomRefChangedByUser = nozzleConfig.DistanceFromBottomReferenceMeters > 0
+                && (nozzleConfig.BottomReferencePoint != s.BottomReferencePoint
+                    || Math.Abs(nozzleConfig.DistanceFromBottomReferenceMeters - s.DistanceFromBottomReferenceMeters) > 0.0001
+                    || nozzleConfig.IsLongNozzle != s.IsLongNozzle);
+
+            if (topRefChanged)
             {
                 compartment.ActivateDocument();
                 nozzle.ActivateDocument();
                 nozzle.SetTopReferenceDistance(nozzleConfig.TopReferenceType, nozzleConfig.DistanceFromTopReferenceMeters);
-                nozzle.CloseDocument();
+                nozzle.SaveAndCloseDocument();
                 s.TopReferenceType               = nozzleConfig.TopReferenceType;
                 s.DistanceFromTopReferenceMeters = nozzleConfig.DistanceFromTopReferenceMeters;
             }
 
-            if (nozzleConfig.DistanceFromBottomReferenceMeters > 0
-                && (nozzleConfig.BottomReferencePoint != s.BottomReferencePoint
-                    || Math.Abs(nozzleConfig.DistanceFromBottomReferenceMeters - s.DistanceFromBottomReferenceMeters) > 0.0001
-                    || nozzleConfig.IsLongNozzle != s.IsLongNozzle))
+            if (bottomRefChangedByUser)
             {
                 compartment.ActivateDocument();
                 nozzle.ActivateDocument();
                 nozzle.SetAdjustableComponentLength(nozzleConfig.BottomReferencePoint, nozzleConfig.DistanceFromBottomReferenceMeters, nozzleConfig.IsLongNozzle);
-                nozzle.CloseDocument();
+                nozzle.SaveAndCloseDocument();
                 s.BottomReferencePoint              = nozzleConfig.BottomReferencePoint;
                 s.DistanceFromBottomReferenceMeters = nozzleConfig.DistanceFromBottomReferenceMeters;
                 s.IsLongNozzle                      = nozzleConfig.IsLongNozzle;
+            }
+            else if (topRefChanged && s.DistanceFromBottomReferenceMeters > 0)
+            {
+                // The top ref shift moved the whole nozzle assembly, which changes the physical
+                // bottom distance in SolidWorks. The user did not touch the bottom ref, so
+                // re-apply the saved bottom value to keep it at what was last confirmed.
+                compartment.ActivateDocument();
+                nozzle.ActivateDocument();
+                nozzle.SetAdjustableComponentLength(s.BottomReferencePoint, s.DistanceFromBottomReferenceMeters, s.IsLongNozzle);
+                nozzle.SaveAndCloseDocument();
             }
         }
 
@@ -460,7 +505,7 @@ namespace SolidWorksTankDesign.MVP.Services
                 compartment.ActivateDocument();
                 nozzle.ActivateDocument();
                 nozzle.SetTopReferenceDistance(nozzleConfig.TopReferenceType, nozzleConfig.DistanceFromTopReferenceMeters);
-                nozzle.CloseDocument();
+                nozzle.SaveAndCloseDocument();
             }
 
             if (nozzleConfig.DistanceFromBottomReferenceMeters > 0)
@@ -468,7 +513,7 @@ namespace SolidWorksTankDesign.MVP.Services
                 compartment.ActivateDocument();
                 nozzle.ActivateDocument();
                 nozzle.SetAdjustableComponentLength(nozzleConfig.BottomReferencePoint, nozzleConfig.DistanceFromBottomReferenceMeters, nozzleConfig.IsLongNozzle);
-                nozzle.CloseDocument();
+                nozzle.SaveAndCloseDocument();
             }
         }
 

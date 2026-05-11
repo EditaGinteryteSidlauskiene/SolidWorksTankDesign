@@ -54,6 +54,9 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
         [JsonIgnore]
         private bool _flipped;
 
+        [JsonIgnore]
+        private bool _isReferenceToLeft;
+
         // Neck properties
         [JsonIgnore]
         private string _neckSize;
@@ -109,6 +112,16 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
             {
                 _referenceType = value;
                 OnPropertyChanged(nameof(ReferenceType));
+            }
+        }
+
+        public bool IsReferenceToLeft
+        {
+            get { return _isReferenceToLeft; }
+            set
+            {
+                _isReferenceToLeft = value;
+                OnPropertyChanged(nameof(IsReferenceToLeft));
             }
         }
 

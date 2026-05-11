@@ -99,6 +99,9 @@ namespace SolidWorksTankDesign
         [JsonProperty("ReferenceType")]
         public NozzleReferenceType ReferenceType { get; set; }
 
+        [JsonProperty("IsReferenceToLeft")]
+        public bool IsReferenceToLeft { get; set; }
+
         public NozzleSettings() { }
 
         public NozzleSettings DeepClone()
@@ -134,7 +137,8 @@ namespace SolidWorksTankDesign
                 TopReferenceType = this.TopReferenceType,
                 DistanceFromTopReferenceMeters = this.DistanceFromTopReferenceMeters,
                 DistanceFromReference = this.DistanceFromReference,
-                ReferenceType = this.ReferenceType
+                ReferenceType = this.ReferenceType,
+                IsReferenceToLeft = this.IsReferenceToLeft
             };
         }
     }

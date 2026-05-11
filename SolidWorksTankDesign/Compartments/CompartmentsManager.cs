@@ -44,58 +44,6 @@ namespace SolidWorksTankDesign
                         SWFeatureManager.GetDishedEndPositionPlane(dishedEnd),
                         length));
 
-                //foreach ((string, string, double) manholeSettings in manholesSettings)
-                //{
-                //    ModelDoc2 compartmentModelDoc = Compartments.Last().ActivateDocument();
-                //    string compartmentFolder = Path.GetDirectoryName(compartmentModelDoc.GetPathName());
-
-                //    Compartment compartment = Compartments.Last();
-
-                //    if (manholeSettings.Item2 == "Left end")
-                //    {
-                //        Feature referencePlane;
-                //        if (compartment.Nozzles.Count == 0)
-                //        {
-                //            referencePlane = compartment.GetLeftEndPlane();
-                //        }
-                //        else
-                //        {
-                //            referencePlane = compartment.Nozzles.Last().GetPositionPlane();
-                //        }
-
-                //        compartment.AddNozzle(
-                //        compartmentFolder,
-                //        emptyManholeDocPath,
-                //        manholeSettings.Item1,
-                //        Compartments.Count(),
-                //        referencePlane,
-                //        manholeSettings.Item3,
-                //        false,
-                //        externalDiameter);
-                //    }
-                //    else
-                //    {
-                //        Feature referencePlane;
-                //        if (compartment.Nozzles.Count == 0)
-                //        {
-                //            referencePlane = compartment.GetRightEndPlane();
-                //        }
-                //        else
-                //        {
-                //            referencePlane = compartment.Nozzles.Last().GetPositionPlane();
-                //        }
-
-                //        compartment.AddNozzle(
-                //        compartmentFolder,
-                //        emptyManholeDocPath,
-                //        manholeSettings.Item1,
-                //        Compartments.Count(),
-                //        referencePlane,
-                //        manholeSettings.Item3,
-                //        true,
-                //        externalDiameter);
-                //    }
-                //} 
             }
             catch (Exception ex)
             {

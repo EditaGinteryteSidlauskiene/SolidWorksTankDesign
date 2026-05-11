@@ -349,8 +349,9 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
                         _currentNozzleConfiguration.ReferenceNozzleId = null;
                     }
 
-                    // Persist reference type to model
-                    _currentNozzleConfiguration.ReferenceType = _activeNozzleReferenceType.Value;
+                    // Persist reference type and direction to model
+                    _currentNozzleConfiguration.ReferenceType        = _activeNozzleReferenceType.Value;
+                    _currentNozzleConfiguration.IsReferenceToLeft    = _isReferenceToLeft;
                     _previousNozzleReferenceType = _activeNozzleReferenceType;
 
                     // When OtherNozzle is activated, immediately persist the currently displayed
