@@ -82,59 +82,6 @@ namespace SolidWorksTankDesign.MVP.Services
             }
         }
 
-        public void RepositionNozzle(
-            bool isOffsetPositive,
-            double distance,
-            bool isRotationDirectionPositive,
-            double angle)
-        {
-            List<Compartment> compartments = SolidWorksDocumentProvider._tankSiteAssembly._compartmentsManager.Compartments;
-
-            if (distance != 0)
-            {
-                if (isOffsetPositive == true)
-                {
-                    compartments[0].ActivateDocument();
-
-                    compartments[0].Nozzles.Last().SetOffset(distance);
-                }
-
-                else
-                {
-                    compartments[0].ActivateDocument();
-
-                    compartments[0].Nozzles.Last().SetOffset(-distance);
-                }
-            }
-
-            // Normalize angle to 0-360 degrees (using modulo operator)
-            angle = (angle % 360 + 360) % 360;
-
-            if (isRotationDirectionPositive == true)
-            {
-                compartments[0].ActivateDocument();
-
-                compartments[0].Nozzles.Last().SetRotationAngle(angle);
-            }
-
-            else
-            {
-                compartments[0].ActivateDocument();
-
-                compartments[0].Nozzles.Last().SetRotationAngle(360 - angle);
-            }
-
-            try
-            {
-                // Save changes after all modifications are complete.
-                DocumentManager.UpdateAndSaveDocuments();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error saving documents: {ex.Message}");
-            }
-        }
-
         public void ApplyNozzleChanges()
         {
             try

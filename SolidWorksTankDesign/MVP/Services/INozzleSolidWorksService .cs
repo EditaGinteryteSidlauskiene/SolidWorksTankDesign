@@ -8,8 +8,6 @@ namespace SolidWorksTankDesign.MVP.Services
     {
         void AddNozzle(Guid compartmentConfigId, NozzleReferenceType referenceType, double distance);
 
-        void RepositionNozzle(bool isOffsetPositive, double distance, bool isRotationDirectionPositive, double angle);
-
         void ApplyNozzleChanges();
     }
 }

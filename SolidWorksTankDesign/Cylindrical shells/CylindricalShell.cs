@@ -340,13 +340,7 @@ namespace SolidWorksTankDesign
             // Activate the shell assembly document
             SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(assemblyOfCylindricalShellDoc.GetTitle() + ".sldasm", true, 0, 0);
 
-            MateFeatureData mateFeatureData = GetFrontPlaneMate().GetDefinition();
-            AngleMateFeatureData angleMateFeatureData = (AngleMateFeatureData)mateFeatureData;
-
-            // Set the angle
-            angleMateFeatureData.Angle = angleInDegrees * (Math.PI / 180);
-
-            GetFrontPlaneMate().ModifyDefinition(angleMateFeatureData, assemblyOfCylindricalShellDoc, null);
+            MateManager.ChangeMateAngle(GetFrontPlaneMate(), angleInDegrees);
 
             // SaveInitialConfiguration and close assembly of cylindrical shells doc
             assemblyOfCylindricalShellDoc.Save3(

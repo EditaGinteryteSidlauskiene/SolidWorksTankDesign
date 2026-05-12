@@ -137,6 +137,7 @@ namespace SolidWorksTankDesign
             ChangeNozzleSketchDiametersAndNozzleOffset(nozzleModelDoc, externalDiameter);
 
             Feature positionPlaneMate = null;
+            Feature rotationMate = null;
             MateNozzle();
 
             // Get manhole Entities and Initialize Settings
@@ -166,10 +167,12 @@ namespace SolidWorksTankDesign
                         alignmentType: MateAlignment.Anti_Aligned,
                         name: $"{nozzle.Name2} - {CENTER_AXIS_NAME}");
 
-                    MateManager.CreateMate(
-                        componentFeature1: compartmentFrontPlane,
-                        componentFeature2: SWFeatureManager.GetMajorPlane(nozzle, MajorPlane.Front),
-                        alignmentType: MateAlignment.Aligned,
+                    rotationMate = MateManager.CreateMate(
+                        externalEntity: (Entity)compartmentFrontPlane,
+                        componentEntity: (Entity)SWFeatureManager.GetMajorPlane(nozzle, MajorPlane.Front),
+                        referenceEntity: (Entity)compartmentCenterAxis,
+                        angle: 0,
+                        flipDimension: true,
                         name: $"{nozzle.Name2} - {FRONT_PLANE_NAME}");
                 }
                 catch (Exception ex)
@@ -186,6 +189,7 @@ namespace SolidWorksTankDesign
                     _nozzleSettings.PIDPositionPlane = compartmentDoc.Extension.GetPersistReference3(positionPlane);
                     _nozzleSettings.PIDComponent = compartmentDoc.Extension.GetPersistReference3(nozzle);
                     _nozzleSettings.PIDPositionPlaneMate = compartmentDoc.Extension.GetPersistReference3(positionPlaneMate);
+                    _nozzleSettings.PIDRotationMate = compartmentDoc.Extension.GetPersistReference3(rotationMate);
 
                     // Use a SolidWorksDocumentWrapper for managing the manhole's model document.
                     using (var nozzleDocument = new SolidWorksDocumentWrapper(SolidWorksDocumentProvider._solidWorksApplication, nozzleModelDoc))
@@ -798,9 +802,11 @@ namespace SolidWorksTankDesign
         /// <summary>
         /// Forces the Tank Site Assembly to rebuild and reset its editing context so that
         /// geometry changes (new cut, moved cut after offset change, etc.) appear correctly in the UI.
+        /// Replicates the VBA macro: SelectByID2 → ClearSelection2 → AssemblyPartToggle → EditAssembly.
         /// </summary>
         public void RefreshCutDisplay(Feature cutExtrude)
         {
+            // Select the cut body feature, then clear — this primes SolidWorks for the toggle.
             cutExtrude.Select2(false, 0);
             RefreshCutDisplay();
         }
@@ -812,8 +818,15 @@ namespace SolidWorksTankDesign
             SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
                 tankSiteDoc.GetTitle(), true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, 0);
 
-            tankSiteDoc.EditRebuild3();
+            tankSiteDoc.ClearSelection2(true);
+            ((SelectionMgr)tankSiteDoc.SelectionManager).EnableContourSelection = false;
+
+            // Toggle out of component-editing context, then return to assembly editing.
+            // This is what makes the cut appear in its correct position in the UI.
+            ((AssemblyDoc)tankSiteDoc).AssemblyPartToggle();
             ((AssemblyDoc)tankSiteDoc).EditAssembly();
+
+            tankSiteDoc.ClearSelection2(true);
         }
 
         /// <summary>
@@ -1084,26 +1097,21 @@ namespace SolidWorksTankDesign
             // Normalize angle to 0-360 degrees (using modulo operator)
             angleInDegrees = (angleInDegrees % 360 + 360) % 360;
 
-            // Activate Nozzle doc
-            ActivateDocument();
-
             try
             {
                 //Set angle
-                GetSketch().Parameter(CENTER_AXIS_ROTATION_ANGLE)?.SetSystemValue3(
-                    angleInDegrees * (Math.PI / 180),
-                    (int)swSetValueInConfiguration_e.swSetValue_UseCurrentSetting,
-                    null);
+                Feature rotationMate = GetRotationMate();
+                MateManager.ChangeMateAngle(rotationMate, angleInDegrees);
+                _nozzleSettings.PIDRotationMate =
+                    SolidWorksDocumentProvider.GetActiveDoc().Extension.GetPersistReference3(rotationMate);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error setting rotation angle: {ex.Message}");
+            }
 
-                    _currentlyActiveNozzleDoc.EditRebuild3();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Error setting rotation angle: {ex.Message}");
-                    }
-
-                    SaveAndCloseDocument();
-                }
+            SaveAndCloseDocument();
+        }
 
         /// <summary>
         /// Changes distance between manhole's top plane and sketch external point. This allows the manhole to be moved up and down.
@@ -1270,6 +1278,10 @@ namespace SolidWorksTankDesign
 
         public Feature GetTopPlaneMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                      _nozzleSettings.PIDTopPlaneMate,
+                     out int error);
+
+        public Feature GetRotationMate() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
+                     _nozzleSettings.PIDRotationMate,
                      out int error);
 
         public Component2 GetNozzleAssemblyComp() => (Component2)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(

@@ -107,6 +107,16 @@ namespace SolidWorksTankDesign
             return $"{timestampedPackAndGoFolder}\\{ticks}_{assemblyModelDoc.GetTitle()}.SLDASM";
         }
 
+        /// <summary>
+        /// Packages the nozzle position sketch assembly (and all referenced files such as the
+        /// envelope part) into <paramref name="projectFolder"/> using Pack and Go.
+        /// All files receive a suffix of <c>{nozzleNumber}_{ticks}</c> so that cross-references
+        /// between the assembly and its parts remain valid. No sub-folder is created.
+        /// </summary>
+        /// <param name="projectFolder">Destination folder for the packed files.</param>
+        /// <param name="assemblyModelDoc">The nozzle position sketch assembly to pack.</param>
+        /// <param name="nozzleNumber">The nozzle's sequence number used in the output filename.</param>
+        /// <returns>Full path to the packed nozzle assembly file (.SLDASM).</returns>
         public static string PackAndGoManhole(string projectFolder, ModelDoc2 assemblyModelDoc, int nozzleNumber)
         {
             // Get the Pack and Go interface for the assembly document
@@ -121,20 +131,6 @@ namespace SolidWorksTankDesign
 
             // Generate a unique folder name using the current timestamp (ticks)
             double ticks = DateTime.Now.Ticks;
-            //string timestampedPackAndGoFolder = $"{packAndGoFolderPath}\\{ticks}";
-
-            //if (compartmentName != null && compartmentName != string.Empty)
-            //{
-            //    packAndGo.SetSaveToName(
-            //        true,
-            //        $"{packAndGoFolderPath}");
-
-            //    // Execute the Pack and Go operation
-            //    assemblyModelDoc.Extension.SavePackAndGo(packAndGo);
-
-            //    // Construct and return the full path to the packed assembly file
-            //    return $"{packAndGoFolderPath}\\{ticks.ToString()}_{compartmentName}\\{assemblyModelDoc.GetTitle()}_{ticks.ToString()}.SLDASM";
-            //}
 
             // Add a prefix to all Pack and Go file names using the timestamp
             packAndGo.AddSuffix = $"{nozzleNumber}_{ticks}";
@@ -180,6 +176,16 @@ namespace SolidWorksTankDesign
         /// </summary>
         /// <param name="solidWorksApp"></param>
         /// <param name="emptyTankSiteAssemblyDoc"></param>
+        /// <summary>
+        /// Copies the empty tank site assembly and all its referenced documents into a new
+        /// project folder using Pack and Go, then opens the copied assembly and closes the
+        /// original template.
+        /// </summary>
+        /// <param name="solidWorksApp">The active SolidWorks application instance.</param>
+        /// <param name="emptyTankSiteAssemblyDoc">The template tank site assembly to copy.</param>
+        /// <param name="folderForAllProjects">Root folder under which the new project folder is created.</param>
+        /// <param name="serialNumber">Serial number used to name the new project folder.</param>
+        /// <returns>Full path to the directory where the copied documents were saved.</returns>
         public static string CopyDocuments(SldWorks solidWorksApp, ModelDoc2 emptyTankSiteAssemblyDoc, string folderForAllProjects, string serialNumber)
         {
             // Packs all documents that are in emptyTankSiteAssemblyDoc and saves them in a new foler
@@ -198,6 +204,13 @@ namespace SolidWorksTankDesign
             return documentDirectory;
         }
 
+        /// <summary>
+        /// Renames the folder that contains <paramref name="documentInFolder"/> by replacing
+        /// <paramref name="oldPart"/> with <paramref name="newPart"/> in the folder name.
+        /// </summary>
+        /// <param name="documentInFolder">A document whose containing folder should be renamed.</param>
+        /// <param name="oldPart">The substring in the folder name to replace.</param>
+        /// <param name="newPart">The replacement substring.</param>
         public static void RenameFolderContainingDocument(ModelDoc2 documentInFolder, string oldPart, string newPart)
         {
             if (documentInFolder == null)
@@ -243,6 +256,12 @@ namespace SolidWorksTankDesign
             }
         }
 
+        /// <summary>
+        /// Deletes all files listed in <see cref="SolidWorksDocumentProvider._filesToDelete"/>.
+        /// Files that no longer exist on disk are removed from the list silently.
+        /// After deletion the stored file list is updated via
+        /// <see cref="TankSiteDataManager.UpdateFilesToDeleteList"/>.
+        /// </summary>
         public static async Task DeleteFiles()
         {
             List<string> pathsToDelete = SolidWorksDocumentProvider._filesToDelete;

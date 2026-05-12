@@ -54,6 +54,9 @@ namespace SolidWorksTankDesign
         [JsonProperty("PIDTopPlaneMate")]
         public byte[] PIDTopPlaneMate { get; set; }
 
+        [JsonProperty("PIDRotationMate")]
+        public byte[] PIDRotationMate { get; set; }
+
         [JsonProperty("PIDNozzleAssemblyComp")]
         public byte[] PIDNozzleAssemblyComp { get; set; }
 
@@ -123,6 +126,7 @@ namespace SolidWorksTankDesign
                 PIDComponent = this.PIDComponent?.ToArray(),
                 PIDPositionPlaneMate = this.PIDPositionPlaneMate?.ToArray(),
                 PIDTopPlaneMate = this.PIDTopPlaneMate?.ToArray(),
+                PIDRotationMate = this.PIDRotationMate?.ToArray(),
                 PIDNozzleAssemblyComp = this.PIDNozzleAssemblyComp?.ToArray(),
                 PIDCutOutPlane = this.PIDCutOutPlane?.ToArray(),
                 PIDCutExtrude = this.PIDCutExtrude?.ToArray(),

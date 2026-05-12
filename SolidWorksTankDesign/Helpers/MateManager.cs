@@ -438,5 +438,24 @@ namespace SolidWorksTankDesign.Helpers
                 MessageBox.Show($"Error flipping mate: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Changes the angle of an existing angle mate.
+        /// Accepts degrees — converts to radians internally before passing to the SolidWorks API,
+        /// so callers never need to handle the unit conversion themselves.
+        /// </summary>
+        /// <param name="mate">The angle mate feature to modify.</param>
+        /// <param name="angleInDegrees">The new angle value in degrees.</param>
+        public static void ChangeMateAngle(Feature mate, double angleInDegrees)
+        {
+            // Retrieve the current mate definition.
+            AngleMateFeatureData mateData = (AngleMateFeatureData)mate.GetDefinition();
+
+            // SolidWorks API stores angles in radians.
+            mateData.Angle = angleInDegrees * (Math.PI / 180);
+
+            // Commit the updated definition to the active document.
+            mate.ModifyDefinition(mateData, SolidWorksDocumentProvider.GetActiveDoc(), null);
+        }
     }
 }
