@@ -813,19 +813,25 @@ namespace SolidWorksTankDesign
 
         public void RefreshCutDisplay()
         {
+            // Activate the Tank Site Assembly without triggering a rebuild on activation.
             ModelDoc2 tankSiteDoc = SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc;
-
             SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
                 tankSiteDoc.GetTitle(), true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, 0);
 
+            // Clear any active selections and disable contour selection mode,
+            // matching the state expected by AssemblyPartToggle.
             tankSiteDoc.ClearSelection2(true);
             ((SelectionMgr)tankSiteDoc.SelectionManager).EnableContourSelection = false;
 
-            // Toggle out of component-editing context, then return to assembly editing.
-            // This is what makes the cut appear in its correct position in the UI.
+            // AssemblyPartToggle exits any open component-editing context and returns
+            // focus to the top-level assembly. Without this call the cut feature remains
+            // "owned" by the component context and does not render in the correct position.
             ((AssemblyDoc)tankSiteDoc).AssemblyPartToggle();
+
+            // Re-enter the standard assembly editing state so subsequent operations work normally.
             ((AssemblyDoc)tankSiteDoc).EditAssembly();
 
+            // Final clear to leave the document in a clean selection state.
             tankSiteDoc.ClearSelection2(true);
         }
 
