@@ -105,6 +105,9 @@ namespace SolidWorksTankDesign
         [JsonProperty("IsReferenceToLeft")]
         public bool IsReferenceToLeft { get; set; }
 
+        [JsonProperty("NozzleLength")]
+        public double NozzleLength { get; set; }
+
         public NozzleSettings() { }
 
         public NozzleSettings DeepClone()

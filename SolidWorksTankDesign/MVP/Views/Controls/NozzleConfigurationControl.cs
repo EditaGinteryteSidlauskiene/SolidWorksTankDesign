@@ -202,7 +202,7 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             {
                 Name = "LengthTextBox",
                 Font = new Font(Font.FontFamily, 10f),
-                Width = 25,
+                Width = 30,
                 Height = 15,
                 BorderStyle = BorderStyle.None,
                 BackColor = BackColor,
@@ -1526,10 +1526,17 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             else if (tb == _lengthTextBox)
                 meters = _nozzleConfig.NozzleLength;
 
-            if ((tb == _nozzleCenterlineDistanceTextBox || tb == _nozzleBottomDistanceTextBox || tb == _lengthTextBox)
+            if ((tb == _nozzleCenterlineDistanceTextBox || tb == _lengthTextBox)
                 && meters == 0.0)
             {
                 tb.Text = string.Empty;
+            }
+            else if (tb == _nozzleBottomDistanceTextBox && meters == 0.0)
+            {
+                tb.Text = "100";
+                // Pre-commit the default so the value is stored even if the user
+                // never focuses the textbox.
+                _nozzleConfig.DistanceFromBottomReferenceMeters = 0.1;
             }
             else if (tb == _rotationTextBox)
             {
@@ -1705,6 +1712,13 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             _showNozzleTopDistance = false;
             _showNozzleBottomDistance = false;
             _showNozzleMiddleDistance = false;
+
+            // Mutually exclusive with bottom distance dots — reset them.
+            if (_nozzleConfig != null)
+            {
+                _nozzleConfig.DistanceFromBottomReferenceMeters = 0;
+                _nozzleConfig.BottomReferencePoint = default;
+            }
 
             _pictureBox.Invalidate();
 

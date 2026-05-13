@@ -36,9 +36,9 @@ namespace SolidWorksTankDesign.TankSiteConfigurations
         // vertical distance from the chosen top point: tank centreline OR nozzle centreline in meters
         private double _distanceFromTopReferenceMeters = 0.1;
         [JsonIgnore]
-        private double _distanceFromBottomReferenceMeters = 0.1;
+        private double _distanceFromBottomReferenceMeters = 0;
         [JsonIgnore]
-        private double _nozzleLength = 0.01;
+        private double _nozzleLength = 0;
         [JsonIgnore]
         private bool _isLongNozzle;
 

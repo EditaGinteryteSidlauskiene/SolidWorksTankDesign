@@ -24,6 +24,12 @@ namespace SolidWorksTankDesign
         private const string CENTER_AXIS_NAME = "Center axis";
         private const string FRONT_PLANE_NAME = "Front plane";
         private const string RIGHT_PLANE_NAME = "Right plane";
+
+        /// <summary>
+        /// Welding gap between adjacent nozzle components in metres (2 mm).
+        /// Applied to every component except the topmost one.
+        /// </summary>
+        private const double WELDING_GAP_METERS = 0.002;
         private const string TOP_PLANE_NAME = "Top plane";
         private const string SHELL_DIAMETER_EXTERNAL = "ShellDiameterExternal";
         private const string SHELL_DIAMETER_INTERNAL = "ShellDiameterInternal";
@@ -430,6 +436,12 @@ namespace SolidWorksTankDesign
 
                 // Sort components top to bottom by distance from Inside point
                 _nozzleSettings.NozzleAssemblyComponents = GetComponentsSortedTopToBottom();
+
+                // Assign the welding gap only to the middle component (index 1).
+                // The gap exists only between the top and middle components in the current assembly.
+                // When components are added programmatically, WeldingGapMeters will be set explicitly.
+                if (_nozzleSettings.NozzleAssemblyComponents.Count > 1)
+                    _nozzleSettings.NozzleAssemblyComponents[1].Settings.WeldingGapMeters = WELDING_GAP_METERS;
             }
 
             // Get a reference to the "Center axis" feature of the added manhole assembly, which will be used for mating
@@ -813,25 +825,19 @@ namespace SolidWorksTankDesign
 
         public void RefreshCutDisplay()
         {
-            // Activate the Tank Site Assembly without triggering a rebuild on activation.
             ModelDoc2 tankSiteDoc = SolidWorksDocumentProvider._tankSiteAssembly._tankSiteModelDoc;
+
             SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
                 tankSiteDoc.GetTitle(), true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, 0);
 
-            // Clear any active selections and disable contour selection mode,
-            // matching the state expected by AssemblyPartToggle.
             tankSiteDoc.ClearSelection2(true);
             ((SelectionMgr)tankSiteDoc.SelectionManager).EnableContourSelection = false;
 
-            // AssemblyPartToggle exits any open component-editing context and returns
-            // focus to the top-level assembly. Without this call the cut feature remains
-            // "owned" by the component context and does not render in the correct position.
+            // Toggle out of component-editing context, then return to assembly editing.
+            // This is what makes the cut appear in its correct position in the UI.
             ((AssemblyDoc)tankSiteDoc).AssemblyPartToggle();
-
-            // Re-enter the standard assembly editing state so subsequent operations work normally.
             ((AssemblyDoc)tankSiteDoc).EditAssembly();
 
-            // Final clear to leave the document in a clean selection state.
             tankSiteDoc.ClearSelection2(true);
         }
 
@@ -1433,6 +1439,76 @@ namespace SolidWorksTankDesign
         }
 
         /// <summary>
+        /// Returns the current total nozzle length in metres: sum of all component D1 values
+        /// plus their welding gaps. Re-activates the nozzle doc after each component doc is closed.
+        /// Nozzle document must be active before calling this method.
+        /// </summary>
+        public double GetTotalNozzleLength()
+        {
+            double total = _nozzleSettings.NozzleAssemblyComponents
+                .Sum(c => c.GetCurrentLength() + c.Settings.WeldingGapMeters);
+
+            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
+                _currentlyActiveNozzleDoc.GetTitle(), true, 0, 0);
+
+            return total;
+        }
+
+        /// <summary>
+        /// Sets the total length of the nozzle
+        /// <paramref name="targetLengthMeters"/> by adjusting only the component
+        /// whose <c>HasAdjustableLength = true</c>.
+        /// <para>
+        /// Algorithm:
+        /// <list type="number">
+        ///   <item>Sum <c>GetCurrentLength()</c> across all components → <c>currentTotalLength</c>.</item>
+        ///   <item><c>delta = targetLength − currentTotalLength</c></item>
+        ///   <item><c>newD1 = adjustableComponent.GetCurrentLength() + delta</c></item>
+        /// </list>
+        /// </para>
+        /// Nozzle document must be active before calling this method.
+        /// </summary>
+        public void SetNozzleLength(double targetLengthMeters)
+        {
+            NozzleAssemblyComponent adjustableComponent = _nozzleSettings.NozzleAssemblyComponents
+                .FirstOrDefault(c => c.Settings.HasAdjustableLength);
+
+            if (adjustableComponent == null)
+            {
+                MessageBox.Show("No adjustable component found.", "SetNozzleLength");
+                return;
+            }
+
+            // Sum current lengths of all components including the welding gap between each pair.
+            double currentTotalLength = _nozzleSettings.NozzleAssemblyComponents
+                .Sum(c => c.GetCurrentLength() + c.Settings.WeldingGapMeters);
+
+            // Re-activate the nozzle doc after GetCurrentLength() calls closed component docs.
+            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
+                _currentlyActiveNozzleDoc.GetTitle(), true, 0, 0);
+
+            double delta     = targetLengthMeters - currentTotalLength;
+            double currentD1 = adjustableComponent.GetCurrentLength();
+
+            //// Re-activate again after the second GetCurrentLength() call.
+            //SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
+            //    _currentlyActiveNozzleDoc.GetTitle(), true, 0, 0);
+
+            double newD1 = currentD1 + delta;
+
+            if (newD1 <= 0)
+            {
+                MessageBox.Show(
+                    $"Computed D1 ({newD1 * 1000:F2} mm) is non-positive. " +
+                    $"Target length ({targetLengthMeters * 1000:F2} mm) is shorter than the fixed components.",
+                    "SetNozzleLength");
+                return;
+            }
+
+            adjustableComponent.ChangeLength(newD1);
+        }
+
+        /// <summary>
         /// Adjusts the length of the last (bottommost) adjustable component so that the distance
         /// from its free plane to the selected reference point equals targetDistanceMeters.
         /// Nozzle document must be active before calling this method.
@@ -1440,7 +1516,7 @@ namespace SolidWorksTankDesign
         public void SetAdjustableComponentLength(NozzleBottomReferencePoint refPoint, double targetDistanceMeters, bool isLongNozzle)
         {
             NozzleAssemblyComponent adjustableComponent = _nozzleSettings.NozzleAssemblyComponents
-                .LastOrDefault(c => c.Settings.HasAdjustableLength);
+                .FirstOrDefault(c => c.Settings.HasAdjustableLength);
 
             if (adjustableComponent == null)
             {
@@ -1450,6 +1526,8 @@ namespace SolidWorksTankDesign
                 return;
             }
 
+            // (determined by its mate, not by D1). Using it as the measurement origin ensures
+            // the formula works regardless of the current D1 or which ref point was used before.
             Feature matingPlane = adjustableComponent.GetMatingPlane();
             if (matingPlane == null)
             {
@@ -1472,19 +1550,31 @@ namespace SolidWorksTankDesign
                 return;
             }
 
+            // signedDist = signed axial distance from the adjustable component's mating plane to the ref point.
+            // Because the mating plane is fixed, this value is stable across ref-point changes.
             double signedDist = GetSignedDistanceAlongAxis(matingPlane, refFeature, adjustableComponent);
 
-            // +1: free plane must be further outward than ref → D1 = signedDist + target
-            // -1: free plane must be closer (shallower) than ref → D1 = signedDist - target
+            // fixedOffset = total length of all components that sit below the adjustable one.
+            // These components shift rigidly when D1 changes, so their combined length must be
+            // subtracted so that the deepest free plane (not the adjustable free plane) lands at target.
+            int adjustableIndex = _nozzleSettings.NozzleAssemblyComponents.IndexOf(adjustableComponent);
+            double fixedOffset = _nozzleSettings.NozzleAssemblyComponents
+                .Skip(adjustableIndex + 1)
+                .Sum(c => c.GetCurrentLength());
+
+            // freeIsDeeper = true  → deepest free plane must be inward  → desiredSignedDist = -target
+            // freeIsDeeper = false → deepest free plane must be outward  → desiredSignedDist = +target
             bool freeIsDeeper = refPoint == NozzleBottomReferencePoint.Top
                              || (refPoint == NozzleBottomReferencePoint.Middle && isLongNozzle);
+            double desiredSignedDist = freeIsDeeper ? -targetDistanceMeters : targetDistanceMeters;
 
-            double newD1 = freeIsDeeper
-                ? signedDist + targetDistanceMeters
-                : signedDist - targetDistanceMeters;
+            // newD1 positions the deepest free plane at desiredSignedDist from the ref point.
+            // When adjustable = deepest, fixedOffset = 0 and this reduces to the original formula.
+            double newD1 = signedDist - fixedOffset - desiredSignedDist;
 
             if (newD1 <= 0)
             {
+                MessageBox.Show($"Computed D1 ({newD1 * 1000:F2} mm) is non-positive. Target distance may be out of range.", "SetAdjustableComponentLength");
                 return;
             }
 

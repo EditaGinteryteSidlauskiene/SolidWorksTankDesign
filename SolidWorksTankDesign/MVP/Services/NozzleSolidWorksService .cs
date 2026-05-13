@@ -397,6 +397,9 @@ namespace SolidWorksTankDesign.MVP.Services
                     || Math.Abs(nozzleConfig.DistanceFromBottomReferenceMeters - s.DistanceFromBottomReferenceMeters) > 0.0001
                     || nozzleConfig.IsLongNozzle != s.IsLongNozzle);
 
+            bool nozzleLengthChangedByUser = nozzleConfig.NozzleLength > 0
+                && Math.Abs(nozzleConfig.NozzleLength - s.NozzleLength) > 0.0001;
+
             if (topRefChanged)
             {
                 compartment.ActivateDocument();
@@ -412,10 +415,13 @@ namespace SolidWorksTankDesign.MVP.Services
                 compartment.ActivateDocument();
                 nozzle.ActivateDocument();
                 nozzle.SetAdjustableComponentLength(nozzleConfig.BottomReferencePoint, nozzleConfig.DistanceFromBottomReferenceMeters, nozzleConfig.IsLongNozzle);
+                double calculatedLength = nozzle.GetTotalNozzleLength();
                 nozzle.SaveAndCloseDocument();
                 s.BottomReferencePoint              = nozzleConfig.BottomReferencePoint;
                 s.DistanceFromBottomReferenceMeters = nozzleConfig.DistanceFromBottomReferenceMeters;
                 s.IsLongNozzle                      = nozzleConfig.IsLongNozzle;
+                s.NozzleLength                      = calculatedLength;
+                nozzleConfig.NozzleLength           = calculatedLength;
             }
             else if (topRefChanged && s.DistanceFromBottomReferenceMeters > 0)
             {
@@ -425,7 +431,19 @@ namespace SolidWorksTankDesign.MVP.Services
                 compartment.ActivateDocument();
                 nozzle.ActivateDocument();
                 nozzle.SetAdjustableComponentLength(s.BottomReferencePoint, s.DistanceFromBottomReferenceMeters, s.IsLongNozzle);
+                double calculatedLength = nozzle.GetTotalNozzleLength();
                 nozzle.SaveAndCloseDocument();
+                s.NozzleLength            = calculatedLength;
+                nozzleConfig.NozzleLength = calculatedLength;
+            }
+
+            if (nozzleLengthChangedByUser)
+            {
+                compartment.ActivateDocument();
+                nozzle.ActivateDocument();
+                nozzle.SetNozzleLength(nozzleConfig.NozzleLength);
+                nozzle.SaveAndCloseDocument();
+                s.NozzleLength = nozzleConfig.NozzleLength;
             }
         }
 
@@ -460,6 +478,16 @@ namespace SolidWorksTankDesign.MVP.Services
                 compartment.ActivateDocument();
                 nozzle.ActivateDocument();
                 nozzle.SetAdjustableComponentLength(nozzleConfig.BottomReferencePoint, nozzleConfig.DistanceFromBottomReferenceMeters, nozzleConfig.IsLongNozzle);
+                double calculatedLength = nozzle.GetTotalNozzleLength();
+                nozzle.SaveAndCloseDocument();
+                nozzleConfig.NozzleLength = calculatedLength;
+            }
+
+            if (nozzleConfig.NozzleLength > 0)
+            {
+                compartment.ActivateDocument();
+                nozzle.ActivateDocument();
+                nozzle.SetNozzleLength(nozzleConfig.NozzleLength);
                 nozzle.SaveAndCloseDocument();
             }
         }

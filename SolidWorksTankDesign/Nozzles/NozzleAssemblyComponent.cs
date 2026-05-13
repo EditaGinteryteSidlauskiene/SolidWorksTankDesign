@@ -1,4 +1,5 @@
 using SolidWorks.Interop.sldworks;
+using Newtonsoft.Json;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using System;
@@ -12,6 +13,7 @@ namespace SolidWorksTankDesign
     /// </summary>
     public class NozzleAssemblyComponent
     {
+        [JsonProperty("Settings")]
         public NozzleAssemblyComponentSettings Settings { get; set; } = new NozzleAssemblyComponentSettings();
 
         public Component2 GetComponent() => (Component2)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
@@ -25,6 +27,38 @@ namespace SolidWorksTankDesign
         public Feature GetFreePlane() => (Feature)SolidWorksDocumentProvider.GetActiveDoc().Extension.GetObjectByPersistReference3(
                      Settings.PIDFreePlane,
                      out int error);
+
+        /// <summary>
+        /// Returns the current D1 value (metres) from the component's "Path Sketch".
+        /// Activates and closes the component doc internally.
+        /// </summary>
+        public double GetCurrentLength()
+        {
+            Component2 nozzleComp = GetComponent();
+            if (nozzleComp == null) return 0;
+
+            ModelDoc2 compDoc = nozzleComp.GetModelDoc2();
+            if (compDoc == null) return 0;
+
+            int errors = 0;
+            compDoc = (ModelDoc2)SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
+                compDoc.GetPathName(), false, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref errors);
+            if (compDoc == null) return 0;
+
+            Feature pathSketch = SWFeatureManager.GetFeatureByName(compDoc, "Path Sketch");
+            if (pathSketch == null) return 0;
+
+            Dimension d1 = pathSketch.Parameter("D1");
+            if (d1 == null) return 0;
+
+            double value = ((double[])d1.GetSystemValue3(
+                (int)swInConfigurationOpts_e.swThisConfiguration, null))[0];
+
+            // Close the component doc so the nozzle doc remains the active context.
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(compDoc.GetTitle());
+
+            return value;
+        }
 
         public void ChangeLength(double newLength)
         {
@@ -75,6 +109,9 @@ namespace SolidWorksTankDesign
                 null);
 
             compDoc.EditRebuild3();
+
+            // Close the component doc so the nozzle doc remains the active context.
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(compDoc.GetTitle());
         }
 
         /// <summary>
