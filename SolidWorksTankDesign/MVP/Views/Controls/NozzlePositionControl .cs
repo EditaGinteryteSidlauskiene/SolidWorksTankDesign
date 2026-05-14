@@ -76,6 +76,31 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
             _currentNozzleConfiguration = currentNozzleConfiguration ?? throw new ArgumentNullException(nameof(currentNozzleConfiguration));
             _rightDishedEndAlignment = rightDishedEndAlignment;
             InitializeComponents();
+
+            // Restore visualization state from the saved nozzle configuration so that
+            // existing nozzles show their reference and distance when the UI is reopened.
+            if (_currentNozzleConfiguration.DistanceFromReference > 0)
+            {
+                _activeNozzleReferenceType   = _currentNozzleConfiguration.ReferenceType;
+                _previousNozzleReferenceType = _activeNozzleReferenceType;
+                _isReferenceToLeft           = _currentNozzleConfiguration.IsReferenceToLeft;
+                _distanceTextBox.Visible     = true;
+
+                // Restore the reference nozzle label for OtherNozzle references.
+                if (_activeNozzleReferenceType == NozzleReferenceType.OtherNozzle
+                    && _currentNozzleConfiguration.ReferenceNozzleId.HasValue)
+                {
+                    foreach (ToolStripItem item in _referenceNozzleMenu.Items)
+                    {
+                        if (item.Tag is Guid id && id == _currentNozzleConfiguration.ReferenceNozzleId.Value)
+                        {
+                            _referenceNozzleLabel.Text    = item.Text;
+                            _referenceNozzleLabel.Visible = true;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>

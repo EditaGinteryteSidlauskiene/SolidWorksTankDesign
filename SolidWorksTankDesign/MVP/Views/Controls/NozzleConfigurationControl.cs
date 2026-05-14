@@ -97,8 +97,57 @@ namespace SolidWorksTankDesign.MVP.Views.Controls
 
             UpdateTextBoxFromModel(_offsetTextBox);
             UpdateTextBoxFromModel(_nozzleCenterlineDistanceTextBox);
-            UpdateTextBoxFromModel(_nozzleBottomDistanceTextBox);
             UpdateTextBoxFromModel(_rotationTextBox);
+
+            // Restore offset flip direction so the offset visualization and textbox are shown correctly.
+            _flipDot = _nozzleConfig.OffsetPosition;
+
+            // Restore bottom distance OR nozzle length visualization (they are mutually exclusive).
+            if (_nozzleConfig.DistanceFromBottomReferenceMeters > 0)
+            {
+                UpdateTextBoxFromModel(_nozzleBottomDistanceTextBox);
+                switch (_nozzleConfig.BottomReferencePoint)
+                {
+                    case NozzleBottomReferencePoint.Top:
+                        _showNozzleTopDistance       = true;
+                        _lastActiveNozzleVisualization = VisualizationTop;
+                        break;
+                    case NozzleBottomReferencePoint.Bottom:
+                        _showNozzleBottomDistance      = true;
+                        _lastActiveNozzleVisualization = VisualizationBottom;
+                        break;
+                    case NozzleBottomReferencePoint.Middle:
+                        _showNozzleMiddleDistance      = true;
+                        _isNozzleMiddleRectangleLong   = _nozzleConfig.IsLongNozzle;
+                        _lastActiveNozzleVisualization = VisualizationMiddle;
+                        break;
+                }
+                _nozzleBottomDistanceTextBox.Visible = true;
+            }
+            else if (_nozzleConfig.NozzleLength > 0)
+            {
+                _showNozzleLength        = true;
+                _lengthTextBox.Visible   = true;
+                UpdateTextBoxFromModel(_lengthTextBox);
+            }
+
+            // Restore top reference visualization if it was previously set.
+            if (_nozzleConfig.DistanceFromTopReferenceMeters > 0)
+            {
+                switch (_nozzleConfig.TopReferenceType)
+                {
+                    case NozzleTopReferenceType.TankCenterline:
+                        _showTankCenterlineDistance   = true;
+                        _showNozzleCenterlineDistance = false;
+                        break;
+                    case NozzleTopReferenceType.NozzleCenterline:
+                        _showNozzleCenterlineDistance = true;
+                        _showTankCenterlineDistance   = false;
+                        break;
+                }
+                _nozzleCenterlineDistanceTextBox.Visible =
+                    _showTankCenterlineDistance || _showNozzleCenterlineDistance;
+            }
 
             _pictureBox?.Invalidate();
         }

@@ -110,6 +110,11 @@ namespace SolidWorksTankDesign
 
             compDoc.EditRebuild3();
 
+            compDoc.Save3(
+                (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
+                (int)swFileSaveError_e.swGenericSaveError,
+                (int)swFileSaveWarning_e.swFileSaveWarning_NeedsRebuild);
+
             // Close the component doc so the nozzle doc remains the active context.
             SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(compDoc.GetTitle());
         }

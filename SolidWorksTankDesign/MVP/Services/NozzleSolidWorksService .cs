@@ -247,6 +247,10 @@ namespace SolidWorksTankDesign.MVP.Services
                     || nozzleConfig.IsLongNozzle != s.IsLongNozzle))
                 return true;
 
+            if (nozzleConfig.NozzleLength > 0
+                && Math.Abs(nozzleConfig.NozzleLength - s.NozzleLength) > 0.0001)
+                return true;
+
             return false;
         }
 

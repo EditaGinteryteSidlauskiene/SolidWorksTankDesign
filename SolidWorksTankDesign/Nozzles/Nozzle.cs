@@ -978,6 +978,10 @@ namespace SolidWorksTankDesign
             ((AssemblyDoc)_currentlyActiveNozzleDoc).EditRebuild();
 
             SaveAndCloseDocument();
+
+            // The cut position changes with the offset — toggle the assembly context
+            // so SolidWorks renders the cut in the correct new position.
+            RefreshCutDisplay();
         }
 
 
@@ -1445,12 +1449,15 @@ namespace SolidWorksTankDesign
         /// </summary>
         public double GetTotalNozzleLength()
         {
-            double total = _nozzleSettings.NozzleAssemblyComponents
-                .Sum(c => c.GetCurrentLength() + c.Settings.WeldingGapMeters);
-
-            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
-                _currentlyActiveNozzleDoc.GetTitle(), true, 0, 0);
-
+            double total = 0;
+            foreach (var c in _nozzleSettings.NozzleAssemblyComponents)
+            {
+                // GetCurrentLength() closes the component doc internally — re-activate the
+                // nozzle doc immediately so the next PID lookup uses the correct context.
+                total += c.GetCurrentLength() + c.Settings.WeldingGapMeters;
+                SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
+                    _currentlyActiveNozzleDoc.GetTitle(), true, 0, 0);
+            }
             return total;
         }
 
@@ -1479,20 +1486,17 @@ namespace SolidWorksTankDesign
                 return;
             }
 
-            // Sum current lengths of all components including the welding gap between each pair.
-            double currentTotalLength = _nozzleSettings.NozzleAssemblyComponents
-                .Sum(c => c.GetCurrentLength() + c.Settings.WeldingGapMeters);
-
-            // Re-activate the nozzle doc after GetCurrentLength() calls closed component docs.
-            SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
-                _currentlyActiveNozzleDoc.GetTitle(), true, 0, 0);
+            // Sum current lengths — re-activate the nozzle doc after each component
+            // because GetCurrentLength() closes the component doc, and the next
+            // PID lookup must be against the nozzle doc context.
+            double currentTotalLength = 0;
+            foreach (var c in _nozzleSettings.NozzleAssemblyComponents)
+            {
+                currentTotalLength += c.GetCurrentLength() + c.Settings.WeldingGapMeters;
+            }
 
             double delta     = targetLengthMeters - currentTotalLength;
             double currentD1 = adjustableComponent.GetCurrentLength();
-
-            //// Re-activate again after the second GetCurrentLength() call.
-            //SolidWorksDocumentProvider._solidWorksApplication.ActivateDoc3(
-            //    _currentlyActiveNozzleDoc.GetTitle(), true, 0, 0);
 
             double newD1 = currentD1 + delta;
 
