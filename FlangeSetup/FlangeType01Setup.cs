@@ -579,6 +579,8 @@ namespace FlangeSetup
             Feature faceCut = GetFeatureByName(doc, "Type H face cut");
             faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
             Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
         }
 
         private static void AddTypeGFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int pn, int dn)
@@ -599,6 +601,8 @@ namespace FlangeSetup
             Feature faceCut = GetFeatureByName(doc, "Type G face cut");
             faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
             Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
         }
 
         private static void AddTypeFFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int pn, int dn)
@@ -619,6 +623,8 @@ namespace FlangeSetup
             Feature faceCut = GetFeatureByName(doc, "Type F face cut");
             faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
             Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
         }
 
         private static void AddTypeEFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int dn)
@@ -637,6 +643,8 @@ namespace FlangeSetup
             Feature faceCut = GetFeatureByName(doc, "Type E face cut");
             faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
             Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
         }
 
         private static void AddTypeDFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int pn, int dn)
@@ -658,6 +666,8 @@ namespace FlangeSetup
             Feature faceCut = GetFeatureByName(doc, "Type D face cut");
             faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
             Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
         }
 
         private static void AddTypeCFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int dn)
@@ -677,6 +687,8 @@ namespace FlangeSetup
             Feature faceCut = GetFeatureByName(doc, "Type C face cut");
             faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
             Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
         }
 
         private static void AddTypeBFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int pn, int dn)
@@ -695,6 +707,8 @@ namespace FlangeSetup
             Feature faceCut = GetFeatureByName(doc, "Type B face cut");
             faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
             Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
         }
 
         private static void SetConfig(
