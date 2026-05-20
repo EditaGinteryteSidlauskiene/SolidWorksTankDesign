@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
@@ -81,7 +82,10 @@ namespace SolidWorksTankDesign
             //string newPath = Path.Combine(Path.GetDirectoryName(path), $"{componentName}.SLDASM");
 
             // Close the nozzle assembly document after it has been packed
-            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(compartmentModelDoc2.GetTitle());
+            string compartmentModelDoc2Title = compartmentModelDoc2.GetTitle();
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(compartmentModelDoc2Title);
+            Marshal.ReleaseComObject(compartmentModelDoc2);
+            compartmentModelDoc2 = null;
 
             // 2. Add and Make Independent Compartment Component
             Component2 compartment = ComponentManager.AddComponentAssembly(shellModelDoc, path);

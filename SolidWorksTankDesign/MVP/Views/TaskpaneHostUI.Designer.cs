@@ -31,6 +31,7 @@
             this.RecognizeButton = new System.Windows.Forms.Button();
             this.SettingsButton = new System.Windows.Forms.Button();
             this.NewButton = new System.Windows.Forms.Button();
+            this.SetupButton = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // RecognizeButton
@@ -66,6 +67,17 @@
             this.NewButton.UseVisualStyleBackColor = true;
             this.NewButton.Click += new System.EventHandler(this.NewButton_Click);
             // 
+            // SetupButton
+            // 
+            this.SetupButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.SetupButton.Location = new System.Drawing.Point(68, 148);
+            this.SetupButton.Name = "SetupButton";
+            this.SetupButton.Size = new System.Drawing.Size(81, 37);
+            this.SetupButton.TabIndex = 3;
+            this.SetupButton.Text = "Setup";
+            this.SetupButton.UseVisualStyleBackColor = true;
+            this.SetupButton.Click += new System.EventHandler(this.SetupButton_Click);
+            // 
             // TaskpaneHostUI
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -73,6 +85,7 @@
             this.Controls.Add(this.NewButton);
             this.Controls.Add(this.SettingsButton);
             this.Controls.Add(this.RecognizeButton);
+            this.Controls.Add(this.SetupButton);
             this.Name = "TaskpaneHostUI";
             this.Size = new System.Drawing.Size(434, 1033);
             this.ResumeLayout(false);
@@ -84,5 +97,6 @@
         private System.Windows.Forms.Button RecognizeButton;
         private System.Windows.Forms.Button SettingsButton;
         private System.Windows.Forms.Button NewButton;
+        private System.Windows.Forms.Button SetupButton;
     }
 }

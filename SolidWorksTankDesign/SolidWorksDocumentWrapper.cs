@@ -1,5 +1,6 @@
 ﻿using SolidWorks.Interop.sldworks;
 using System;
+using System.Runtime.InteropServices;
 
 namespace AddinWithTaskpane
 {
@@ -19,11 +20,14 @@ namespace AddinWithTaskpane
         }
 
         /// <summary>
-        /// Closes document
+        /// Closes document and releases the COM RCW to prevent DisconnectedContext errors.
         /// </summary>
         public void Dispose()
         {
-            solidWorksApplication.CloseDoc(modelDoc.GetTitle());
+            string title = modelDoc.GetTitle();
+            solidWorksApplication.CloseDoc(title);
+            Marshal.ReleaseComObject(modelDoc);
+            modelDoc = null;
         }
     }
 }

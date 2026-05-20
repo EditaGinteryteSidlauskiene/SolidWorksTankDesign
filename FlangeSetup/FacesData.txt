@@ -1,0 +1,1327 @@
+﻿//! # Table 8 (Flange Facing Dimensions)
+//!
+//! **Identity**:
+//! This module implements Table 8 from EN 1092-1, providing dimensions for various flange facing types.
+//!
+//! **Functionality**:
+//! It retrieves the specific dimensions required for a given `FaceType`, dependent on the flange's
+//! Nominal Diameter (DN) and Nominal Pressure (PN). It strictly enforces the availability of face types
+//! for specific PN ranges (e.g., Types G and H are only available for PN 10 to PN 40).
+//!
+//! **Composition**:
+//! *   `FaceDimensions`: An enum with variants for each face type, holding the specific dimensions for that face.
+//! *   `get_face_dimensions`: The primary lookup function.
+//! *   Internal helper functions (implied) to structure the data lookup.
+//!
+//! **Usage**:
+//! This module is used to obtain the precise geometry of the flange face for rendering or specification.
+//!
+//! ```rust
+//! use en1092_1::enums::{Dn, FaceType, Pn};
+//! use en1092_1::tables::face_dimensions::{get_face_dimensions, FaceDimensions};
+//!
+//! if let Some(FaceDimensions::TypeB { d1, f1 }) = get_face_dimensions(FaceType::TypeB, Dn::Dn40, Pn::Pn16) {
+//!     assert_eq!(d1, 88.0);
+//!     assert_eq!(f1, 3.0);
+//! }
+//! ```
+
+use crate::enums::{Dn, FaceType, Pn};
+
+/// Represents the set of dimensions required for a specific face type.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FaceDimensions {
+    /// Type A: Flat face. No specific dimensions required beyond the flange thickness.
+    TypeA,
+    /// Type B: Raised face (B1 or B2).
+    TypeB {
+        /// Diameter of raised face (`d1`).
+        d1: f64,
+        /// Height of raised face (`f1`).
+        f1: f64,
+    },
+    /// Type C: Tongue.
+    TypeC {
+        /// Height of tongue (`f2`).
+        f2: f64,
+        /// Outside diameter of tongue (`w`).
+        w: f64,
+        /// Inside diameter of tongue (`x`).
+        x: f64,
+    },
+    /// Type D: Groove.
+    TypeD {
+        /// Diameter of groove (`d1`).
+        d1: f64,
+        /// Depth of groove (`f1`).
+        f1: f64,
+        /// Outside diameter of groove (`y`).
+        y: f64,
+        /// Inside diameter of groove (`z`).
+        z: f64,
+        /// Depth of groove (`f3`).
+        f3: f64,
+    },
+    /// Type E: Spigot.
+    TypeE {
+        /// Height of spigot (`f2`).
+        f2: f64,
+        /// Diameter of spigot (`x`).
+        x: f64,
+    },
+    /// Type F: Recess.
+    TypeF {
+        /// Diameter of recess (`d1`).
+        d1: f64,
+        /// Depth of recess (`f1`).
+        f1: f64,
+        /// Diameter of recess (`y`).
+        y: f64,
+        /// Depth of recess (`f3`).
+        f3: f64,
+    },
+    /// Type G: O-ring recess.
+    TypeG {
+        /// Diameter of recess (`d1`).
+        d1: f64,
+        /// Depth of recess (`f1`).
+        f1: f64,
+        /// Diameter of recess (`w`).
+        w: f64,
+    },
+    /// Type H: O-ring groove.
+    TypeH {
+        /// Depth of groove (`f3`).
+        f3: f64,
+        /// Depth of groove (`f4`).
+        f4: f64,
+        /// Diameter of groove (`y`).
+        y: f64,
+        /// Diameter of groove (`z`).
+        z: f64,
+        /// Angle of groove (`alpha`).
+        alpha: f64,
+        /// Radius of groove (`r`).
+        r: f64,
+    },
+}
+
+/// Retrieves the face dimensions for a given face type, DN, and PN.
+///
+/// # Arguments
+///
+/// * `face_type` - The type of flange face (A-H).
+/// * `dn` - The nominal diameter (DN).
+/// * `pn` - The nominal pressure (PN).
+///
+/// # Returns
+///
+/// Returns `Some(FaceDimensions)` containing the specific dimensions if the combination is valid.
+/// Returns `None` if the face type is not applicable for the given PN (e.g., Type C for PN 6).
+///
+/// # Remarks
+///
+/// This function implements **Table 8** of EN 1092-1:2018.
+///
+/// *   Dimensions return `Some` only if the face type is standard for the given DN/PN.
+/// *   The field names (`d1`, `f1`, `w`, etc.) correspond strictly to the column headers in the standard text.
+pub const fn get_face_dimensions(face_type: FaceType, dn: Dn, pn: Pn) -> Option<FaceDimensions> {
+    // -------------------------------------------------------------------------
+    // 1. Validate PN Restrictions (EN 1092-1:2018 Table 8 footnotes)
+    // -------------------------------------------------------------------------
+    match face_type {
+        // "Flange facing types C, D, E, F, G and H ... are not used for PN 2,5 and 6."
+        FaceType::TypeC
+        | FaceType::TypeD
+        | FaceType::TypeE
+        | FaceType::TypeF
+        | FaceType::TypeG
+        | FaceType::TypeH => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => return None,
+            _ => {}
+        },
+        _ => {}
+    }
+
+    match face_type {
+        // "Flange facing types G and H ... are only used for PN 10 to PN 40."
+        FaceType::TypeG | FaceType::TypeH => match pn {
+            Pn::Pn10 | Pn::Pn16 | Pn::Pn25 | Pn::Pn40 => {}
+            _ => return None,
+        },
+        _ => {}
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Retrieve Raw Values & Construct Enum Variant
+    // -------------------------------------------------------------------------
+    let dn_val = dn.value();
+
+    match face_type {
+        FaceType::TypeA => Some(FaceDimensions::TypeA),
+        FaceType::TypeB => {
+            if let (Some(d1), Some(f1)) = (get_d1(dn_val, pn), get_f1(dn_val)) {
+                Some(FaceDimensions::TypeB { d1, f1 })
+            } else {
+                None
+            }
+        }
+        FaceType::TypeC => {
+            if let (Some(f2), Some(w), Some(x)) = (get_f2(dn_val), get_w(dn_val), get_x(dn_val)) {
+                Some(FaceDimensions::TypeC { f2, w, x })
+            } else {
+                None
+            }
+        }
+        FaceType::TypeD => {
+            if let (Some(d1), Some(f1), Some(y), Some(z), Some(f3)) = (
+                get_d1(dn_val, pn),
+                get_f1(dn_val),
+                get_y(dn_val),
+                get_z(dn_val),
+                get_f3(dn_val),
+            ) {
+                Some(FaceDimensions::TypeD { d1, f1, y, z, f3 })
+            } else {
+                None
+            }
+        }
+        FaceType::TypeE => {
+            if let (Some(f2), Some(x)) = (get_f2(dn_val), get_x(dn_val)) {
+                Some(FaceDimensions::TypeE { f2, x })
+            } else {
+                None
+            }
+        }
+        FaceType::TypeF => {
+            if let (Some(d1), Some(f1), Some(y), Some(f3)) = (
+                get_d1(dn_val, pn),
+                get_f1(dn_val),
+                get_y(dn_val),
+                get_f3(dn_val),
+            ) {
+                Some(FaceDimensions::TypeF { d1, f1, y, f3 })
+            } else {
+                None
+            }
+        }
+        FaceType::TypeG => {
+            if let (Some(d1), Some(f1), Some(w)) =
+                (get_d1(dn_val, pn), get_f1(dn_val), get_w(dn_val))
+            {
+                Some(FaceDimensions::TypeG { d1, f1, w })
+            } else {
+                None
+            }
+        }
+        FaceType::TypeH => {
+            if let (Some(f3), Some(f4), Some(y), Some(z), Some(alpha), Some(r)) = (
+                get_f3(dn_val),
+                get_f4(dn_val),
+                get_y(dn_val),
+                get_z(dn_val),
+                get_alpha(dn_val),
+                get_r(dn_val),
+            ) {
+                Some(FaceDimensions::TypeH {
+                    f3,
+                    f4,
+                    y,
+                    z,
+                    alpha,
+                    r,
+                })
+            } else {
+                None
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Helper Functions (Data Lookup)
+// -----------------------------------------------------------------------------
+
+// d1 depends on DN and PN.
+#[inline(always)]
+const fn get_d1(dn: u32, pn: Pn) -> Option<f64> {
+    match dn {
+        10 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(35.0),
+            Pn::Pn10
+            | Pn::Pn16
+            | Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(40.0),
+        },
+        15 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(40.0),
+            Pn::Pn10
+            | Pn::Pn16
+            | Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(45.0),
+        },
+        20 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(50.0),
+            Pn::Pn10 | Pn::Pn16 | Pn::Pn25 | Pn::Pn40 | Pn::Pn63 | Pn::Pn100 => Some(58.0),
+            _ => None,
+        },
+        25 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(60.0),
+            Pn::Pn10
+            | Pn::Pn16
+            | Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(68.0),
+        },
+        32 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(70.0),
+            Pn::Pn10 | Pn::Pn16 | Pn::Pn25 | Pn::Pn40 | Pn::Pn63 | Pn::Pn100 => Some(78.0),
+            _ => None,
+        },
+        40 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(80.0),
+            Pn::Pn10
+            | Pn::Pn16
+            | Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(88.0),
+        },
+        50 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(90.0),
+            Pn::Pn10
+            | Pn::Pn16
+            | Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(102.0),
+        },
+        65 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(110.0),
+            Pn::Pn10
+            | Pn::Pn16
+            | Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(122.0),
+        },
+        80 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(128.0),
+            Pn::Pn10
+            | Pn::Pn16
+            | Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(138.0),
+        },
+        100 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(148.0),
+            Pn::Pn10 | Pn::Pn16 => Some(158.0),
+            Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(162.0),
+        },
+        125 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(178.0),
+            Pn::Pn10 | Pn::Pn16 => Some(188.0),
+            Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(188.0),
+        },
+        150 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(202.0),
+            Pn::Pn10 | Pn::Pn16 => Some(212.0),
+            Pn::Pn25
+            | Pn::Pn40
+            | Pn::Pn63
+            | Pn::Pn100
+            | Pn::Pn160
+            | Pn::Pn250
+            | Pn::Pn320
+            | Pn::Pn400 => Some(218.0),
+        },
+        200 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(258.0),
+            Pn::Pn10 | Pn::Pn16 => Some(268.0),
+            Pn::Pn25 => Some(278.0),
+            Pn::Pn40 | Pn::Pn63 | Pn::Pn100 | Pn::Pn160 | Pn::Pn250 | Pn::Pn320 | Pn::Pn400 => {
+                Some(285.0)
+            }
+        },
+        250 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(312.0),
+            Pn::Pn10 | Pn::Pn16 => Some(320.0),
+            Pn::Pn25 => Some(335.0),
+            Pn::Pn40 | Pn::Pn63 | Pn::Pn100 | Pn::Pn160 | Pn::Pn250 | Pn::Pn320 => Some(345.0),
+            _ => None,
+        },
+        300 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(365.0),
+            Pn::Pn10 => Some(370.0),
+            Pn::Pn16 => Some(378.0),
+            Pn::Pn25 => Some(395.0),
+            Pn::Pn40 | Pn::Pn63 | Pn::Pn100 | Pn::Pn160 | Pn::Pn250 => Some(410.0),
+            _ => None,
+        },
+        350 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(415.0),
+            Pn::Pn10 => Some(430.0),
+            Pn::Pn16 => Some(438.0),
+            Pn::Pn25 => Some(450.0),
+            Pn::Pn40 | Pn::Pn63 | Pn::Pn100 => Some(465.0),
+            _ => None,
+        },
+        400 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(465.0),
+            Pn::Pn10 => Some(482.0),
+            Pn::Pn16 => Some(490.0),
+            Pn::Pn25 => Some(505.0),
+            Pn::Pn40 | Pn::Pn63 | Pn::Pn100 => Some(535.0),
+            _ => None,
+        },
+        450 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(520.0),
+            Pn::Pn10 => Some(532.0),
+            Pn::Pn16 => Some(550.0),
+            Pn::Pn25 => Some(555.0),
+            Pn::Pn40 | Pn::Pn63 | Pn::Pn100 => Some(560.0),
+            _ => None,
+        },
+        500 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(570.0),
+            Pn::Pn10 => Some(585.0),
+            Pn::Pn16 => Some(610.0),
+            Pn::Pn25 | Pn::Pn40 | Pn::Pn63 | Pn::Pn100 => Some(615.0),
+            _ => None,
+        },
+        600 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(670.0),
+            Pn::Pn10 => Some(685.0),
+            Pn::Pn16 => Some(725.0),
+            Pn::Pn25 => Some(720.0),
+            Pn::Pn40 | Pn::Pn63 => Some(735.0),
+            _ => None,
+        },
+        700 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(775.0),
+            Pn::Pn10 => Some(800.0),
+            Pn::Pn16 => Some(795.0),
+            Pn::Pn25 => Some(820.0),
+            Pn::Pn40 | Pn::Pn63 => Some(840.0),
+            _ => None,
+        },
+        800 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(880.0),
+            Pn::Pn10 => Some(905.0),
+            Pn::Pn16 => Some(900.0),
+            Pn::Pn25 => Some(930.0),
+            Pn::Pn40 | Pn::Pn63 => Some(960.0),
+            _ => None,
+        },
+        900 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(980.0),
+            Pn::Pn10 => Some(1005.0),
+            Pn::Pn16 => Some(1000.0),
+            Pn::Pn25 => Some(1030.0),
+            Pn::Pn40 | Pn::Pn63 => Some(1070.0),
+            _ => None,
+        },
+        1000 => match pn {
+            Pn::Pn2_5 | Pn::Pn6 => Some(1080.0),
+            Pn::Pn10 => Some(1110.0),
+            Pn::Pn16 => Some(1115.0),
+            Pn::Pn25 => Some(1140.0),
+            Pn::Pn40 | Pn::Pn63 => Some(1180.0),
+            _ => None,
+        },
+        1200 => match pn {
+            Pn::Pn2_5 => Some(1280.0),
+            Pn::Pn6 => Some(1295.0),
+            Pn::Pn10 => Some(1330.0),
+            Pn::Pn16 => Some(1330.0),
+            Pn::Pn25 => Some(1350.0),
+            Pn::Pn40 | Pn::Pn63 => Some(1380.0),
+            _ => None,
+        },
+        1400 => match pn {
+            Pn::Pn2_5 => Some(1480.0),
+            Pn::Pn6 => Some(1510.0),
+            Pn::Pn10 => Some(1535.0),
+            Pn::Pn16 => Some(1530.0),
+            Pn::Pn25 => Some(1560.0),
+            Pn::Pn40 => Some(1600.0),
+            _ => None,
+        },
+        1600 => match pn {
+            Pn::Pn2_5 => Some(1690.0),
+            Pn::Pn6 => Some(1710.0),
+            Pn::Pn10 => Some(1760.0),
+            Pn::Pn16 => Some(1750.0),
+            Pn::Pn25 => Some(1780.0),
+            Pn::Pn40 => Some(1815.0),
+            _ => None,
+        },
+        1800 => match pn {
+            Pn::Pn2_5 => Some(1890.0),
+            Pn::Pn6 => Some(1920.0),
+            Pn::Pn10 => Some(1960.0),
+            Pn::Pn16 => Some(1950.0),
+            Pn::Pn25 => Some(1985.0),
+            _ => None,
+        },
+        2000 => match pn {
+            Pn::Pn2_5 => Some(2090.0),
+            Pn::Pn6 => Some(2125.0),
+            Pn::Pn10 => Some(2170.0),
+            Pn::Pn16 => Some(2150.0),
+            Pn::Pn25 => Some(2210.0),
+            _ => None,
+        },
+        2200 => match pn {
+            Pn::Pn2_5 => Some(2295.0),
+            Pn::Pn6 => Some(2335.0),
+            Pn::Pn10 => Some(2370.0),
+            _ => None,
+        },
+        2400 => match pn {
+            Pn::Pn2_5 => Some(2495.0),
+            Pn::Pn6 => Some(2545.0),
+            Pn::Pn10 => Some(2570.0),
+            _ => None,
+        },
+        2600 => match pn {
+            Pn::Pn2_5 => Some(2695.0),
+            Pn::Pn6 => Some(2750.0),
+            Pn::Pn10 => Some(2780.0),
+            _ => None,
+        },
+        2800 => match pn {
+            Pn::Pn2_5 => Some(2910.0),
+            Pn::Pn6 => Some(2960.0),
+            Pn::Pn10 => Some(3000.0),
+            _ => None,
+        },
+        3000 => match pn {
+            Pn::Pn2_5 => Some(3110.0),
+            Pn::Pn6 => Some(3160.0),
+            Pn::Pn10 => Some(3210.0),
+            _ => None,
+        },
+        3200 => match pn {
+            Pn::Pn2_5 => Some(3310.0),
+            Pn::Pn6 => Some(3370.0),
+            _ => None,
+        },
+        3400 => match pn {
+            Pn::Pn2_5 => Some(3510.0),
+            Pn::Pn6 => Some(3580.0),
+            _ => None,
+        },
+        3600 => match pn {
+            Pn::Pn2_5 => Some(3720.0),
+            Pn::Pn6 => Some(3790.0),
+            _ => None,
+        },
+        3800 => match pn {
+            Pn::Pn2_5 => Some(3920.0),
+            _ => None,
+        },
+        4000 => match pn {
+            Pn::Pn2_5 => Some(4120.0),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+#[inline(always)]
+const fn get_f1(dn: u32) -> Option<f64> {
+    if dn <= 32 {
+        Some(2.0)
+    } else if dn <= 250 {
+        Some(3.0)
+    } else if dn <= 500 {
+        Some(4.0)
+    }
+    // 300-500
+    else if dn <= 4000 {
+        Some(5.0)
+    }
+    // 600-4000
+    else {
+        None
+    }
+}
+
+#[inline(always)]
+const fn get_f2(dn: u32) -> Option<f64> {
+    if dn <= 80 {
+        Some(4.5)
+    } else if dn <= 300 {
+        Some(5.0)
+    } else if dn <= 900 {
+        Some(5.5)
+    } else if dn <= 4000 {
+        Some(6.5)
+    } else {
+        None
+    }
+}
+
+#[inline(always)]
+const fn get_f3(dn: u32) -> Option<f64> {
+    if dn <= 80 {
+        Some(4.0)
+    } else if dn <= 300 {
+        Some(4.5)
+    } else if dn <= 900 {
+        Some(5.0)
+    } else if dn <= 4000 {
+        Some(6.0)
+    } else {
+        None
+    }
+}
+
+#[inline(always)]
+const fn get_f4(dn: u32) -> Option<f64> {
+    // Only for Type H
+    if dn <= 80 {
+        Some(2.0)
+    } else if dn <= 300 {
+        Some(2.5)
+    } else if dn <= 900 {
+        Some(3.0)
+    } else if dn <= 4000 {
+        Some(4.0)
+    } else {
+        None
+    }
+}
+
+#[inline(always)]
+const fn get_w(dn: u32) -> Option<f64> {
+    match dn {
+        10 => Some(24.0),
+        15 => Some(29.0),
+        20 => Some(36.0),
+        25 => Some(43.0),
+        32 => Some(51.0),
+        40 => Some(61.0),
+        50 => Some(73.0),
+        65 => Some(95.0),
+        80 => Some(106.0),
+        100 => Some(129.0),
+        125 => Some(155.0),
+        150 => Some(183.0),
+        200 => Some(239.0),
+        250 => Some(292.0),
+        300 => Some(343.0),
+        350 => Some(395.0),
+        400 => Some(447.0),
+        450 => Some(497.0),
+        500 => Some(549.0),
+        600 => Some(649.0),
+        700 => Some(751.0),
+        800 => Some(856.0),
+        900 => Some(961.0),
+        1000 => Some(1062.0),
+        1200 => Some(1262.0),
+        1400 => Some(1462.0),
+        1600 => Some(1662.0),
+        1800 => Some(1862.0),
+        2000 => Some(2062.0),
+        _ => None,
+    }
+}
+
+#[inline(always)]
+const fn get_x(dn: u32) -> Option<f64> {
+    // Looks like w + 10 usually?
+    match dn {
+        10 => Some(34.0),
+        15 => Some(39.0),
+        20 => Some(50.0),
+        25 => Some(57.0),
+        32 => Some(65.0),
+        40 => Some(75.0),
+        50 => Some(87.0),
+        65 => Some(109.0),
+        80 => Some(120.0),
+        100 => Some(149.0),
+        125 => Some(175.0),
+        150 => Some(203.0),
+        200 => Some(259.0),
+        250 => Some(312.0),
+        300 => Some(363.0),
+        350 => Some(421.0),
+        400 => Some(473.0),
+        450 => Some(523.0),
+        500 => Some(575.0),
+        600 => Some(675.0),
+        700 => Some(777.0),
+        800 => Some(882.0),
+        900 => Some(987.0),
+        1000 => Some(1092.0),
+        1200 => Some(1292.0),
+        1400 => Some(1492.0),
+        1600 => Some(1692.0),
+        1800 => Some(1892.0),
+        2000 => Some(2092.0),
+        _ => None,
+    }
+}
+
+#[inline(always)]
+const fn get_y(dn: u32) -> Option<f64> {
+    match dn {
+        10 => Some(35.0),
+        15 => Some(40.0),
+        20 => Some(51.0),
+        25 => Some(58.0),
+        32 => Some(66.0),
+        40 => Some(76.0),
+        50 => Some(88.0),
+        65 => Some(110.0),
+        80 => Some(121.0),
+        100 => Some(150.0),
+        125 => Some(176.0),
+        150 => Some(204.0),
+        200 => Some(260.0),
+        250 => Some(313.0),
+        300 => Some(364.0),
+        350 => Some(422.0),
+        400 => Some(474.0),
+        450 => Some(524.0),
+        500 => Some(576.0),
+        600 => Some(676.0),
+        700 => Some(778.0),
+        800 => Some(883.0),
+        900 => Some(988.0),
+        1000 => Some(1094.0),
+        1200 => Some(1294.0),
+        1400 => Some(1494.0),
+        1600 => Some(1694.0),
+        1800 => Some(1894.0),
+        2000 => Some(2094.0),
+        _ => None,
+    }
+}
+
+#[inline(always)]
+const fn get_z(dn: u32) -> Option<f64> {
+    // Only for Type D/H
+    match dn {
+        10 => Some(23.0),
+        15 => Some(28.0),
+        20 => Some(35.0),
+        25 => Some(42.0),
+        32 => Some(50.0),
+        40 => Some(60.0),
+        50 => Some(72.0),
+        65 => Some(94.0),
+        80 => Some(105.0),
+        100 => Some(128.0),
+        125 => Some(154.0),
+        150 => Some(182.0),
+        200 => Some(238.0),
+        250 => Some(291.0),
+        300 => Some(342.0),
+        350 => Some(394.0),
+        400 => Some(446.0),
+        450 => Some(496.0),
+        500 => Some(548.0),
+        600 => Some(648.0),
+        700 => Some(750.0),
+        800 => Some(855.0),
+        900 => Some(960.0),
+        1000 => Some(1060.0),
+        1200 => Some(1260.0),
+        1400 => Some(1460.0),
+        1600 => Some(1660.0),
+        1800 => Some(1860.0),
+        2000 => Some(2060.0),
+        _ => None,
+    }
+}
+
+#[inline(always)]
+const fn get_alpha(dn: u32) -> Option<f64> {
+    // Only for Type H
+    if dn < 20 {
+        None
+    } else if dn <= 80 {
+        Some(41.0)
+    } else if dn <= 300 {
+        Some(32.0)
+    } else if dn <= 900 {
+        Some(27.0)
+    } else if dn <= 2000 {
+        Some(28.0)
+    } else {
+        None
+    }
+}
+
+#[inline(always)]
+const fn get_r(dn: u32) -> Option<f64> {
+    // Only for Type H
+    if dn <= 80 {
+        Some(2.5)
+    } else if dn <= 300 {
+        Some(3.0)
+    } else if dn <= 900 {
+        Some(3.5)
+    } else if dn <= 2000 {
+        Some(4.0)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Helper for parsing CSV
+    struct CsvRow {
+        dn: u32,
+        d1_pn2_5: Option<f64>,
+        d1_pn6: Option<f64>,
+        d1_pn10: Option<f64>,
+        d1_pn16: Option<f64>,
+        d1_pn25: Option<f64>,
+        d1_pn40: Option<f64>,
+        d1_pn63: Option<f64>,
+        d1_pn100: Option<f64>,
+        d1_pn160: Option<f64>,
+        d1_pn250: Option<f64>,
+        d1_pn320: Option<f64>,
+        d1_pn400: Option<f64>,
+        f1: Option<f64>,
+        f2: Option<f64>,
+        f3: Option<f64>,
+        f4: Option<f64>,
+        w: Option<f64>,
+        x: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        alpha: Option<f64>,
+        r: Option<f64>,
+    }
+
+    fn parse_csv() -> Vec<CsvRow> {
+        let content = include_str!("data/table_8.csv");
+        let mut rows = Vec::new();
+
+        for (i, line) in content.lines().enumerate() {
+            // Skip header
+            if i == 0 {
+                continue;
+            }
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            let parts: Vec<&str> = line.split(',').collect();
+            if parts.is_empty() {
+                continue;
+            }
+            let dn_str = parts[0].trim();
+            if dn_str.is_empty() {
+                continue;
+            }
+
+            // SKIP headers and footers (non-numeric DNs)
+            if !dn_str.chars().next().map_or(false, |c| c.is_ascii_digit()) {
+                continue;
+            }
+
+            let parse_opt = |s: &str| -> Option<f64> {
+                let s = s.trim();
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s.parse::<f64>().expect("Invalid float"))
+                }
+            };
+
+            let dn = dn_str.parse::<u32>().expect("Invalid DN");
+
+            rows.push(CsvRow {
+                dn,
+                d1_pn2_5: parse_opt(parts[1]),
+                d1_pn6: parse_opt(parts[2]),
+                d1_pn10: parse_opt(parts[3]),
+                d1_pn16: parse_opt(parts[4]),
+                d1_pn25: parse_opt(parts[5]),
+                d1_pn40: parse_opt(parts[6]),
+                d1_pn63: parse_opt(parts[7]),
+                d1_pn100: parse_opt(parts[8]),
+                d1_pn160: parse_opt(parts[9]),
+                d1_pn250: parse_opt(parts[10]),
+                d1_pn320: parse_opt(parts[11]),
+                d1_pn400: parse_opt(parts[12]),
+                f1: parse_opt(parts[13]),
+                f2: parse_opt(parts[14]),
+                f3: parse_opt(parts[15]),
+                f4: parse_opt(parts[16]),
+                w: parse_opt(parts[17]),
+                x: parse_opt(parts[18]),
+                y: parse_opt(parts[19]),
+                z: parse_opt(parts[20]),
+                alpha: parse_opt(parts[21]),
+                r: parse_opt(parts[22]),
+            });
+        }
+        rows
+    }
+
+    #[test]
+    fn test_table_8_compliance() {
+        let rows = parse_csv();
+        let mut failures = Vec::new();
+
+        // Helper check_d1 can't be a closure easily due to borrowing, so we iterate manually.
+        for row in rows {
+            let dn_enum = match Dn::try_from(row.dn) {
+                Ok(v) => v,
+                Err(e) => panic!("CSV contains DN {} which is not in Dn enum: {}", row.dn, e),
+            };
+
+            // Check d1 for all PNs
+            check_d1(dn_enum, Pn::Pn2_5, row.d1_pn2_5, &mut failures);
+            check_d1(dn_enum, Pn::Pn6, row.d1_pn6, &mut failures);
+            check_d1(dn_enum, Pn::Pn10, row.d1_pn10, &mut failures);
+            check_d1(dn_enum, Pn::Pn16, row.d1_pn16, &mut failures);
+            check_d1(dn_enum, Pn::Pn25, row.d1_pn25, &mut failures);
+            check_d1(dn_enum, Pn::Pn40, row.d1_pn40, &mut failures);
+            check_d1(dn_enum, Pn::Pn63, row.d1_pn63, &mut failures);
+            check_d1(dn_enum, Pn::Pn100, row.d1_pn100, &mut failures);
+            check_d1(dn_enum, Pn::Pn160, row.d1_pn160, &mut failures);
+            check_d1(dn_enum, Pn::Pn250, row.d1_pn250, &mut failures);
+            check_d1(dn_enum, Pn::Pn320, row.d1_pn320, &mut failures);
+            check_d1(dn_enum, Pn::Pn400, row.d1_pn400, &mut failures);
+
+            check_face_type_a(dn_enum, Pn::Pn10, &mut failures);
+
+            // Check other faces against a known valid PN (e.g. PN10 or valid range)
+            check_face_type_b(dn_enum, Pn::Pn10, row.d1_pn10, row.f1, &mut failures);
+            check_face_type_c(dn_enum, Pn::Pn10, row.f2, row.w, row.x, &mut failures);
+            check_face_type_d(
+                dn_enum,
+                Pn::Pn10,
+                row.d1_pn10,
+                row.f1,
+                row.y,
+                row.z,
+                row.f3,
+                &mut failures,
+            );
+            check_face_type_e(dn_enum, Pn::Pn10, row.f2, row.x, &mut failures);
+            check_face_type_f(
+                dn_enum,
+                Pn::Pn10,
+                row.d1_pn10,
+                row.f1,
+                row.y,
+                row.f3,
+                &mut failures,
+            );
+            check_face_type_g(dn_enum, Pn::Pn10, row.d1_pn10, row.f1, row.w, &mut failures);
+            check_face_type_h(
+                dn_enum,
+                Pn::Pn10,
+                row.f3,
+                row.f4,
+                row.y,
+                row.z,
+                row.alpha,
+                row.r,
+                &mut failures,
+            );
+        }
+
+        if !failures.is_empty() {
+            // Print truncated list
+            for f in failures.iter().take(50) {
+                println!("{}", f);
+            }
+            if failures.len() > 50 {
+                println!("... and {} more failures.", failures.len() - 50);
+            }
+            panic!("Table 8 compliance match failed");
+        }
+    }
+
+    fn check_d1(dn: Dn, pn: Pn, expected: Option<f64>, failures: &mut Vec<String>) {
+        // Use TypeB as proxy for d1.
+        let res = get_face_dimensions(FaceType::TypeB, dn, pn);
+        if let Some(exp) = expected {
+            if let Some(FaceDimensions::TypeB { d1, .. }) = res {
+                if (d1 - exp).abs() > 1e-9 {
+                    failures.push(format!(
+                        "d1 mismatch DN{:?} PN{:?}: Expected {:?}, Got {:?}",
+                        dn, pn, exp, d1
+                    ));
+                }
+            } else {
+                failures.push(format!(
+                    "d1 mismatch DN{:?} PN{:?}: Expected {:?}, Got None (valid TypeB?)",
+                    dn, pn, exp
+                ));
+            }
+        } else {
+            // expected None
+            if let Some(FaceDimensions::TypeB { d1, .. }) = res {
+                failures.push(format!(
+                    "d1 mismatch DN{:?} PN{:?}: Expected None, Got {:?}",
+                    dn, pn, d1
+                ));
+            }
+        }
+    }
+
+    fn check_face_type_a(dn: Dn, pn: Pn, _failures: &mut Vec<String>) {
+        let res = get_face_dimensions(FaceType::TypeA, dn, pn);
+        assert!(matches!(res, Some(FaceDimensions::TypeA)));
+    }
+
+    fn check_face_type_b(
+        dn: Dn,
+        pn: Pn,
+        d1: Option<f64>,
+        f1: Option<f64>,
+        failures: &mut Vec<String>,
+    ) {
+        let res = get_face_dimensions(FaceType::TypeB, dn, pn);
+        match (res, d1, f1) {
+            (Some(FaceDimensions::TypeB { d1: a, f1: b }), Some(e_d1), Some(e_f1)) => {
+                if (a - e_d1).abs() > 1e-9 || (b - e_f1).abs() > 1e-9 {
+                    failures.push(format!("TypeB mismatch DN{:?} PN{:?}: Expected d1={:?}, f1={:?}; Got d1={:?}, f1={:?}", dn, pn, e_d1, e_f1, a, b));
+                }
+            }
+            (None, None, _) | (None, _, None) => {}
+            (Some(_), None, _) => failures.push(format!(
+                "TypeB mismatch DN{:?} PN{:?}: Expected None (missing d1); Got Some",
+                dn, pn
+            )),
+            (None, Some(_), Some(_)) => failures.push(format!(
+                "TypeB mismatch DN{:?} PN{:?}: Expected Some; Got None",
+                dn, pn
+            )),
+            _ => {}
+        }
+    }
+
+    fn check_face_type_c(
+        dn: Dn,
+        pn: Pn,
+        f2: Option<f64>,
+        w: Option<f64>,
+        x: Option<f64>,
+        failures: &mut Vec<String>,
+    ) {
+        let res = get_face_dimensions(FaceType::TypeC, dn, pn);
+        let excluded = matches!(pn, Pn::Pn2_5 | Pn::Pn6);
+        match (res, excluded, f2, w, x) {
+            (None, true, _, _, _) => {}
+            (Some(_), true, _, _, _) => failures.push(format!(
+                "TypeC mismatch DN{:?} PN{:?}: Should be excluded",
+                dn, pn
+            )),
+            (
+                Some(FaceDimensions::TypeC { f2: a, w: b, x: c }),
+                false,
+                Some(e_f2),
+                Some(e_w),
+                Some(e_x),
+            ) => {
+                if (a - e_f2).abs() > 1e-9 || (b - e_w).abs() > 1e-9 || (c - e_x).abs() > 1e-9 {
+                    failures.push(format!(
+                        "TypeC mismatch DN{:?} PN{:?}: Values differ",
+                        dn, pn
+                    ));
+                }
+            }
+            (None, false, Some(_), Some(_), Some(_)) => failures.push(format!(
+                "TypeC mismatch DN{:?} PN{:?}: Expected Some; Got None",
+                dn, pn
+            )),
+            _ => {}
+        }
+    }
+
+    fn check_face_type_d(
+        dn: Dn,
+        pn: Pn,
+        d1: Option<f64>,
+        f1: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        f3: Option<f64>,
+        failures: &mut Vec<String>,
+    ) {
+        let res = get_face_dimensions(FaceType::TypeD, dn, pn);
+        let excluded = matches!(pn, Pn::Pn2_5 | Pn::Pn6);
+        match (res, excluded, d1, f1, y, z, f3) {
+            (None, true, _, _, _, _, _) => {}
+            (Some(_), true, _, _, _, _, _) => failures.push(format!(
+                "TypeD mismatch DN{:?} PN{:?}: Should be excluded",
+                dn, pn
+            )),
+            (
+                Some(FaceDimensions::TypeD {
+                    d1: a,
+                    f1: b,
+                    y: c,
+                    z: d,
+                    f3: e,
+                }),
+                false,
+                Some(e_d1),
+                Some(e_f1),
+                Some(e_y),
+                Some(e_z),
+                Some(e_f3),
+            ) => {
+                if (a - e_d1).abs() > 1e-9
+                    || (b - e_f1).abs() > 1e-9
+                    || (c - e_y).abs() > 1e-9
+                    || (d - e_z).abs() > 1e-9
+                    || (e - e_f3).abs() > 1e-9
+                {
+                    failures.push(format!(
+                        "TypeD mismatch DN{:?} PN{:?}: Values differ",
+                        dn, pn
+                    ));
+                }
+            }
+            (None, false, Some(_), Some(_), Some(_), Some(_), Some(_)) => failures.push(format!(
+                "TypeD mismatch DN{:?} PN{:?}: Expected Some; Got None",
+                dn, pn
+            )),
+            _ => {}
+        }
+    }
+
+    fn check_face_type_e(
+        dn: Dn,
+        pn: Pn,
+        f2: Option<f64>,
+        x: Option<f64>,
+        failures: &mut Vec<String>,
+    ) {
+        let res = get_face_dimensions(FaceType::TypeE, dn, pn);
+        let excluded = matches!(pn, Pn::Pn2_5 | Pn::Pn6);
+        match (res, excluded, f2, x) {
+            (None, true, _, _) => {}
+            (Some(_), true, _, _) => failures.push(format!(
+                "TypeE mismatch DN{:?} PN{:?}: Should be excluded",
+                dn, pn
+            )),
+            (Some(FaceDimensions::TypeE { f2: a, x: b }), false, Some(e_f2), Some(e_x)) => {
+                if (a - e_f2).abs() > 1e-9 || (b - e_x).abs() > 1e-9 {
+                    failures.push(format!(
+                        "TypeE mismatch DN{:?} PN{:?}: Values differ",
+                        dn, pn
+                    ));
+                }
+            }
+            (None, false, Some(_), Some(_)) => failures.push(format!(
+                "TypeE mismatch DN{:?} PN{:?}: Expected Some; Got None",
+                dn, pn
+            )),
+            _ => {}
+        }
+    }
+
+    fn check_face_type_f(
+        dn: Dn,
+        pn: Pn,
+        d1: Option<f64>,
+        f1: Option<f64>,
+        y: Option<f64>,
+        f3: Option<f64>,
+        failures: &mut Vec<String>,
+    ) {
+        let res = get_face_dimensions(FaceType::TypeF, dn, pn);
+        let excluded = matches!(pn, Pn::Pn2_5 | Pn::Pn6);
+        match (res, excluded, d1, f1, y, f3) {
+            (None, true, _, _, _, _) => {}
+            (Some(_), true, _, _, _, _) => failures.push(format!(
+                "TypeF mismatch DN{:?} PN{:?}: Should be excluded",
+                dn, pn
+            )),
+            (
+                Some(FaceDimensions::TypeF {
+                    d1: a,
+                    f1: b,
+                    y: c,
+                    f3: d,
+                }),
+                false,
+                Some(e_d1),
+                Some(e_f1),
+                Some(e_y),
+                Some(e_f3),
+            ) => {
+                if (a - e_d1).abs() > 1e-9
+                    || (b - e_f1).abs() > 1e-9
+                    || (c - e_y).abs() > 1e-9
+                    || (d - e_f3).abs() > 1e-9
+                {
+                    failures.push(format!(
+                        "TypeF mismatch DN{:?} PN{:?}: Values differ",
+                        dn, pn
+                    ));
+                }
+            }
+            (None, false, Some(_), Some(_), Some(_), Some(_)) => failures.push(format!(
+                "TypeF mismatch DN{:?} PN{:?}: Expected Some; Got None",
+                dn, pn
+            )),
+            _ => {}
+        }
+    }
+
+    fn check_face_type_g(
+        dn: Dn,
+        pn: Pn,
+        d1: Option<f64>,
+        f1: Option<f64>,
+        w: Option<f64>,
+        failures: &mut Vec<String>,
+    ) {
+        let res = get_face_dimensions(FaceType::TypeG, dn, pn);
+        let valid_pn = matches!(pn, Pn::Pn10 | Pn::Pn16 | Pn::Pn25 | Pn::Pn40);
+        match (res, valid_pn, d1, f1, w) {
+            (None, false, _, _, _) => {}
+            (Some(_), false, _, _, _) => failures.push(format!(
+                "TypeG mismatch DN{:?} PN{:?}: Should be excluded",
+                dn, pn
+            )),
+            (
+                Some(FaceDimensions::TypeG { d1: a, f1: b, w: c }),
+                true,
+                Some(e_d1),
+                Some(e_f1),
+                Some(e_w),
+            ) => {
+                if (a - e_d1).abs() > 1e-9 || (b - e_f1).abs() > 1e-9 || (c - e_w).abs() > 1e-9 {
+                    failures.push(format!(
+                        "TypeG mismatch DN{:?} PN{:?}: Values differ",
+                        dn, pn
+                    ));
+                }
+            }
+            (None, true, Some(_), Some(_), Some(_)) => failures.push(format!(
+                "TypeG mismatch DN{:?} PN{:?}: Expected Some; Got None",
+                dn, pn
+            )),
+            _ => {}
+        }
+    }
+
+    fn check_face_type_h(
+        dn: Dn,
+        pn: Pn,
+        f3: Option<f64>,
+        f4: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        alpha: Option<f64>,
+        r: Option<f64>,
+        failures: &mut Vec<String>,
+    ) {
+        let res = get_face_dimensions(FaceType::TypeH, dn, pn);
+        let valid_pn = matches!(pn, Pn::Pn10 | Pn::Pn16 | Pn::Pn25 | Pn::Pn40);
+        match (res, valid_pn, f3, f4, y, z, alpha, r) {
+            (None, false, _, _, _, _, _, _) => {}
+            (Some(_), false, _, _, _, _, _, _) => failures.push(format!(
+                "TypeH mismatch DN{:?} PN{:?}: Should be excluded",
+                dn, pn
+            )),
+            (
+                Some(FaceDimensions::TypeH {
+                    f3: a,
+                    f4: b,
+                    y: c,
+                    z: d,
+                    alpha: e,
+                    r: f,
+                }),
+                true,
+                Some(e_f3),
+                Some(e_f4),
+                Some(e_y),
+                Some(e_z),
+                Some(e_alpha),
+                Some(e_r),
+            ) => {
+                if (a - e_f3).abs() > 1e-9
+                    || (b - e_f4).abs() > 1e-9
+                    || (c - e_y).abs() > 1e-9
+                    || (d - e_z).abs() > 1e-9
+                    || (e - e_alpha).abs() > 1e-9
+                    || (f - e_r).abs() > 1e-9
+                {
+                    failures.push(format!(
+                        "TypeH mismatch DN{:?} PN{:?}: Values differ",
+                        dn, pn
+                    ));
+                }
+            }
+            (None, true, Some(_), Some(_), Some(_), Some(_), Some(_), Some(_)) => {
+                failures.push(format!(
+                    "TypeH mismatch DN{:?} PN{:?}: Expected Some; Got None",
+                    dn, pn
+                ))
+            }
+            _ => {}
+        }
+    }
+}

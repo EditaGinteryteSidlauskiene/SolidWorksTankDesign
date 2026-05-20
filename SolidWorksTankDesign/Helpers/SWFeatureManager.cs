@@ -4,6 +4,7 @@ using SolidWorksTankDesign.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
@@ -373,7 +374,10 @@ namespace SolidWorksTankDesign
                 out string volumePerMeter,
                 out _, out _, out _);
 
-            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(document.GetTitle());
+            string title = document.GetTitle();
+            SolidWorksDocumentProvider._solidWorksApplication.CloseDoc(title);
+            Marshal.ReleaseComObject(customPropertyManager);
+            Marshal.ReleaseComObject(document);
 
             return double.Parse(volumePerMeter.Replace(',', '.'));
         }

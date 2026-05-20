@@ -3,7 +3,7 @@ using MVP;
 using SolidWorks.Interop.sldworks;
 using System;
 using System.Runtime.InteropServices;
-  using System.Windows.Forms;
+using System.Windows.Forms;
 
 namespace SolidWorksTankDesign
 {
@@ -40,7 +40,7 @@ namespace SolidWorksTankDesign
             initialConfigControl.BringToFront();
         }
 
-        public async void ShowCompartmentsWindow(Control compartmentView)
+        public void ShowCompartmentsWindow(Control compartmentView)
         {
             try
             {
@@ -72,6 +72,11 @@ namespace SolidWorksTankDesign
         private void SettingsButton_Click(object sender, EventArgs e)
         {
             UpdateSettings?.Invoke(this, e);
+        }
+
+        private void SetupButton_Click(object sender, EventArgs e)
+        {
+            FlangeSetup.SolidWorksSetupUtility.Run(SolidWorksDocumentProvider.GetActiveDoc());
         }
     }
 }
