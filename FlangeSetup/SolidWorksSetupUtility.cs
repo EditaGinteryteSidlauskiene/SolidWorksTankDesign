@@ -23,9 +23,9 @@ namespace FlangeSetup
                 return;
             }
 
-            //FlangeType01Setup.ChangeDimensions(doc);
+            //FlangeType05Setup.ChangeDimensions(doc);
 
-            FlangeType01Setup.ChangeDimensionsForFaces(doc);
+            FlangeType05Setup.ChangeDimensionsForFaces(doc);
 
 
             //doc.ForceRebuild3(true);

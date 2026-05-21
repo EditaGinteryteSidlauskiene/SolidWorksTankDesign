@@ -205,6 +205,469 @@ namespace FlangeSetup
             doc.EditRebuild3();
         }
 
+        public static void ChangeDimensionsForFaces(ModelDoc2 doc)
+        {
+            string[] allNames = doc.GetConfigurationNames();
+
+            string[] typeANames = Array.FindAll(allNames, n => n.EndsWith("_Type_A"));
+
+            for (int i = 0; i < typeANames.Length; i++)
+            {
+                string configurationName = typeANames[i];
+
+                int pn = ParsePn(configurationName);
+                int dn = ParseDn(configurationName);
+                if (pn == 0 || dn == 0) continue;
+
+                ConfigurationManager configManager = doc.ConfigurationManager;
+                try
+                {
+                    // Type B — all PN
+                    AddTypeBFaceConfiguration(doc, configManager, configurationName, pn, dn);
+
+                    // Types C–F — not for Pn6
+                    if (pn != 6)
+                    {
+                        AddTypeCFaceConfiguration(doc, configManager, configurationName, dn);
+                        AddTypeDFaceConfiguration(doc, configManager, configurationName, pn, dn);
+                        AddTypeEFaceConfiguration(doc, configManager, configurationName, dn);
+                        AddTypeFFaceConfiguration(doc, configManager, configurationName, pn, dn);
+
+                        // Types G–H — only for Pn10 to Pn40
+                        if (pn >= 10 && pn <= 40)
+                        {
+                            AddTypeGFaceConfiguration(doc, configManager, configurationName, pn, dn);
+                            AddTypeHFaceConfiguration(doc, configManager, configurationName, dn);
+                        }
+                    }
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(configManager);
+                }
+
+                doc.EditRebuild3();
+
+                SetPlane2Distance(doc, configurationName, dn);
+
+                doc.EditRebuild3();
+            }
+
+            doc.EditRebuild3();
+        }
+
+        private static int ParsePn(string configName)
+        {
+            int pnStart = configName.IndexOf("Pn") + 2;
+            int pnEnd = configName.IndexOf("_Dn");
+            if (pnStart < 2 || pnEnd < 0) return 0;
+            string pnStr = configName.Substring(pnStart, pnEnd - pnStart).Replace("_5", "");
+            return int.TryParse(pnStr, out int pn) ? pn : 0;
+        }
+
+        private static int ParseDn(string configName)
+        {
+            int dnStart = configName.IndexOf("_Dn") + 3;
+            int dnEnd = configName.IndexOf("_Type_");
+            if (dnStart < 3 || dnEnd < 0) return 0;
+            string dnStr = configName.Substring(dnStart, dnEnd - dnStart);
+            return int.TryParse(dnStr, out int dn) ? dn : 0;
+        }
+
+        private static double GetD1(int dn, int pn)
+        {
+            switch (dn)
+            {
+                case 10: return (pn == 6) ? 35.0 : 40.0;
+                case 15: return (pn == 6) ? 40.0 : 45.0;
+                case 20: return (pn == 6) ? 50.0 : 58.0;
+                case 25: return (pn == 6) ? 60.0 : 68.0;
+                case 32: return (pn == 6) ? 70.0 : 78.0;
+                case 40: return (pn == 6) ? 80.0 : 88.0;
+                case 50: return (pn == 6) ? 90.0 : 102.0;
+                case 65: return (pn == 6) ? 110.0 : 122.0;
+                case 80: return (pn == 6) ? 128.0 : 138.0;
+                case 100:
+                    if (pn == 6) return 148.0;
+                    if (pn == 10 || pn == 16) return 158.0;
+                    return 162.0;
+                case 125:
+                    return (pn == 6) ? 178.0 : 188.0;
+                case 150:
+                    if (pn == 6) return 202.0;
+                    if (pn == 10 || pn == 16) return 212.0;
+                    return 218.0;
+                case 200:
+                    if (pn == 6) return 258.0;
+                    if (pn == 10 || pn == 16) return 268.0;
+                    if (pn == 25) return 278.0;
+                    return 285.0;
+                case 250:
+                    if (pn == 6) return 312.0;
+                    if (pn == 10 || pn == 16) return 320.0;
+                    if (pn == 25) return 335.0;
+                    return 345.0;
+                case 300:
+                    if (pn == 6) return 365.0;
+                    if (pn == 10) return 370.0;
+                    if (pn == 16) return 378.0;
+                    if (pn == 25) return 395.0;
+                    return 410.0;
+                case 350:
+                    if (pn == 6) return 415.0;
+                    if (pn == 10) return 430.0;
+                    if (pn == 16) return 438.0;
+                    if (pn == 25) return 450.0;
+                    return 465.0;
+                case 400:
+                    if (pn == 6) return 465.0;
+                    if (pn == 10) return 482.0;
+                    if (pn == 16) return 490.0;
+                    if (pn == 25) return 505.0;
+                    return 535.0;
+                case 450:
+                    if (pn == 6) return 520.0;
+                    if (pn == 10) return 532.0;
+                    if (pn == 16) return 550.0;
+                    if (pn == 25) return 555.0;
+                    return 560.0;
+                case 500:
+                    if (pn == 6) return 570.0;
+                    if (pn == 10) return 585.0;
+                    if (pn == 16) return 610.0;
+                    return 615.0;
+                case 600:
+                    if (pn == 6) return 670.0;
+                    if (pn == 10) return 685.0;
+                    if (pn == 16) return 725.0;
+                    if (pn == 25) return 720.0;
+                    return 735.0;
+                default: return 0.0;
+            }
+        }
+
+        private static double GetF1(int dn)
+        {
+            if (dn <= 32) return 2.0;
+            if (dn <= 250) return 3.0;
+            if (dn <= 500) return 4.0;
+            return 5.0;
+        }
+
+        private static double GetF2(int dn)
+        {
+            if (dn <= 80) return 4.5;
+            if (dn <= 300) return 5.0;
+            if (dn <= 900) return 5.5;
+            return 6.5;
+        }
+
+        private static double GetF3(int dn)
+        {
+            if (dn <= 80) return 4.0;
+            if (dn <= 300) return 4.5;
+            if (dn <= 900) return 5.0;
+            return 6.0;
+        }
+
+        private static double GetF4(int dn)
+        {
+            if (dn <= 80) return 2.0;
+            if (dn <= 300) return 2.5;
+            if (dn <= 900) return 3.0;
+            return 4.0;
+        }
+
+        private static double GetW(int dn)
+        {
+            switch (dn)
+            {
+                case 10: return 24.0; case 15: return 29.0; case 20: return 36.0;
+                case 25: return 43.0; case 32: return 51.0; case 40: return 61.0;
+                case 50: return 73.0; case 65: return 95.0; case 80: return 106.0;
+                case 100: return 129.0; case 125: return 155.0; case 150: return 183.0;
+                case 200: return 239.0; case 250: return 292.0; case 300: return 343.0;
+                case 350: return 395.0; case 400: return 447.0; case 450: return 497.0;
+                case 500: return 549.0; case 600: return 649.0;
+                default: return 0.0;
+            }
+        }
+
+        private static double GetX(int dn)
+        {
+            switch (dn)
+            {
+                case 10: return 34.0; case 15: return 39.0; case 20: return 50.0;
+                case 25: return 57.0; case 32: return 65.0; case 40: return 75.0;
+                case 50: return 87.0; case 65: return 109.0; case 80: return 120.0;
+                case 100: return 149.0; case 125: return 175.0; case 150: return 203.0;
+                case 200: return 259.0; case 250: return 312.0; case 300: return 363.0;
+                case 350: return 421.0; case 400: return 473.0; case 450: return 523.0;
+                case 500: return 575.0; case 600: return 675.0;
+                default: return 0.0;
+            }
+        }
+
+        private static double GetY(int dn)
+        {
+            switch (dn)
+            {
+                case 10: return 35.0; case 15: return 40.0; case 20: return 51.0;
+                case 25: return 58.0; case 32: return 66.0; case 40: return 76.0;
+                case 50: return 88.0; case 65: return 110.0; case 80: return 121.0;
+                case 100: return 150.0; case 125: return 176.0; case 150: return 204.0;
+                case 200: return 260.0; case 250: return 313.0; case 300: return 364.0;
+                case 350: return 422.0; case 400: return 474.0; case 450: return 524.0;
+                case 500: return 576.0; case 600: return 676.0;
+                default: return 0.0;
+            }
+        }
+
+        private static double GetZ(int dn)
+        {
+            switch (dn)
+            {
+                case 10: return 23.0; case 15: return 28.0; case 20: return 35.0;
+                case 25: return 42.0; case 32: return 50.0; case 40: return 60.0;
+                case 50: return 72.0; case 65: return 94.0; case 80: return 105.0;
+                case 100: return 128.0; case 125: return 154.0; case 150: return 182.0;
+                case 200: return 238.0; case 250: return 291.0; case 300: return 342.0;
+                case 350: return 394.0; case 400: return 446.0; case 450: return 496.0;
+                case 500: return 548.0; case 600: return 648.0;
+                default: return 0.0;
+            }
+        }
+
+        private static double GetAlpha(int dn)
+        {
+            if (dn <= 80) return 41.0;
+            if (dn <= 300) return 32.0;
+            return 27.0;
+        }
+
+        private static double GetR(int dn)
+        {
+            if (dn <= 80) return 2.5;
+            if (dn <= 300) return 3.0;
+            return 3.5;
+        }
+
+        private static void SuppressAllFaceCutsForConfig(ModelDoc2 doc, string configName)
+        {
+            string[] faceCutNames = new[]
+            {
+                "Type B face cut", "Type C face cut", "Type D face cut",
+                "Type E face cut", "Type F face cut", "Type G face cut", "Type H face cut",
+            };
+
+            foreach (string name in faceCutNames)
+            {
+                Feature faceCut = GetFeatureByName(doc, name);
+                if (faceCut == null) continue;
+
+                faceCut.SetSuppression2(
+                    (int)swFeatureSuppressionAction_e.swSuppressFeature,
+                    (int)swInConfigurationOpts_e.swSpecifyConfiguration,
+                    configName);
+
+                Marshal.ReleaseComObject(faceCut);
+            }
+        }
+
+        private static void AddTypeBFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int pn, int dn)
+        {
+            string derivedConfigName = $"{configName.Replace("_Type_A", "")}_Type_B";
+
+            configManager.AddConfiguration2(derivedConfigName, null, null, 0, configName, null, false);
+
+            SuppressAllFaceCutsForConfig(doc, derivedConfigName);
+
+            Feature faceCutSketch = GetFeatureByName(doc, "Type B face cut sketch");
+            SetDim(faceCutSketch, "D1", GetD1(dn, pn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "F1", GetF1(dn) / 1000.0, derivedConfigName);
+            Marshal.ReleaseComObject(faceCutSketch);
+
+            Feature faceCut = GetFeatureByName(doc, "Type B face cut");
+            faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
+            Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
+        }
+
+        private static void AddTypeCFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int dn)
+        {
+            string derivedConfigName = $"{configName.Replace("_Type_A", "")}_Type_C";
+
+            configManager.AddConfiguration2(derivedConfigName, null, null, 0, configName, null, false);
+
+            SuppressAllFaceCutsForConfig(doc, derivedConfigName);
+
+            Feature faceCutSketch = GetFeatureByName(doc, "Type C face cut sketch");
+            SetDim(faceCutSketch, "X", GetX(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "W", GetW(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "F2", GetF2(dn) / 1000.0, derivedConfigName);
+            Marshal.ReleaseComObject(faceCutSketch);
+
+            Feature faceCut = GetFeatureByName(doc, "Type C face cut");
+            faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
+            Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
+        }
+
+        private static void AddTypeDFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int pn, int dn)
+        {
+            string derivedConfigName = $"{configName.Replace("_Type_A", "")}_Type_D";
+
+            configManager.AddConfiguration2(derivedConfigName, null, null, 0, configName, null, false);
+
+            SuppressAllFaceCutsForConfig(doc, derivedConfigName);
+
+            Feature faceCutSketch = GetFeatureByName(doc, "Type D face cut sketch");
+            SetDim(faceCutSketch, "F1", GetF1(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "F3", GetF3(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "Z", GetZ(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "Y", GetY(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "D1", GetD1(dn, pn) / 1000.0, derivedConfigName);
+            Marshal.ReleaseComObject(faceCutSketch);
+
+            Feature faceCut = GetFeatureByName(doc, "Type D face cut");
+            faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
+            Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
+        }
+
+        private static void AddTypeEFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int dn)
+        {
+            string derivedConfigName = $"{configName.Replace("_Type_A", "")}_Type_E";
+
+            configManager.AddConfiguration2(derivedConfigName, null, null, 0, configName, null, false);
+
+            SuppressAllFaceCutsForConfig(doc, derivedConfigName);
+
+            Feature faceCutSketch = GetFeatureByName(doc, "Type E face cut sketch");
+            SetDim(faceCutSketch, "F2", GetF2(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "X", GetX(dn) / 1000.0, derivedConfigName);
+            Marshal.ReleaseComObject(faceCutSketch);
+
+            Feature faceCut = GetFeatureByName(doc, "Type E face cut");
+            faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
+            Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
+        }
+
+        private static void AddTypeFFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int pn, int dn)
+        {
+            string derivedConfigName = $"{configName.Replace("_Type_A", "")}_Type_F";
+
+            configManager.AddConfiguration2(derivedConfigName, null, null, 0, configName, null, false);
+
+            SuppressAllFaceCutsForConfig(doc, derivedConfigName);
+
+            Feature faceCutSketch = GetFeatureByName(doc, "Type F face cut sketch");
+            SetDim(faceCutSketch, "F3", GetF3(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "F1", GetF1(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "Y", GetY(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "D1", GetD1(dn, pn) / 1000.0, derivedConfigName);
+            Marshal.ReleaseComObject(faceCutSketch);
+
+            Feature faceCut = GetFeatureByName(doc, "Type F face cut");
+            faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
+            Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
+        }
+
+        private static void AddTypeGFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int pn, int dn)
+        {
+            string derivedConfigName = $"{configName.Replace("_Type_A", "")}_Type_G";
+
+            configManager.AddConfiguration2(derivedConfigName, null, null, 0, configName, null, false);
+
+            SuppressAllFaceCutsForConfig(doc, derivedConfigName);
+
+            Feature faceCutSketch = GetFeatureByName(doc, "Type G face cut sketch");
+            SetDim(faceCutSketch, "F2", GetF2(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "F1", GetF1(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "D1", GetD1(dn, pn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "W", GetW(dn) / 1000.0, derivedConfigName);
+            Marshal.ReleaseComObject(faceCutSketch);
+
+            Feature faceCut = GetFeatureByName(doc, "Type G face cut");
+            faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
+            Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
+        }
+
+        private static void AddTypeHFaceConfiguration(ModelDoc2 doc, ConfigurationManager configManager, string configName, int dn)
+        {
+            string derivedConfigName = $"{configName.Replace("_Type_A", "")}_Type_H";
+
+            configManager.AddConfiguration2(derivedConfigName, null, null, 0, configName, null, false);
+
+            SuppressAllFaceCutsForConfig(doc, derivedConfigName);
+
+            Feature faceCutSketch = GetFeatureByName(doc, "Type H face cut sketch");
+            SetDim(faceCutSketch, "F3", GetF3(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "F4", GetF4(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "Y", GetY(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "Z", GetZ(dn) / 1000.0, derivedConfigName);
+            SetDim(faceCutSketch, "Alpha", GetAlpha(dn) * Math.PI / 180.0, derivedConfigName);
+            SetDim(faceCutSketch, "R", GetR(dn) / 1000.0, derivedConfigName);
+            Marshal.ReleaseComObject(faceCutSketch);
+
+            Feature faceCut = GetFeatureByName(doc, "Type H face cut");
+            faceCut.SetSuppression2((int)swFeatureSuppressionAction_e.swUnSuppressFeature, (int)swInConfigurationOpts_e.swThisConfiguration, "");
+            Marshal.ReleaseComObject(faceCut);
+
+            doc.EditRebuild3();
+        }
+
+        private static void SetPlane2Distance(ModelDoc2 doc, string typeAConfigName, int dn)
+        {
+            double c4 = GetC4(doc, typeAConfigName);
+            double f3 = GetF3(dn) / 1000.0;
+            double f4 = GetF4(dn) / 1000.0;
+            string baseConfigName = typeAConfigName.Replace("_Type_A", "");
+
+            Feature plane2 = GetFeatureByName(doc, "Plane2");
+
+            SetDim(plane2, "Distance", c4, typeAConfigName);
+
+            foreach (string suffix in new[] { "_Type_B", "_Type_C", "_Type_E", "_Type_G" })
+            {
+                string derivedName = baseConfigName + suffix;
+                if (doc.GetConfigurationByName(derivedName) != null)
+                    SetDim(plane2, "Distance", c4, derivedName);
+            }
+
+            foreach (string suffix in new[] { "_Type_D", "_Type_F" })
+            {
+                string derivedName = baseConfigName + suffix;
+                if (doc.GetConfigurationByName(derivedName) != null)
+                    SetDim(plane2, "Distance", c4 - f3, derivedName);
+            }
+
+            string typeH = baseConfigName + "_Type_H";
+            if (doc.GetConfigurationByName(typeH) != null)
+                SetDim(plane2, "Distance", c4 - f4, typeH);
+
+            Marshal.ReleaseComObject(plane2);
+        }
+
+        private static double GetC4(ModelDoc2 doc, string configName)
+        {
+            Feature flangeSketch = GetFeatureByName(doc, "Flange sketch");
+            Dimension dim = flangeSketch.Parameter("C4");
+            double value = ((double[])dim.GetSystemValue3((int)swInConfigurationOpts_e.swSpecifyConfiguration, configName))[0];
+            Marshal.ReleaseComObject(dim);
+            Marshal.ReleaseComObject(flangeSketch);
+            return value;
+        }
+
         private static Feature GetFeatureByName(ModelDoc2 doc, string name)
         {
             Feature loopFeature = doc.IFirstFeature();
