@@ -41,34 +41,34 @@ namespace FlangeSetup
             var configurations = new[]
             {
                 // PN 6 — DN 10..600
-                "Pn6_Dn10",  "Pn6_Dn15", "Pn6_Dn20",  "Pn6_Dn25",  "Pn6_Dn32",  
-                "Pn6_Dn40",  "Pn6_Dn50", "Pn6_Dn65",  "Pn6_Dn80",  "Pn6_Dn100", 
-                "Pn6_Dn125", "Pn6_Dn150", "Pn6_Dn200", "Pn6_Dn250", "Pn6_Dn300", 
-                "Pn6_Dn350", "Pn6_Dn400", "Pn6_Dn450", "Pn6_Dn500", "Pn6_Dn600",
+                "Pn6_Dn10_Type_A",  "Pn6_Dn15_Type_A", "Pn6_Dn20_Type_A",  "Pn6_Dn25_Type_A",  "Pn6_Dn32_Type_A",  
+                "Pn6_Dn40_Type_A",  "Pn6_Dn50_Type_A", "Pn6_Dn65_Type_A",  "Pn6_Dn80_Type_A",  "Pn6_Dn100_Type_A", 
+                "Pn6_Dn125_Type_A", "Pn6_Dn150_Type_A", "Pn6_Dn200_Type_A", "Pn6_Dn250_Type_A", "Pn6_Dn300_Type_A", 
+                "Pn6_Dn350_Type_A", "Pn6_Dn400_Type_A", "Pn6_Dn450_Type_A", "Pn6_Dn500_Type_A", "Pn6_Dn600_Type_A",
 
                 // PN 10 — DN 200..600
-                "Pn10_Dn200", "Pn10_Dn250", "Pn10_Dn300", "Pn10_Dn350", "Pn10_Dn400",
-                "Pn10_Dn450", "Pn10_Dn500", "Pn10_Dn600",
+                "Pn10_Dn200_Type_A", "Pn10_Dn250_Type_A", "Pn10_Dn300_Type_A", "Pn10_Dn350_Type_A", "Pn10_Dn400_Type_A",
+                "Pn10_Dn450_Type_A", "Pn10_Dn500_Type_A", "Pn10_Dn600_Type_A",
 
                 // PN 16 — DN 50..600
-                "Pn16_Dn50",  "Pn16_Dn65",  "Pn16_Dn80",  "Pn16_Dn100", "Pn16_Dn125",
-                "Pn16_Dn150", "Pn16_Dn200", "Pn16_Dn250", "Pn16_Dn300", "Pn16_Dn350",
-                "Pn16_Dn400", "Pn16_Dn450", "Pn16_Dn500", "Pn16_Dn600",
+                "Pn16_Dn50_Type_A",  "Pn16_Dn65_Type_A",  "Pn16_Dn80_Type_A",  "Pn16_Dn100_Type_A", "Pn16_Dn125_Type_A",
+                "Pn16_Dn150_Type_A", "Pn16_Dn200_Type_A", "Pn16_Dn250_Type_A", "Pn16_Dn300_Type_A", "Pn16_Dn350_Type_A",
+                "Pn16_Dn400_Type_A", "Pn16_Dn450_Type_A", "Pn16_Dn500_Type_A", "Pn16_Dn600_Type_A",
 
                 // PN 25 — DN 200..600
-                "Pn25_Dn200", "Pn25_Dn250", "Pn25_Dn300", "Pn25_Dn350", "Pn25_Dn400",
-                "Pn25_Dn450", "Pn25_Dn500", "Pn25_Dn600",
+                "Pn25_Dn200_Type_A", "Pn25_Dn250_Type_A", "Pn25_Dn300_Type_A", "Pn25_Dn350_Type_A", "Pn25_Dn400_Type_A",
+                "Pn25_Dn450_Type_A", "Pn25_Dn500_Type_A", "Pn25_Dn600_Type_A",
 
                 // PN 40 — DN 10..400
-                "Pn40_Dn10",  "Pn40_Dn15",  "Pn40_Dn20",  "Pn40_Dn25",  "Pn40_Dn32",
-                "Pn40_Dn40",  "Pn40_Dn50",  "Pn40_Dn65",  "Pn40_Dn80",  "Pn40_Dn100",
-                "Pn40_Dn125", "Pn40_Dn150", "Pn40_Dn200", "Pn40_Dn250", "Pn40_Dn300",
-                "Pn40_Dn350", "Pn40_Dn400",
+                "Pn40_Dn10_Type_A",  "Pn40_Dn15_Type_A",  "Pn40_Dn20_Type_A",  "Pn40_Dn25_Type_A",  "Pn40_Dn32_Type_A",
+                "Pn40_Dn40_Type_A",  "Pn40_Dn50_Type_A",  "Pn40_Dn65_Type_A",  "Pn40_Dn80_Type_A",  "Pn40_Dn100_Type_A",
+                "Pn40_Dn125_Type_A", "Pn40_Dn150_Type_A", "Pn40_Dn200_Type_A", "Pn40_Dn250_Type_A", "Pn40_Dn300_Type_A",
+                "Pn40_Dn350_Type_A", "Pn40_Dn400_Type_A",
 
                 // PN 63 — DN 50..400
-                "Pn63_Dn50",  "Pn63_Dn65",  "Pn63_Dn80",  "Pn63_Dn100", "Pn63_Dn125",
-                "Pn63_Dn150", "Pn63_Dn200", "Pn63_Dn250", "Pn63_Dn300", "Pn63_Dn350",
-                "Pn63_Dn400",
+                "Pn63_Dn50_Type_A",  "Pn63_Dn65_Type_A",  "Pn63_Dn80_Type_A",  "Pn63_Dn100_Type_A", "Pn63_Dn125_Type_A",
+                "Pn63_Dn150_Type_A", "Pn63_Dn200_Type_A", "Pn63_Dn250_Type_A", "Pn63_Dn300_Type_A", "Pn63_Dn350_Type_A",
+                "Pn63_Dn400_Type_A",
 
 
             };
@@ -291,7 +291,7 @@ namespace FlangeSetup
 
             string[] typeANames = Array.FindAll(allNames, n => n.EndsWith("_Type_A"));
 
-            for (int i = 20; i < 30 && i < typeANames.Length; i++)
+            for (int i = 70; i < 80 && i < typeANames.Length; i++)
             {
                 string configurationName = typeANames[i];
 
