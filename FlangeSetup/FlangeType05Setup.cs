@@ -211,7 +211,7 @@ namespace FlangeSetup
 
             string[] typeANames = Array.FindAll(allNames, n => n.EndsWith("_Type_A"));
 
-            for (int i = 0; i < typeANames.Length; i++)
+            for (int i = 80; i < 90 &&i < typeANames.Length; i++)
             {
                 string configurationName = typeANames[i];
 
