@@ -8,7 +8,7 @@ namespace AddinWithTaskpane
 {
     /* To install this addin, make sure that TaskpaneIntegration class is public. There are two options to install:
      1. Install SolidWorksAddinInstaller from Github angelsix https://github.com/angelsix/solidworks-api/tree/develop/Tools/Addin%20Installer
-    2. Run Command Prompt as administrator. Go to directory: C:\Windows\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe <this is the path to the dll file (e.g. "C:\Users\Edita\Desktop\SolidWorksTankDesign\SolidWorksTankDesign\bin\Debug\SolidWorksTankDesign.dll")>
+    2. Run Command Prompt as administrator. Go to directory: C:\Windows\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe <this is the path to the dll file (e.g. "C:\Path\To\SolidWorksTankDesign\SolidWorksTankDesign\bin\Debug\SolidWorksTankDesign.dll")>
     Hit Enter. Check SolidWorks if the UI is dispayed*/
     /// <summary>
     /// This is the main Add-in. This is were you register the add-in, register entries to
